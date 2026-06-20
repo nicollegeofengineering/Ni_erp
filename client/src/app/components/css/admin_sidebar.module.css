@@ -1,0 +1,199 @@
+.sidebar {
+  --navy: #142447;
+  --navy-soft: rgba(20, 36, 71, 0.06);
+  --gold: #0381ff;
+  --gold-soft: rgba(52, 196, 244, 0.14);
+
+  width: 264px;
+  max-width: 85vw;
+  height: calc(100vh - 100px);
+  background: #fdfcfa;
+  position: fixed;
+  top: 100px;
+  left: 0;
+  padding: 64px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 0 22px 22px 0;
+  box-shadow: 4px 0 24px rgba(20, 36, 71, 0.1);
+  overflow-y: auto;
+
+  transform: translateX(-100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+}
+
+.open {
+  transform: translateX(0);
+}
+
+.brand {
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  padding: 0 14px 16px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(20, 36, 71, 0.08);
+}
+
+.navList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.navList li {
+  opacity: 0;
+  animation: itemIn 0.35s ease forwards;
+  animation-delay: calc(var(--i) * 40ms + 80ms);
+}
+
+@keyframes itemIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: bold;
+  position: relative;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.navLink::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  height: 0;
+  width: 3px;
+  background: var(--gold);
+  border-radius: 0;
+  transform: translateY(-50%);
+  transition: height 0.2s ease;
+}
+
+.navLink:hover {
+  background: var(--navy-soft);
+  transform: translateX(2px);
+}
+
+.navLink.active {
+  background: var(--gold-soft);
+}
+
+.navLink.active::before {
+  height: 60%;
+}
+
+.navLink.active .icon {
+  color: var(--gold);
+  opacity: 1;
+}
+
+.navLink:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--navy);
+  opacity: 0.75;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.navLink:hover .icon {
+  opacity: 1;
+}
+
+/* Menu button - animated hamburger that morphs into an X */
+.menuBtn {
+  position: fixed;
+  top: 108px;
+  left: 20px;
+  z-index: 1001;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: none;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(20, 36, 71, 0.16);
+  cursor: pointer;
+}
+
+.menuBtn:focus-visible {
+  outline: 2px solid #c9a14d;
+  outline-offset: 2px;
+}
+
+.bar {
+  width: 20px;
+  height: 2px;
+  background: var(--navy, #142447);
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+
+.menuBtnOpen .bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.menuBtnOpen .bar:nth-child(2) {
+  opacity: 0;
+}
+
+.menuBtnOpen .bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Overlay dims the background and captures outside clicks on mobile */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 16, 35, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    width: 78vw;
+    border-radius: 0 18px 18px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .navLink,
+  .bar,
+  .navList li {
+    transition: none;
+    animation: none;
+    opacity: 1;
+  }
+}

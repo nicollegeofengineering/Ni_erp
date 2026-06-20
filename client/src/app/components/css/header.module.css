@@ -1,0 +1,22 @@
+.header{
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.logo{
+    margin-left: 8px;
+    margin-top: 8px;
+}
+.logoImage{
+  width: 315px; 
+  height: 90px;
+}
+
+
+@media screen and (max-width: 500px){
+  .logoImage{
+    width: 200px;
+    height: 70px;
+  } 
+    
+}   
