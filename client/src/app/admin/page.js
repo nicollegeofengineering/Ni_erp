@@ -19,6 +19,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import styles from "./css/dashboard.module.css";
+//--------------------------------------------------------------------------------------------------
 
 export default function Admin() {
   const router = useRouter();
@@ -46,6 +47,8 @@ export default function Admin() {
   const [editType, setEditType] = useState("");
   const [editIndex, setEditIndex] = useState(null);
 
+//--------------------------------------------------------------------------------------------------
+
   // Close whichever modal is open on Escape
   useEffect(() => {
     if (!isModalOpen && !isAdding) return;
@@ -58,6 +61,8 @@ export default function Admin() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [isModalOpen, isAdding]);
+
+//--------------------------------------------------------------------------------------------------
 
   const typeLabel = editType === "announcement" ? "Announcement" : "Event";
 
@@ -73,6 +78,8 @@ export default function Admin() {
     setEditText("");
     setIsAdding(true);
   };
+//--------------------------------------------------------------------------------------------------
+
 
   const updateItem = () => {
     const value = editText.trim();
@@ -92,6 +99,8 @@ export default function Admin() {
 
     setIsModalOpen(false);
   };
+//--------------------------------------------------------------------------------------------------
+
 
   const addNewItem = () => {
     const value = editText.trim();
@@ -107,6 +116,7 @@ export default function Admin() {
 
     setIsAdding(false);
   };
+//--------------------------------------------------------------------------------------------------
 
   const deleteItem = () => {
     if (editType === "announcement") {
@@ -119,6 +129,7 @@ export default function Admin() {
 
     setIsModalOpen(false);
   };
+//--------------------------------------------------------------------------------------------------
 
   return (
     <div className={styles.dashboard}>

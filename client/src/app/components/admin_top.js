@@ -53,8 +53,9 @@ export default function AdminTop() {
                 className={styles.userImage}
                 unoptimized
                 priority
+                id="hide-on-pdf"
             />
-            <button className={style.logout_btn} onClick={handleLogout}>
+            <button className={style.logout_btn} onClick={handleLogout} id="hide-on-pdf">
                 Logout
             </button>
         </div>
