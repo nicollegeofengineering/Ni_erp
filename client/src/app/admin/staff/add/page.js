@@ -11,39 +11,37 @@ export default function AddStaff() {
   const [formData, setFormData] = useState({
     staff_id: "",
     prefix: "",
+    photo_url: "",
     first_name: "",
     last_name: "",
     gender: "",
     date_of_birth: "",
     phone_number: "",
     email: "",
-    personal_email: "",
     address: "",
     city: "",
     state: "",
     pincode: "",
     emergency_contact_name: "",
     emergency_contact_number: "",
-    department_id: "",
-    designation_id: "",
+    department_code: "",
+    designation: "",
     role_type: "",
     employment_type: "",
     joining_date: "",
     experience_years: "",
-    staff_status: "Active",
-    highest_qualification: "",
-    specialization: "",
-    university: "",
-    passing_year: "",
     aadhar_number: "",
     pan_number: "",
     bank_name: "",
     account_number: "",
     ifsc_code: "",
     branch_name: "",
+    highest_qualification: "",
+    specialization: "",
     salary: "",
     blood_group: "",
-    marital_status: ""
+    marital_status: "",
+    staff_status: "Active"
   });
 
   const handleChange = (e) => {
@@ -58,6 +56,10 @@ export default function AddStaff() {
     const file = e.target.files[0];
     if (!file) return;
     setPreview(URL.createObjectURL(file));
+    setFormData((prev) => ({
+      ...prev,
+      photo_url: URL.createObjectURL(file)
+    }));
   };
 
   const handleSubmit = (e) => {
@@ -100,7 +102,20 @@ export default function AddStaff() {
             </div>
 
             <div className={styles.grid}>
-              <input className={styles.formInput} name="prefix" placeholder="Prefix" onChange={handleChange} />
+              <select
+                className={styles.formInput}
+                name="prefix"
+                value={formData.prefix}
+                onChange={handleChange}
+              >
+                <option value="">Select Prefix</option>
+                <option value="Mr">Mr</option>
+                <option value="Mrs">Mrs</option>
+                <option value="Ms">Ms</option>
+                <option value="Dr">Dr</option>
+                <option value="Prof">Prof</option>
+              </select>
+
               <input className={styles.formInput} name="first_name" placeholder="First Name" onChange={handleChange} />
               <input className={styles.formInput} name="last_name" placeholder="Last Name" onChange={handleChange} />
               <input className={styles.formInput} type="date" name="date_of_birth" onChange={handleChange} />
@@ -144,8 +159,39 @@ export default function AddStaff() {
           <h2 className={styles.cardTitle}>3. Professional Details</h2>
           <div className={styles.grid}>
             <input className={styles.formInput} name="staff_id" placeholder="Staff ID" onChange={handleChange} />
-            <input className={styles.formInput} name="department_id" placeholder="Department ID" onChange={handleChange} />
-            <input className={styles.formInput} name="designation_id" placeholder="Designation ID" onChange={handleChange} />
+            <select
+              className={styles.formInput}
+              name="department_code"
+              value={formData.department_code}
+              onChange={handleChange}
+            >
+              <option value="">Select Department</option>
+              <option value="CSE">Computer Science</option>
+              <option value="AI_DS">AI & DS</option>
+              <option value="IT">Information Technology</option>
+              <option value="ECE">ECE</option>
+              <option value="EEE">EEE</option>
+              <option value="MECH">Mechanical</option>
+              <option value="CIVIL">Civil</option>
+            </select>
+
+            <select
+              className={styles.formInput}
+              name="designation"
+              value={formData.designation}
+              onChange={handleChange}
+            >
+              <option value="">Select Designation</option>
+              <option value="Professor">Professor</option>
+              <option value="Associate Professor">Associate Professor</option>
+              <option value="Assistant Professor">Assistant Professor</option>
+              <option value="HOD">HOD</option>
+              <option value="Lab Assistant">Lab Assistant</option>
+              <option value="Office Staff">Office Staff</option>
+              <option value="Accountant">Accountant</option>
+              <option value="Librarian">Librarian</option>
+            </select>
+
             <select className={styles.formInput} name="role_type" onChange={handleChange}>
               <option value="">Role Type</option>
               <option value="Teaching">Teaching</option>
@@ -153,6 +199,7 @@ export default function AddStaff() {
               <option value="Administrative">Administrative</option>
               <option value="Management">Management</option>
             </select>
+
             <select className={styles.formInput} name="employment_type" onChange={handleChange}>
               <option value="">Employment Type</option>
               <option value="Full Time">Full Time</option>
@@ -160,7 +207,6 @@ export default function AddStaff() {
               <option value="Contract">Contract</option>
             </select>
             <input className={styles.formInput} type="date" name="joining_date" onChange={handleChange} />
-            <input className={styles.formInput} name="experience_years" placeholder="Years of Experience" onChange={handleChange} />
           </div>
         </section>
 
@@ -170,8 +216,6 @@ export default function AddStaff() {
           <div className={styles.grid}>
             <input className={styles.formInput} name="highest_qualification" placeholder="Highest Qualification" onChange={handleChange} />
             <input className={styles.formInput} name="specialization" placeholder="Specialization" onChange={handleChange} />
-            <input className={styles.formInput} name="university" placeholder="University/Institute" onChange={handleChange} />
-            <input className={styles.formInput} name="passing_year" placeholder="Passing Year" onChange={handleChange} />
           </div>
         </section>
 
