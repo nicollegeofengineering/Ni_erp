@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React from 'react'
 import { useState, useEffect, useMemo } from 'react'
@@ -9,6 +9,7 @@ import {
   ChevronLeft, ChevronRight
 } from 'lucide-react'
 import styles from './css/staffmain.module.css'
+import axios from 'axios'
 
 const ITEMS_PER_PAGE = 10
 
@@ -20,99 +21,100 @@ function getInitials(name) {
 export default function Staff() {
   const router = useRouter()
 
-  const [staffList] = useState([
-    {
-      id: "EMP-1042",
-      image: "https://static.vecteezy.com/system/resources/thumbnails/053/630/733/small/a-man-in-a-suit-and-tie-standing-with-his-arms-crossed-photo.jpeg",
-      name: "Dr. Robert Chen",
-      staffCode: "RCHE",
-      department: "Computer Science",
-      designation: "Professor",
-      category: "Teaching",
-      email: "robert@college.edu",
-      phone: "+1 555 123 4567",
-      status: "Active",
-      type: "Full-time",
-      joiningDate: "2019-08-01"
-    },
-    {
-      id: "EMP-1089",
-      image: "https://static.vecteezy.com/system/resources/thumbnails/038/962/461/small/ai-generated-caucasian-successful-confident-young-businesswoman-ceo-boss-bank-employee-worker-manager-with-arms-crossed-in-formal-wear-isolated-in-white-background-photo.jpg",
-      name: "Sarah Jenkins",
-      staffCode: "SJEN",
-      department: "Administration",
-      designation: "HR Manager",
-      category: "Non-Teaching",
-      email: "sarah@college.edu",
-      phone: "+1 555 987 6543",
-      status: "Active",
-      type: "Contract",
-      joiningDate: "2026-06-10"
-    }
-  ])
-
+  const [staffList, setStaffList] = useState([])
+  const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [selDepartment, setSelDepartment] = useState("")
   const [selDesignation, setSelDesignation] = useState("")
   const [selStatus, setSelStatus] = useState("")
+  const [selCategory, setSelCategory] = useState("")
   const [searchText, setSearchText] = useState("")
   const [imgError, setImgError] = useState(new Set())
-
+  
+  // Stats
+  const [stats, setStats] = useState({
+    totalStaff: 0,
+    activeStaff: 0,
+    teachingStaff: 0,
+    nonTeachingStaff: 0
+  })
+  
+  // Filters
+  const [departments, setDepartments] = useState([])
+  const [designations, setDesignations] = useState([])
+  
+  // Pagination
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: ITEMS_PER_PAGE,
+    startIndex: 0,
+    endIndex: 0
+  })
 
   const handleImgError = (id) => setImgError(prev => new Set(prev).add(id))
 
-  // Derived stats — driven by real data instead of hardcoded numbers
-  const totalStaff = staffList.length
-  const totalActiveStaff = staffList.filter(s => s.status === "Active").length
-  const teachingStaff = staffList.filter(s => s.category === "Teaching").length
-  const nonTeachingStaff = staffList.filter(s => s.category === "Non-Teaching").length
-  
+  // Fetch staff data
+  const fetchStaff = async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: searchText,
+        department: selDepartment,
+        designation: selDesignation,
+        status: selStatus,
+        category: selCategory
+      })
 
-  const [departments,setDepartments] = useState([
-    "Computer Science",
-    "AI&DS",
-    "Information Technology",
-    "Electronics",
-    "Mechanical",
-    "Civil",
-  ])
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff?${params}`
+      )
 
-  const [designations,setDesignations] = useState([
-    "Professor",
-    "Associate Professor",
-    "Assistant Professor",
-    "HR Manager",
-    "Accountant",
-    "Librarian"
-  ])
+      if (response.data.success) {
+        setStaffList(response.data.data.staff)
+        setStats(response.data.data.stats)
+        setDepartments(response.data.data.filters.departments)
+        setDesignations(response.data.data.filters.designations)
+        setPagination(response.data.data.pagination)
+      }
+    } catch (error) {
+      console.error('Error fetching staff:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  // Fetch on page change or filter change
+  useEffect(() => {
+    fetchStaff()
+  }, [currentPage, searchText, selDepartment, selDesignation, selStatus, selCategory])
 
-
-  const totalPages = Math.max(1, Math.ceil(staffList.length / ITEMS_PER_PAGE))
-
-  const paginatedStaff = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE
-    return staffList.slice(start, start + ITEMS_PER_PAGE)
-  }, [staffList, currentPage])
-
+  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchText, selDepartment, selDesignation, selStatus])
+  }, [searchText, selDepartment, selDesignation, selStatus, selCategory])
 
-  const hasActiveFilters = !!(searchText || selDepartment || selDesignation || selStatus)
+  const hasActiveFilters = !!(searchText || selDepartment || selDesignation || selStatus || selCategory)
+  
   const clearFilters = () => {
     setSearchText("")
     setSelDepartment("")
     setSelDesignation("")
     setSelStatus("")
+    setSelCategory("")
   }
 
-  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
-  const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, staffList.length)
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      setCurrentPage(newPage)
+    }
+  }
 
   return (
     <div className={styles.container}>
-
       {/* Header */}
       <div className={styles.header}>
         <div>
@@ -130,7 +132,7 @@ export default function Staff() {
           <div className={`${styles.cardIcon} ${styles.iconPrimary}`}><Users size={20} /></div>
           <div>
             <span className={styles.cardLabel}>Total Staff</span>
-            <h2 className={styles.cardValue}>{totalStaff}</h2>
+            <h2 className={styles.cardValue}>{stats.totalStaff}</h2>
           </div>
         </div>
 
@@ -138,7 +140,7 @@ export default function Staff() {
           <div className={`${styles.cardIcon} ${styles.iconSuccess}`}><UserCheck size={20} /></div>
           <div>
             <span className={styles.cardLabel}>Active</span>
-            <h2 className={styles.cardValue}>{totalActiveStaff}</h2>
+            <h2 className={styles.cardValue}>{stats.activeStaff}</h2>
           </div>
         </div>
 
@@ -146,7 +148,7 @@ export default function Staff() {
           <div className={`${styles.cardIcon} ${styles.iconInfo}`}><GraduationCap size={20} /></div>
           <div>
             <span className={styles.cardLabel}>Teaching</span>
-            <h2 className={styles.cardValue}>{teachingStaff}</h2>
+            <h2 className={styles.cardValue}>{stats.teachingStaff}</h2>
           </div>
         </div>
 
@@ -154,11 +156,9 @@ export default function Staff() {
           <div className={`${styles.cardIcon} ${styles.iconNeutral}`}><Briefcase size={20} /></div>
           <div>
             <span className={styles.cardLabel}>Non Teaching</span>
-            <h2 className={styles.cardValue}>{nonTeachingStaff}</h2>
+            <h2 className={styles.cardValue}>{stats.nonTeachingStaff}</h2>
           </div>
         </div>
-
-        
       </div>
 
       {/* Filters */}
@@ -182,6 +182,16 @@ export default function Staff() {
           <option value="">Status: All</option>
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
+          <option value="On Leave">On Leave</option>
+          <option value="Terminated">Terminated</option>
+        </select>
+
+        <select value={selCategory} onChange={e => setSelCategory(e.target.value)}>
+          <option value="">Category: All</option>
+          <option value="Teaching">Teaching</option>
+          <option value="Non-Teaching">Non-Teaching</option>
+          <option value="Administrative">Administrative</option>
+          <option value="Management">Management</option>
         </select>
 
         <div className={styles.searchBox}>
@@ -203,100 +213,106 @@ export default function Staff() {
 
       {/* Table */}
       <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <thead className={styles.tableHead}>
-            <tr>
-              <th className={styles.tableHeader} scope="col">ID</th>
-              <th className={styles.tableHeader} scope="col">Photo</th>
-              <th className={styles.tableHeader} scope="col">Staff Code</th>
-              <th className={styles.tableHeader} scope="col">Name</th>
-              <th className={styles.tableHeader} scope="col">Department</th>
-              <th className={styles.tableHeader} scope="col">Designation</th>
-              <th className={styles.tableHeader} scope="col">Contact</th>
-              <th className={styles.tableHeader} scope="col">Status</th>
-              <th className={styles.tableHeader} scope="col">Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {paginatedStaff.length === 0 ? (
+        {loading ? (
+          <div className={styles.loadingState}>Loading staff records...</div>
+        ) : (
+          <table className={styles.table}>
+            <thead className={styles.tableHead}>
               <tr>
-                <td className={styles.emptyState} colSpan={9}>
-                  No staff match these filters. Try adjusting search or filters.
-                </td>
+                <th className={styles.tableHeader} scope="col">ID</th>
+                <th className={styles.tableHeader} scope="col">Photo</th>
+                <th className={styles.tableHeader} scope="col">Staff Code</th>
+                <th className={styles.tableHeader} scope="col">Name</th>
+                <th className={styles.tableHeader} scope="col">Department</th>
+                <th className={styles.tableHeader} scope="col">Designation</th>
+                <th className={styles.tableHeader} scope="col">Contact</th>
+                <th className={styles.tableHeader} scope="col">Status</th>
+                <th className={styles.tableHeader} scope="col">Action</th>
               </tr>
-            ) : paginatedStaff.map((staff) => (
-              <tr key={staff.id}>
-                <td className={styles.tableData}>{staff.id}</td>
+            </thead>
 
-                <td className={styles.tableData}>
-                  {staff.image && !imgError.has(staff.id) ? (
-                    <img
-                      src={staff.image}
-                      alt={staff.name}
-                      className={styles.avatar}
-                      onError={() => handleImgError(staff.id)}
-                    />
-                  ) : (
-                    <div className={styles.avatarFallback}>{getInitials(staff.name)}</div>
-                  )}
-                </td>
+            <tbody>
+              {staffList.length === 0 ? (
+                <tr>
+                  <td className={styles.emptyState} colSpan={9}>
+                    No staff match these filters. Try adjusting search or filters.
+                  </td>
+                </tr>
+              ) : (
+                staffList.map((staff) => (
+                  <tr key={staff.id}>
+                    <td className={styles.tableData}>{staff.id}</td>
 
-                <td className={styles.tableData}>{staff.staffCode}</td>
+                    <td className={styles.tableData}>
+                      {staff.image && !imgError.has(staff.id) ? (
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_BACKEND_URL}${staff.image}`}
+                          alt={staff.name}
+                          className={styles.avatar}
+                          onError={() => handleImgError(staff.id)}
+                        />
+                      ) : (
+                        <div className={styles.avatarFallback}>{getInitials(staff.name)}</div>
+                      )}
+                    </td>
 
-                <td className={styles.tableData}>
-                  <strong>{staff.name}</strong>
-                  <br />
-                  <span className={styles.typePill}>{staff.type}</span>
-                </td>
+                    <td className={styles.tableData}>{staff.staffCode}</td>
 
-                <td className={styles.tableData}>{staff.department}</td>
-                <td className={styles.tableData}>{staff.designation}</td>
+                    <td className={styles.tableData}>
+                      <strong>{staff.name}</strong>
+                      <br />
+                      <span className={styles.typePill}>{staff.type}</span>
+                    </td>
 
-                <td className={styles.tableData}>
-                  {staff.email}
-                  <br />
-                  {staff.phone}
-                </td>
+                    <td className={styles.tableData}>{staff.department}</td>
+                    <td className={styles.tableData}>{staff.designation}</td>
 
-                <td className={styles.tableData}>
-                  <span className={`${styles.statusPill} ${staff.status === "Active" ? styles.active : styles.inactive}`}>
-                    <span className={styles.statusDot} />
-                    {staff.status}
-                  </span>
-                </td>
+                    <td className={styles.tableData}>
+                      {staff.email}
+                      <br />
+                      {staff.phone}
+                    </td>
 
-                <td className={styles.tableData}>
-                  <div className={styles.actionGroup}>
-                    <button className={styles.viewBtn} onClick={() => router.push(`/admin/staff/view`)}>
-                      <Eye size={14} /> View
-                    </button>
-                    <button className={styles.editBtn} onClick={() => router.push(`/admin/staff/edit`)}>
-                      <Pencil size={14} /> Edit
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    <td className={styles.tableData}>
+                      <span className={`${styles.statusPill} ${staff.status === "Active" ? styles.active : styles.inactive}`}>
+                        <span className={styles.statusDot} />
+                        {staff.status}
+                      </span>
+                    </td>
+
+                    <td className={styles.tableData}>
+                      <div className={styles.actionGroup}>
+                        <button className={styles.viewBtn} onClick={() => router.push(`/admin/staff/view/${staff.id}`)}>
+                          <Eye size={14} /> View
+                        </button>
+                        <button className={styles.editBtn} onClick={() => router.push(`/admin/staff/edit/${staff.id}`)}>
+                          <Pencil size={14} /> Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
 
         {staffList.length > 0 && (
           <div className={styles.pagination}>
             <span className={styles.paginationInfo}>
-              Showing {startIdx + 1}–{endIdx} of {staffList.length}
+              Showing {pagination.startIndex}–{pagination.endIndex} of {pagination.totalItems}
             </span>
             <div className={styles.paginationControls}>
               <button
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onClick={() => handlePageChange(currentPage - 1)}
               >
                 <ChevronLeft size={16} />
               </button>
-              <span>{currentPage} / {totalPages}</span>
+              <span>{currentPage} / {pagination.totalPages}</span>
               <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === pagination.totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
               >
                 <ChevronRight size={16} />
               </button>
@@ -304,7 +320,6 @@ export default function Staff() {
           </div>
         )}
       </div>
-
     </div>
-  );
+  )
 }

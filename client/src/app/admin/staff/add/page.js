@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "../css/staffadd.module.css";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 export default function AddStaff() {
   const router = useRouter();
   const [preview, setPreview] = useState("/user.png");
+  const [imageFile, setImageFile] = useState(null);
+
+  // ✅ FIXED: Empty initial state instead of placeholder text
+  const [Emessage, setEmessage] = useState("");
+  const [Smessage, setSmessage] = useState("");
 
   const [formData, setFormData] = useState({
     staff_id: "",
@@ -30,6 +36,7 @@ export default function AddStaff() {
     employment_type: "",
     joining_date: "",
     experience_years: "",
+    personal_email: "",
     aadhar_number: "",
     pan_number: "",
     bank_name: "",
@@ -54,18 +61,129 @@ export default function AddStaff() {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
+
     if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+
+    if (!allowedTypes.includes(file.type)) {
+      alert("Only JPG, JPEG and PNG files are allowed");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image size must be less than 2MB");
+      return;
+    }
+
+    setImageFile(file);
     setPreview(URL.createObjectURL(file));
-    setFormData((prev) => ({
-      ...prev,
-      photo_url: URL.createObjectURL(file)
-    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(formData);
+    try {
+      const submitData = new FormData();
+
+      if (imageFile) {
+        submitData.append("photo", imageFile);
+      }
+
+      Object.keys(formData).forEach((key) => {
+        submitData.append(key, formData[key] ?? "");
+      });
+
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff/add`,
+        submitData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        }
+      );
+
+      if (response.data.emessage) {
+        setEmessage(response.data.emessage);
+        setSmessage("");
+        return;
+      }
+
+      if (response.data.success) {
+        setSmessage(response.data.message || "Staff Added Successfully");
+        setEmessage("");
+
+        // Reset form
+        setFormData({
+          staff_id: "",
+          prefix: "",
+          photo_url: "",
+          first_name: "",
+          last_name: "",
+          gender: "",
+          date_of_birth: "",
+          phone_number: "",
+          email: "",
+          personal_email: "",
+          address: "",
+          city: "",
+          state: "",
+          pincode: "",
+          emergency_contact_name: "",
+          emergency_contact_number: "",
+          department_code: "",
+          designation: "",
+          role_type: "",
+          employment_type: "",
+          joining_date: "",
+          experience_years: "",
+          aadhar_number: "",
+          pan_number: "",
+          bank_name: "",
+          account_number: "",
+          ifsc_code: "",
+          branch_name: "",
+          highest_qualification: "",
+          specialization: "",
+          salary: "",
+          blood_group: "",
+          marital_status: "",
+          staff_status: "Active"
+        });
+
+        setPreview("/user.png");
+        setImageFile(null);
+
+        setTimeout(() => {
+          router.push("/admin/staff");
+        }, 1500);
+        return;
+      }
+
+      setEmessage(response.data.message || "Unable to add staff. Please try again.");
+      setSmessage("");
+    } catch (err) {
+      const errorMessage =
+        err.response?.data?.emessage ||
+        err.response?.data?.message ||
+        err.message ||
+        "An unexpected error occurred.";
+      setEmessage(errorMessage);
+      setSmessage("");
+      console.error(err);
+    }
   };
+
+  useEffect(() => {
+    if (!Emessage && !Smessage) return;
+
+    const timer = setTimeout(() => {
+      setEmessage("");
+      setSmessage("");
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [Emessage, Smessage]);
 
   return (
     <div className={styles.container}>
@@ -76,10 +194,18 @@ export default function AddStaff() {
         </div>
 
         <div className={styles.actions}>
-          <button className={styles.actionBtn} type="button" onClick={() => router.push("/admin/staff")}>
+          <button 
+            className={styles.actionBtn} 
+            type="button" 
+            onClick={() => router.push("/admin/staff")}
+          >
             Cancel
           </button>
-          <button className={styles.actionBtn} onClick={handleSubmit}>
+          <button 
+            className={styles.actionBtn} 
+            type="button" 
+            onClick={handleSubmit}
+          >
             Save Staff Profile
           </button>
         </div>
@@ -116,16 +242,44 @@ export default function AddStaff() {
                 <option value="Prof">Prof</option>
               </select>
 
-              <input className={styles.formInput} name="first_name" placeholder="First Name" onChange={handleChange} />
-              <input className={styles.formInput} name="last_name" placeholder="Last Name" onChange={handleChange} />
-              <input className={styles.formInput} type="date" name="date_of_birth" onChange={handleChange} />
-              <select className={styles.formInput} name="gender" onChange={handleChange}>
+              <input 
+                className={styles.formInput} 
+                name="first_name" 
+                placeholder="First Name" 
+                value={formData.first_name}
+                onChange={handleChange} 
+              />
+              <input 
+                className={styles.formInput} 
+                name="last_name" 
+                placeholder="Last Name" 
+                value={formData.last_name}
+                onChange={handleChange} 
+              />
+              <input 
+                className={styles.formInput} 
+                type="date" 
+                name="date_of_birth" 
+                value={formData.date_of_birth}
+                onChange={handleChange} 
+              />
+              <select 
+                className={styles.formInput} 
+                name="gender" 
+                value={formData.gender}
+                onChange={handleChange}
+              >
                 <option value="">Select Gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
                 <option value="Other">Other</option>
               </select>
-              <select className={styles.formInput} name="blood_group" onChange={handleChange}>
+              <select 
+                className={styles.formInput} 
+                name="blood_group" 
+                value={formData.blood_group}
+                onChange={handleChange}
+              >
                 <option value="">Blood Group</option>
                 <option value="A+">A+</option>
                 <option value="B+">B+</option>
@@ -136,6 +290,17 @@ export default function AddStaff() {
                 <option value="O-">O-</option>
                 <option value="AB-">AB-</option>
               </select>
+              <select
+                className={styles.formInput}
+                name="marital_status"
+                value={formData.marital_status}
+                onChange={handleChange}
+              >
+                <option value="">Marital Status</option>
+                <option value="Single">Single</option>
+                <option value="Married">Married</option>
+              </select>
+              
             </div>
           </div>
         </section>
@@ -144,13 +309,55 @@ export default function AddStaff() {
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>2. Contact Information</h2>
           <div className={styles.grid}>
-            <input className={styles.formInput} name="phone_number" placeholder="Phone Number" onChange={handleChange} />
-            <input className={styles.formInput} name="email" placeholder="Official Email" onChange={handleChange} />
-            <input className={styles.formInput} name="personal_email" placeholder="Personal Email" onChange={handleChange} />
-            <input className={styles.formInput} name="city" placeholder="City" onChange={handleChange} />
-            <input className={styles.formInput} name="state" placeholder="State" onChange={handleChange} />
-            <input className={styles.formInput} name="pincode" placeholder="Pincode" onChange={handleChange} />
-            <textarea className={styles.formTextarea} name="address" placeholder="Full Residential Address" onChange={handleChange} />
+            <input 
+              className={styles.formInput} 
+              name="phone_number" 
+              placeholder="Phone Number" 
+              value={formData.phone_number}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="email" 
+              placeholder="Official Email" 
+              value={formData.email}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="personal_email" 
+              placeholder="Personal Email" 
+              value={formData.personal_email}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="city" 
+              placeholder="City" 
+              value={formData.city}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="state" 
+              placeholder="State" 
+              value={formData.state}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="pincode" 
+              placeholder="Pincode" 
+              value={formData.pincode}
+              onChange={handleChange} 
+            />
+            <textarea 
+              className={styles.formTextarea} 
+              name="address" 
+              placeholder="Full Residential Address" 
+              value={formData.address}
+              onChange={handleChange} 
+            />
           </div>
         </section>
 
@@ -158,7 +365,13 @@ export default function AddStaff() {
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>3. Professional Details</h2>
           <div className={styles.grid}>
-            <input className={styles.formInput} name="staff_id" placeholder="Staff ID" onChange={handleChange} />
+            <input 
+              className={styles.formInput} 
+              name="staff_id" 
+              placeholder="Staff ID" 
+              value={formData.staff_id}
+              onChange={handleChange} 
+            />
             <select
               className={styles.formInput}
               name="department_code"
@@ -192,7 +405,13 @@ export default function AddStaff() {
               <option value="Librarian">Librarian</option>
             </select>
 
-            <select className={styles.formInput} name="role_type" onChange={handleChange}>
+            {/* ✅ FIXED: Correct role_type values to match backend */}
+            <select 
+              className={styles.formInput} 
+              name="role_type" 
+              value={formData.role_type}
+              onChange={handleChange}
+            >
               <option value="">Role Type</option>
               <option value="Teaching">Teaching</option>
               <option value="Non-Teaching">Non-Teaching</option>
@@ -200,13 +419,32 @@ export default function AddStaff() {
               <option value="Management">Management</option>
             </select>
 
-            <select className={styles.formInput} name="employment_type" onChange={handleChange}>
+            <select 
+              className={styles.formInput} 
+              name="employment_type" 
+              value={formData.employment_type}
+              onChange={handleChange}
+            >
               <option value="">Employment Type</option>
-              <option value="Full Time">Full Time</option>
-              <option value="Part Time">Part Time</option>
+              <option value="FullTime">Full Time</option>
+              <option value="PartTime">Part Time</option>
               <option value="Contract">Contract</option>
+              <option value="Temporary">Temporary</option>
             </select>
-            <input className={styles.formInput} type="date" name="joining_date" onChange={handleChange} />
+            <input 
+              className={styles.formInput} 
+              type="date" 
+              name="joining_date" 
+              value={formData.joining_date}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="experience_years" 
+              placeholder="Experience (in years)" 
+              value={formData.experience_years}
+              onChange={handleChange} 
+            />
           </div>
         </section>
 
@@ -214,8 +452,20 @@ export default function AddStaff() {
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>4. Education Details</h2>
           <div className={styles.grid}>
-            <input className={styles.formInput} name="highest_qualification" placeholder="Highest Qualification" onChange={handleChange} />
-            <input className={styles.formInput} name="specialization" placeholder="Specialization" onChange={handleChange} />
+            <input 
+              className={styles.formInput} 
+              name="highest_qualification" 
+              placeholder="Highest Qualification" 
+              value={formData.highest_qualification}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="specialization" 
+              placeholder="Specialization" 
+              value={formData.specialization}
+              onChange={handleChange} 
+            />
           </div>
         </section>
 
@@ -223,8 +473,20 @@ export default function AddStaff() {
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>5. Statutory Details</h2>
           <div className={styles.grid}>
-            <input className={styles.formInput} name="aadhar_number" placeholder="Aadhar Number" onChange={handleChange} />
-            <input className={styles.formInput} name="pan_number" placeholder="PAN Number" onChange={handleChange} />
+            <input 
+              className={styles.formInput} 
+              name="aadhar_number" 
+              placeholder="Aadhar Number" 
+              value={formData.aadhar_number}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="pan_number" 
+              placeholder="PAN Number" 
+              value={formData.pan_number}
+              onChange={handleChange} 
+            />
           </div>
         </section>
 
@@ -232,11 +494,41 @@ export default function AddStaff() {
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>6. Bank Details</h2>
           <div className={styles.grid}>
-            <input className={styles.formInput} name="bank_name" placeholder="Bank Name" onChange={handleChange} />
-            <input className={styles.formInput} name="account_number" placeholder="Account Number" onChange={handleChange} />
-            <input className={styles.formInput} name="ifsc_code" placeholder="IFSC Code" onChange={handleChange} />
-            <input className={styles.formInput} name="branch_name" placeholder="Branch Name" onChange={handleChange} />
-            <input className={styles.formInput} name="salary" placeholder="Salary/CTC" onChange={handleChange} />
+            <input 
+              className={styles.formInput} 
+              name="bank_name" 
+              placeholder="Bank Name" 
+              value={formData.bank_name}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="account_number" 
+              placeholder="Account Number" 
+              value={formData.account_number}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="ifsc_code" 
+              placeholder="IFSC Code" 
+              value={formData.ifsc_code}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="branch_name" 
+              placeholder="Branch Name" 
+              value={formData.branch_name}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="salary" 
+              placeholder="Salary/CTC" 
+              value={formData.salary}
+              onChange={handleChange} 
+            />
           </div>
         </section>
 
@@ -244,11 +536,26 @@ export default function AddStaff() {
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>7. Emergency Contact</h2>
           <div className={styles.grid}>
-            <input className={styles.formInput} name="emergency_contact_name" placeholder="Emergency Contact Name" onChange={handleChange} />
-            <input className={styles.formInput} name="emergency_contact_number" placeholder="Emergency Contact Number" onChange={handleChange} />
+            <input 
+              className={styles.formInput} 
+              name="emergency_contact_name" 
+              placeholder="Emergency Contact Name" 
+              value={formData.emergency_contact_name}
+              onChange={handleChange} 
+            />
+            <input 
+              className={styles.formInput} 
+              name="emergency_contact_number" 
+              placeholder="Emergency Contact Number" 
+              value={formData.emergency_contact_number}
+              onChange={handleChange} 
+            />
           </div>
         </section>
       </form>
+      
+      {Emessage && <div className={styles.errorMessage}><p>{Emessage}</p></div>}
+      {Smessage && <div className={styles.successMessage}><p>{Smessage}</p></div>}
     </div>
   );
 }

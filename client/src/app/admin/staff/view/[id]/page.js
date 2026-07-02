@@ -1,8 +1,10 @@
+// app/admin/staff/view/[id]/page.js
 "use client";
 
-import { useState } from "react";
-import styles from "../css/staffview.module.css";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import styles from "../../css/staffview.module.css";
+import { useRouter, useParams } from "next/navigation";
+import axios from "axios";
 import {
   ArrowLeft, Pencil, Download, User, Phone, Briefcase,
   GraduationCap, ShieldCheck, Landmark, AlertCircle, Copy, Check
@@ -14,48 +16,49 @@ function getInitials(first, last) {
 
 export default function ViewStaff() {
   const router = useRouter();
+  const params = useParams();
+  const staffId = params?.id;
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [staffDetails, setStaffDetails] = useState(null);
   const [imgError, setImgError] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
 
-  // Mock data
-  const staffDetails = {
-    staff_id: "EMP-2024-045",
-    prefix: "Dr.",
-    first_name: "Sarah",
-    last_name: "Mitchell",
-    gender: "Female",
-    date_of_birth: "1988-06-15",
-    phone_number: "+1 (555) 123-4567",
-    email: "s.mitchell@university.edu",
-    personal_email: "sarah.m.88@gmail.com",
-    address: "1245 Innovation Drive, Tech Park Apartments, Apt 4B",
-    city: "San Francisco",
-    state: "California",
-    pincode: "94105",
-    emergency_contact_name: "James Mitchell (Husband)",
-    emergency_contact_number: "+1 (555) 987-6543",
-    department_id: "Computer Science (CS-01)",
-    designation_id: "Associate Professor",
-    role_type: "Teaching",
-    employment_type: "Full Time",
-    joining_date: "2018-08-01",
-    experience_years: "8 Years",
-    staff_status: "Active",
-    highest_qualification: "Ph.D. in Artificial Intelligence",
-    specialization: "Machine Learning & Neural Networks",
-    university: "Stanford University",
-    passing_year: "2016",
-    aadhar_number: "XXXX-XXXX-8921",
-    pan_number: "ABCDE1234F",
-    bank_name: "Chase Bank",
-    account_number: "XXXXXXXX4589",
-    ifsc_code: "CHAS0001234",
-    branch_name: "Downtown SF Branch",
-    salary: "$120,000 / Year",
-    blood_group: "O+",
-    marital_status: "Married",
-    profile_image: "/user.png"
-  };
+  // Fetch staff details on component mount
+  useEffect(() => {
+    const fetchStaffDetails = async () => {
+      if (!staffId) {
+        setError('Staff ID is required');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff/${staffId}`
+        );
+
+        if (response.data.success) {
+          setStaffDetails(response.data.data);
+        } else {
+          setError(response.data.message || 'Failed to fetch staff details');
+        }
+      } catch (err) {
+        console.error('Error fetching staff details:', err);
+        setError(
+          err.response?.data?.message || 
+          err.message || 
+          'An unexpected error occurred'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStaffDetails();
+  }, [staffId]);
 
   const handleCopy = async (value, fieldKey) => {
     if (!value) return;
@@ -64,7 +67,7 @@ export default function ViewStaff() {
       setCopiedField(fieldKey);
       setTimeout(() => setCopiedField(null), 1500);
     } catch {
-      // clipboard unavailable — fail silently, nothing visible to copy
+      // clipboard unavailable — fail silently
     }
   };
 
@@ -97,6 +100,38 @@ export default function ViewStaff() {
 
   const handlePrint = () => window.print();
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loadingState}>
+          <div className={styles.loadingSpinner}></div>
+          <p>Loading staff profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !staffDetails) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.errorState}>
+          <AlertCircle size={48} className={styles.errorIcon} />
+          <h2>Unable to load staff profile</h2>
+          <p>{error || 'Staff member not found'}</p>
+          <button 
+            className={styles.backBtn} 
+            type="button" 
+            onClick={() => router.push("/admin/staff")}
+          >
+            <ArrowLeft size={16} /> Back to Staff List
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const isActive = staffDetails.staff_status === "Active";
 
   return (
@@ -126,15 +161,14 @@ export default function ViewStaff() {
       </div>
 
       <div className={styles.printContent}>
-
         {/* PERSONAL */}
         <section className={styles.card}>
           <SectionHeader index="01" icon={<User size={16} className={styles.cardTitleIcon} />} title="Personal Information" />
           <div className={styles.personalGrid}>
             <div className={styles.imageBox}>
-              {!imgError ? (
+              {!imgError && staffDetails.profile_image ? (
                 <img
-                  src={staffDetails.profile_image}
+                  src={`${process.env.NEXT_PUBLIC_BACKEND_URL}${staffDetails.profile_image}`}
                   alt={`${staffDetails.first_name} ${staffDetails.last_name}`}
                   className={`${styles.profileImage} ${isActive ? styles.ringActive : styles.ringInactive}`}
                   onError={() => setImgError(true)}
@@ -183,8 +217,8 @@ export default function ViewStaff() {
           <SectionHeader index="03" icon={<Briefcase size={16} className={styles.cardTitleIcon} />} title="Professional Details" />
           <div className={styles.grid}>
             <DataField label="Staff ID" value={staffDetails.staff_id} copyable fieldKey="staffId" />
-            <DataField label="Department ID" value={staffDetails.department_id} />
-            <DataField label="Designation ID" value={staffDetails.designation_id} />
+            <DataField label="Department" value={staffDetails.department_id} />
+            <DataField label="Designation" value={staffDetails.designation_id} />
             <DataField label="Role Type" value={staffDetails.role_type} />
             <DataField label="Employment Type" value={staffDetails.employment_type} />
             <DataField label="Joining Date" value={staffDetails.joining_date} />
@@ -198,8 +232,8 @@ export default function ViewStaff() {
           <div className={styles.grid}>
             <DataField label="Highest Qualification" value={staffDetails.highest_qualification} />
             <DataField label="Specialization" value={staffDetails.specialization} />
-            <DataField label="University/Institute" value={staffDetails.university} />
-            <DataField label="Passing Year" value={staffDetails.passing_year} />
+            <DataField label="University/Institute" value={staffDetails.university || "—"} />
+            <DataField label="Passing Year" value={staffDetails.passing_year || "—"} />
           </div>
         </section>
 
@@ -232,7 +266,6 @@ export default function ViewStaff() {
             <DataField label="Emergency Contact Number" value={staffDetails.emergency_contact_number} copyable fieldKey="emergencyPhone" />
           </div>
         </section>
-
       </div>
     </div>
   );

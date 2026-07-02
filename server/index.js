@@ -3,6 +3,7 @@ const app=express();
 const cors=require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
+const path=require('path');
 const db=require('./config/db');
 
 require("./sessions/cleanupSessions");
@@ -10,6 +11,7 @@ require("./sessions/cleanupSessions");
 //----------------Routes
 const loginRoute=require('./routes/auth/login');
 const adminVerifyRoute=require('./routes/admin/admin_verify');
+const adminStaffRoute=require('./routes/admin/staff');
 
 
 //----------------
@@ -24,6 +26,8 @@ app.use(cors({
 //-----------------
 app.use('/auth',loginRoute);
 app.use('/api',adminVerifyRoute);
+app.use('/api/admin/staff',adminStaffRoute);
+app.use('/uploads',express.static(path.join(__dirname,'uploads')));
 
 
 
