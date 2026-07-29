@@ -47,6 +47,9 @@ const deleteUploadedImage = (filename) => {
   }
 };
 
+// ----------------------
+// POST /add
+// ----------------------
 router.post('/add', upload.single('photo'), async (req, res) => {
   const connection = await db.getConnection();
   let uploadedFileName = null;
@@ -54,21 +57,17 @@ router.post('/add', upload.single('photo'), async (req, res) => {
   try {
     const staffData = req.body;
     
-    // Store the uploaded filename for cleanup if needed
     if (req.file) {
       uploadedFileName = req.file.filename;
     }
 
-    // ✅ Create a reusable error handler that deletes the image
     const sendError = (message, statusCode = 400) => {
-      // Delete uploaded image before sending error
       if (uploadedFileName) {
         deleteUploadedImage(uploadedFileName);
       }
       return res.status(statusCode).json({ emessage: message });
     };
 
-    // Check if staff data exists
     if (!staffData || Object.keys(staffData).length === 0) {
       return sendError("Staff data is required");
     }
@@ -82,6 +81,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       department_code, designation, role_type, employment_type,
       joining_date, experience_years, staff_status,
       highest_qualification, specialization,
+      university, passing_year,
       aadhar_number, pan_number, bank_name, account_number,
       ifsc_code, branch_name, salary, blood_group, marital_status
     } = staffData;
@@ -92,7 +92,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
     const validGender = ["Male", "Female", "Other"];
     const validEmploymentType = ["FullTime", "PartTime", "Contract", "Temporary"];
-    const validStaffStatus = ["Active", "Inactive", "On Leave", "Terminated"];
+    const validStaffStatus = ["Active", "Inactive", "Resigned", "Retired"]; // unified
     const validRoleType = ["Teaching", "Non-Teaching", "Administrative", "Management"];
     const validBloodGroup = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
     const validMaritalStatus = ["Single", "Married", "Divorced", "Widowed"];
@@ -187,7 +187,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       }
     }
 
-    // ----- Education Fields Validation -----
+    // ----- Education Fields Validation (optional) -----
     if (highest_qualification && highest_qualification.trim().length < 2)
       return sendError("Qualification must be at least 2 characters");
     if (specialization && specialization.trim().length < 2)
@@ -201,7 +201,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (marital_status && !validMaritalStatus.includes(marital_status))
       return sendError("Invalid marital status");
 
-    // ----- Clean Data (Convert empty strings to NULL) -----
+    // ----- Clean Data -----
     const cleanData = {
       staff_id: nullIfEmpty(staff_id),
       prefix: nullIfEmpty(prefix),
@@ -227,6 +227,8 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       staff_status: nullIfEmpty(staff_status),
       highest_qualification: nullIfEmpty(highest_qualification),
       specialization: nullIfEmpty(specialization),
+      university: nullIfEmpty(university),
+      passing_year: nullIfEmpty(passing_year),
       aadhar_number: nullIfEmpty(aadhar_number),
       pan_number: nullIfEmpty(pan_number),
       bank_name: nullIfEmpty(bank_name),
@@ -247,7 +249,6 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       return sendError("Staff with the same ID, email, or phone already exists");
     }
 
-    // Check Aadhar if provided
     if (cleanData.aadhar_number) {
       const [existingAadhar] = await connection.query(
         `SELECT * FROM staff WHERE aadhar_number = ?`,
@@ -258,7 +259,6 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       }
     }
 
-    // Check PAN if provided
     if (cleanData.pan_number) {
       const [existingPan] = await connection.query(
         `SELECT * FROM staff WHERE pan_number = ?`,
@@ -278,7 +278,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       return sendError("Username or email already in use");
     }
 
-    // ----- Insert into Staff Table -----
+    // ----- Insert into Staff Table (now with university & passing_year) -----
     const staffQuery = `
       INSERT INTO staff (
         staff_id, prefix, photo_url, first_name, last_name, gender,
@@ -286,16 +286,15 @@ router.post('/add', upload.single('photo'), async (req, res) => {
         pincode, emergency_contact_name, emergency_contact_number,
         department_code, designation, role_type, employment_type,
         joining_date, experience_years, staff_status,
-        highest_qualification, specialization, aadhar_number, pan_number,
+        highest_qualification, specialization, university, passing_year,
+        aadhar_number, pan_number,
         bank_name, bank_account_number, ifsc_code, branch_name,
         salary, blood_group, marital_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    // ----- Start Transaction -----
     await connection.beginTransaction();
 
-    // Insert into staff
     await connection.query(staffQuery, [
       cleanData.staff_id,
       cleanData.prefix,
@@ -321,6 +320,8 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       cleanData.staff_status,
       cleanData.highest_qualification,
       cleanData.specialization,
+      cleanData.university,
+      cleanData.passing_year,
       cleanData.aadhar_number,
       cleanData.pan_number,
       cleanData.bank_name,
@@ -338,36 +339,32 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       [cleanData.staff_id, cleanData.email, cleanData.role_type]
     );
 
-    // ----- Commit Transaction -----
     await connection.commit();
 
-    // Success - return response
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: "Staff added successfully",
-      photo_url: photo_url 
+      photo_url: photo_url
     });
 
   } catch (error) {
     console.error("Error adding staff:", error);
-    
-    // Rollback transaction
     await connection.rollback();
-    
-    // Delete uploaded image if any error occurs
     if (uploadedFileName) {
       deleteUploadedImage(uploadedFileName);
     }
-    
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Internal Server Error",
-      error: error.message 
+      error: error.message
     });
   } finally {
     connection.release();
   }
 });
 
+// ----------------------
+// GET / (list)
+// ----------------------
 router.get('/', async (req, res) => {
   const connection = await db.getConnection();
   
@@ -382,12 +379,10 @@ router.get('/', async (req, res) => {
       category = ''
     } = req.query;
 
-    // Parse pagination parameters
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const offset = (pageNum - 1) * limitNum;
 
-    // Base query
     let baseQuery = `
       SELECT 
         staff_id,
@@ -406,11 +401,9 @@ router.get('/', async (req, res) => {
       WHERE 1=1
     `;
 
-    // Build filter conditions
     const conditions = [];
     const params = [];
 
-    // Search filter (staff_id, name, or email)
     if (search && search.trim() !== '') {
       const searchTerm = `%${search.trim()}%`;
       conditions.push(`
@@ -421,52 +414,43 @@ router.get('/', async (req, res) => {
       params.push(searchTerm, searchTerm, searchTerm);
     }
 
-    // Department filter
     if (department && department.trim() !== '') {
       conditions.push(`department_code = ?`);
       params.push(department.trim());
     }
 
-    // Designation filter
     if (designation && designation.trim() !== '') {
       conditions.push(`designation = ?`);
       params.push(designation.trim());
     }
 
-    // Status filter
     if (status && status.trim() !== '') {
       conditions.push(`staff_status = ?`);
       params.push(status.trim());
     }
 
-    // Category/Role Type filter
     if (category && category.trim() !== '') {
       conditions.push(`role_type = ?`);
       params.push(category.trim());
     }
 
-    // Add conditions to query
     if (conditions.length > 0) {
       baseQuery += ` AND ${conditions.join(' AND ')}`;
     }
 
-    // Count query for pagination
     const countQuery = `SELECT COUNT(*) AS total FROM (${baseQuery}) AS filtered`;
     const [countResult] = await connection.query(countQuery, params);
     const totalItems = countResult[0]?.total || 0;
 
-    // Main query with pagination
     const finalQuery = `
       ${baseQuery}
       ORDER BY staff_id ASC
       LIMIT ? OFFSET ?
     `;
 
-    // Add pagination parameters
     const queryParams = [...params, limitNum, offset];
     const [staffList] = await connection.query(finalQuery, queryParams);
 
-    // Get statistics (based on filtered data)
     const statsQuery = `
       SELECT 
         COUNT(*) AS totalStaff,
@@ -485,7 +469,6 @@ router.get('/', async (req, res) => {
       nonTeachingStaff: 0
     };
 
-    // Get unique departments for filter dropdown
     const [departments] = await connection.query(`
       SELECT DISTINCT department_code 
       FROM staff 
@@ -494,7 +477,6 @@ router.get('/', async (req, res) => {
     `);
     const departmentList = departments.map(d => d.department_code);
 
-    // Get unique designations for filter dropdown
     const [designations] = await connection.query(`
       SELECT DISTINCT designation 
       FROM staff 
@@ -503,12 +485,10 @@ router.get('/', async (req, res) => {
     `);
     const designationList = designations.map(d => d.designation);
 
-    // Calculate pagination info
     const totalPages = Math.ceil(totalItems / limitNum);
     const startIndex = offset + 1;
     const endIndex = Math.min(offset + limitNum, totalItems);
 
-    // Format response
     const formattedStaffList = staffList.map(staff => ({
       id: staff.staff_id,
       image: staff.photo_url || null,
@@ -561,7 +541,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-
+// ----------------------
+// GET /:id
+// ----------------------
 router.get('/:id', async (req, res) => {
   const connection = await db.getConnection();
   
@@ -575,7 +557,6 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    // Query to fetch complete staff details
     const query = `
       SELECT 
         staff_id,
@@ -601,6 +582,8 @@ router.get('/:id', async (req, res) => {
         staff_status,
         highest_qualification,
         specialization,
+        university,
+        passing_year,
         aadhar_number,
         pan_number,
         bank_name,
@@ -619,7 +602,6 @@ router.get('/:id', async (req, res) => {
 
     const [staffResult] = await connection.query(query, [id]);
 
-    // Check if staff exists
     if (staffResult.length === 0) {
       return res.status(404).json({
         success: false,
@@ -629,7 +611,6 @@ router.get('/:id', async (req, res) => {
 
     const staff = staffResult[0];
 
-    // Format the response
     const staffDetails = {
       staff_id: staff.staff_id,
       prefix: staff.prefix || '',
@@ -654,32 +635,20 @@ router.get('/:id', async (req, res) => {
       staff_status: staff.staff_status || 'Inactive',
       highest_qualification: staff.highest_qualification || '',
       specialization: staff.specialization || '',
-      aadhar_number: staff.aadhar_number ? maskAadhar(staff.aadhar_number) : '',
+      university: staff.university || '',
+      passing_year: staff.passing_year || '',
+      aadhar_number: staff.aadhar_number,
       pan_number: staff.pan_number || '',
       bank_name: staff.bank_name || '',
-      account_number: staff.bank_account_number ? maskAccountNumber(staff.bank_account_number) : '',
+      account_number: staff.bank_account_number,
       ifsc_code: staff.ifsc_code || '',
       branch_name: staff.branch_name || '',
       salary: staff.salary ? formatSalary(staff.salary) : '',
       blood_group: staff.blood_group || '',
       marital_status: staff.marital_status || '',
       profile_image: staff.photo_url || '/user.png',
-      // Additional fields for education (if you have a separate education table)
-      university: '',
-      passing_year: '',
-      // Full name for display
       full_name: `${staff.prefix || ''} ${staff.first_name || ''} ${staff.last_name || ''}`.trim()
     };
-
-    // If you have a separate education table, fetch it here
-    // const [educationResult] = await connection.query(
-    //   `SELECT university, passing_year, qualification FROM staff_education WHERE staff_id = ?`,
-    //   [id]
-    // );
-    // if (educationResult.length > 0) {
-    //   staffDetails.university = educationResult[0].university || '';
-    //   staffDetails.passing_year = educationResult[0].passing_year || '';
-    // }
 
     res.status(200).json({
       success: true,
@@ -698,7 +667,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Helper function to format date
+// Helper functions
 const formatDate = (date) => {
   if (!date) return '';
   const d = new Date(date);
@@ -708,29 +677,10 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-// Helper function to mask Aadhar number (show only last 4 digits)
-const maskAadhar = (aadhar) => {
-  if (!aadhar) return '';
-  const str = aadhar.toString();
-  if (str.length <= 4) return str;
-  return 'XXXX-XXXX-' + str.slice(-4);
-};
-
-// Helper function to mask bank account number (show only last 4 digits)
-const maskAccountNumber = (account) => {
-  if (!account) return '';
-  const str = account.toString();
-  if (str.length <= 4) return str;
-  return 'XXXXXXXX' + str.slice(-4);
-};
-
-// Helper function to format salary
 const formatSalary = (salary) => {
   if (!salary) return '';
   const num = parseFloat(salary);
   if (isNaN(num)) return '';
-  
-  // Format as currency (USD, INR, etc.)
   if (num >= 10000000) {
     return `₹${(num / 10000000).toFixed(1)} Crore / Year`;
   } else if (num >= 100000) {
@@ -740,6 +690,9 @@ const formatSalary = (salary) => {
   }
 };
 
+// ----------------------
+// PUT /:id
+// ----------------------
 router.put('/:id', upload.single('photo'), async (req, res) => {
   const connection = await db.getConnection();
   let uploadedFileName = null;
@@ -748,12 +701,10 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     const { id } = req.params;
     const staffData = req.body;
     
-    // Store the uploaded filename for cleanup if needed
     if (req.file) {
       uploadedFileName = req.file.filename;
     }
 
-    // ✅ Create a reusable error handler that deletes the image
     const sendError = (message, statusCode = 400) => {
       if (uploadedFileName) {
         deleteUploadedImage(uploadedFileName);
@@ -779,23 +730,23 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       emergency_contact_name, emergency_contact_number,
       department_code, designation, role_type, employment_type,
       joining_date, experience_years, staff_status,
-      highest_qualification, specialization,
+      highest_qualification, specialization, university, passing_year,
       aadhar_number, pan_number, bank_name, account_number,
       ifsc_code, branch_name, salary, blood_group, marital_status
     } = staffData;
 
-    // ----- Validation Regex Patterns -----
+    // ----- Validation -----
     const nameRegex = /^[A-Za-z ]+$/;
     const phoneRegex = /^\d{10}$/;
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
     const validGender = ["Male", "Female", "Other"];
     const validEmploymentType = ["FullTime", "PartTime", "Contract", "Temporary"];
-    const validStaffStatus = ["Active", "Inactive", "On Leave", "Terminated"];
+    const validStaffStatus = ["Active", "Inactive", "Resigned", "Retired"]; // unified
     const validRoleType = ["Teaching", "Non-Teaching", "Administrative", "Management"];
     const validBloodGroup = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
     const validMaritalStatus = ["Single", "Married", "Divorced", "Widowed"];
 
-    // ----- Required Fields Validation -----
+    // Required fields (university & passing_year are now optional)
     if (!prefix?.trim()) return sendError("Prefix is required");
     if (!first_name?.trim()) return sendError("First name is required");
     if (!last_name?.trim()) return sendError("Last name is required");
@@ -808,32 +759,32 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (!joining_date) return sendError("Joining date is required");
     if (!staff_status) return sendError("Staff status is required");
 
-    // ----- Name Validation -----
+    // Name Validation
     if (!nameRegex.test(first_name)) return sendError("Invalid first name");
     if (!nameRegex.test(last_name)) return sendError("Invalid last name");
 
-    // ----- Gender Validation -----
+    // Gender
     if (!validGender.includes(gender)) return sendError("Invalid gender");
 
-    // ----- Phone Validation -----
+    // Phone
     if (!phoneRegex.test(phone_number)) return sendError("Invalid phone number (must be 10 digits)");
     if (emergency_contact_number && !phoneRegex.test(emergency_contact_number))
       return sendError("Invalid emergency contact number (must be 10 digits)");
 
-    // ----- Email Validation -----
+    // Email
     if (!emailRegex.test(email)) return sendError("Invalid email address");
 
-    // ----- Role Type Validation -----
+    // Role Type
     if (!validRoleType.includes(role_type)) return sendError("Invalid role type");
 
-    // ----- Employment Type Validation -----
+    // Employment Type
     if (employment_type && !validEmploymentType.includes(employment_type))
       return sendError("Invalid employment type");
 
-    // ----- Staff Status Validation -----
+    // Staff Status
     if (!validStaffStatus.includes(staff_status)) return sendError("Invalid staff status");
 
-    // ----- Address Fields Validation -----
+    // Address fields
     if (address && address.trim().length < 5) return sendError("Address must be at least 5 characters");
     if (city && !nameRegex.test(city)) return sendError("Invalid city (letters and spaces only)");
     if (state && !nameRegex.test(state)) return sendError("Invalid state (letters and spaces only)");
@@ -841,17 +792,17 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (emergency_contact_name && !nameRegex.test(emergency_contact_name))
       return sendError("Invalid emergency contact name");
 
-    // ----- Date of Birth Validation -----
+    // Date of Birth
     if (date_of_birth && new Date(date_of_birth) > new Date())
       return sendError("Date of birth cannot be in future");
     if (date_of_birth && new Date(date_of_birth).getFullYear() < 1940)
       return sendError("Invalid date of birth");
 
-    // ----- Joining Date Validation -----
+    // Joining Date
     if (new Date(joining_date) > new Date())
       return sendError("Joining date cannot be in future");
 
-    // ----- Experience Years Validation -----
+    // Experience Years
     if (experience_years) {
       const expNum = Number(experience_years);
       if (isNaN(expNum) || expNum < 0 || expNum > 70) {
@@ -859,15 +810,15 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       }
     }
 
-    // ----- Aadhar Validation -----
+    // Aadhar
     if (aadhar_number && !/^\d{12}$/.test(aadhar_number))
       return sendError("Aadhar must contain 12 digits");
 
-    // ----- PAN Validation -----
+    // PAN
     if (pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan_number))
       return sendError("Invalid PAN number format");
 
-    // ----- Bank Fields Validation -----
+    // Bank fields
     if (bank_name && bank_name.trim().length < 2)
       return sendError("Bank name must be at least 2 characters");
     if (account_number && !/^\d{9,18}$/.test(account_number))
@@ -875,7 +826,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (branch_name && branch_name.trim().length < 2)
       return sendError("Branch name must be at least 2 characters");
 
-    // ----- Salary Validation -----
+    // Salary
     if (salary) {
       const salaryNum = Number(salary);
       if (isNaN(salaryNum) || salaryNum < 0 || salaryNum > 10000000) {
@@ -883,21 +834,21 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       }
     }
 
-    // ----- Education Fields Validation -----
+    // Education (optional)
     if (highest_qualification && highest_qualification.trim().length < 2)
       return sendError("Qualification must be at least 2 characters");
     if (specialization && specialization.trim().length < 2)
       return sendError("Specialization must be at least 2 characters");
 
-    // ----- Blood Group Validation -----
+    // Blood Group
     if (blood_group && !validBloodGroup.includes(blood_group))
       return sendError("Invalid blood group");
 
-    // ----- Marital Status Validation -----
+    // Marital Status
     if (marital_status && !validMaritalStatus.includes(marital_status))
       return sendError("Invalid marital status");
 
-    // ----- Clean Data (Convert empty strings to NULL) -----
+    // ----- Clean Data -----
     const cleanData = {
       prefix: nullIfEmpty(prefix),
       photo_url: photo_url,
@@ -922,6 +873,8 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       staff_status: nullIfEmpty(staff_status),
       highest_qualification: nullIfEmpty(highest_qualification),
       specialization: nullIfEmpty(specialization),
+      university: nullIfEmpty(university),
+      passing_year: nullIfEmpty(passing_year),
       aadhar_number: nullIfEmpty(aadhar_number),
       pan_number: nullIfEmpty(pan_number),
       bank_name: nullIfEmpty(bank_name),
@@ -933,16 +886,15 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       marital_status: nullIfEmpty(marital_status)
     };
 
-    // ----- Check for Duplicates (excluding current staff) -----
+    // ----- Check for Duplicates (excluding current) -----
     const [duplicateCheck] = await connection.query(
-      `SELECT * FROM staff WHERE (staff_id = ? OR email = ? OR phone_number = ?) AND staff_id != ?`,
-      [id, cleanData.email, cleanData.phone_number, id]
+      `SELECT * FROM staff WHERE (email = ? OR phone_number = ?) AND staff_id != ?`,
+      [cleanData.email, cleanData.phone_number, id]
     );
     if (duplicateCheck.length > 0) {
       return sendError("Email or phone already in use by another staff member");
     }
 
-    // Check Aadhar if provided
     if (cleanData.aadhar_number) {
       const [existingAadhar] = await connection.query(
         `SELECT * FROM staff WHERE aadhar_number = ? AND staff_id != ?`,
@@ -953,7 +905,6 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       }
     }
 
-    // Check PAN if provided
     if (cleanData.pan_number) {
       const [existingPan] = await connection.query(
         `SELECT * FROM staff WHERE pan_number = ? AND staff_id != ?`,
@@ -964,7 +915,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       }
     }
 
-    // ----- Update Staff Table -----
+    // ----- Update Staff -----
     const updateQuery = `
       UPDATE staff SET
         prefix = ?,
@@ -990,6 +941,8 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
         staff_status = ?,
         highest_qualification = ?,
         specialization = ?,
+        university = ?,
+        passing_year = ?,
         aadhar_number = ?,
         pan_number = ?,
         bank_name = ?,
@@ -1029,6 +982,8 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       cleanData.staff_status,
       cleanData.highest_qualification,
       cleanData.specialization,
+      cleanData.university,
+      cleanData.passing_year,
       cleanData.aadhar_number,
       cleanData.pan_number,
       cleanData.bank_name,
@@ -1041,7 +996,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       id
     ]);
 
-    // Update users table if email or role changed
+    // Update users table
     await connection.query(
       `UPDATE users SET email = ?, role = ? WHERE username = ?`,
       [cleanData.email, cleanData.role_type, id]
@@ -1049,7 +1004,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
 
     await connection.commit();
 
-    // If new image uploaded, delete old image
+    // Delete old image if a new one was uploaded
     if (req.file && existingStaff[0].photo_url) {
       const oldImage = path.basename(existingStaff[0].photo_url);
       deleteUploadedImage(oldImage);
@@ -1064,11 +1019,9 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
   } catch (error) {
     console.error("Error updating staff:", error);
     await connection.rollback();
-    
     if (uploadedFileName) {
       deleteUploadedImage(uploadedFileName);
     }
-    
     res.status(500).json({
       message: "Internal Server Error",
       error: error.message

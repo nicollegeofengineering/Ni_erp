@@ -26,7 +26,7 @@ export default function Staff() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selDepartment, setSelDepartment] = useState("")
   const [selDesignation, setSelDesignation] = useState("")
-  const [selStatus, setSelStatus] = useState("")
+  const [selStatus, setSelStatus] = useState("Active")
   const [selCategory, setSelCategory] = useState("")
   const [searchText, setSearchText] = useState("")
   const [imgError, setImgError] = useState(new Set())
@@ -182,8 +182,8 @@ export default function Staff() {
           <option value="">Status: All</option>
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
-          <option value="On Leave">On Leave</option>
-          <option value="Terminated">Terminated</option>
+          <option value="Resigned">Resigned</option>
+          <option value="Retired">Retired</option>
         </select>
 
         <select value={selCategory} onChange={e => setSelCategory(e.target.value)}>

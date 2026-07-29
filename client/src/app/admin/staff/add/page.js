@@ -24,6 +24,7 @@ export default function AddStaff() {
     date_of_birth: "",
     phone_number: "",
     email: "",
+    personal_email:"",
     address: "",
     city: "",
     state: "",
@@ -36,7 +37,6 @@ export default function AddStaff() {
     employment_type: "",
     joining_date: "",
     experience_years: "",
-    personal_email: "",
     aadhar_number: "",
     pan_number: "",
     bank_name: "",
@@ -45,6 +45,8 @@ export default function AddStaff() {
     branch_name: "",
     highest_qualification: "",
     specialization: "",
+    university:"",
+    passing_year:"",
     salary: "",
     blood_group: "",
     marital_status: "",
@@ -380,7 +382,7 @@ export default function AddStaff() {
             >
               <option value="">Select Department</option>
               <option value="CSE">Computer Science</option>
-              <option value="AI_DS">AI & DS</option>
+              <option value="AI&DS">AI & DS</option>
               <option value="IT">Information Technology</option>
               <option value="ECE">ECE</option>
               <option value="EEE">EEE</option>
@@ -465,6 +467,20 @@ export default function AddStaff() {
               placeholder="Specialization" 
               value={formData.specialization}
               onChange={handleChange} 
+            />
+            <input
+              className={styles.formInput}
+              name="university"
+              placeholder="University/Institution"
+              value={formData.university}
+              onChange={handleChange}
+            />
+            <input
+              className={styles.formInput}
+              name="passing_year"
+              placeholder="PassedOut Year"
+              value={formData.passing_year}
+              onChange={handleChange}
             />
           </div>
         </section>

@@ -1,4 +1,3 @@
-// app/admin/staff/edit/[id]/page.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -46,6 +45,8 @@ export default function EditStaff() {
     aadhar_number: "",
     pan_number: "",
     bank_name: "",
+    university: "",
+    passing_year: "",
     account_number: "",
     ifsc_code: "",
     branch_name: "",
@@ -99,6 +100,8 @@ export default function EditStaff() {
             aadhar_number: data.aadhar_number || "",
             pan_number: data.pan_number || "",
             bank_name: data.bank_name || "",
+            university: data.university || "",
+            passing_year: data.passing_year || "",
             account_number: data.account_number || "",
             ifsc_code: data.ifsc_code || "",
             branch_name: data.branch_name || "",
@@ -346,71 +349,93 @@ export default function EditStaff() {
             </div>
 
             <div className={styles.grid}>
-              <select
-                className={styles.formInput}
-                name="prefix"
-                value={formData.prefix}
-                onChange={handleChange}
-              >
-                <option value="">Select Prefix</option>
-                <option value="Mr">Mr</option>
-                <option value="Mrs">Mrs</option>
-                <option value="Ms">Ms</option>
-                <option value="Dr">Dr</option>
-                <option value="Prof">Prof</option>
-              </select>
+              <div className={styles.fieldWrapper}>
+                <span className={styles.fieldLabel}>Prefix</span>
+                <select
+                  className={styles.formInput}
+                  name="prefix"
+                  value={formData.prefix}
+                  onChange={handleChange}
+                >
+                  <option value="">Select Prefix</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                  <option value="Prof">Prof</option>
+                </select>
+              </div>
 
-              <input
-                className={styles.formInput}
-                name="first_name"
-                placeholder="First Name *"
-                value={formData.first_name}
-                onChange={handleChange}
-                required
-              />
-              <input
-                className={styles.formInput}
-                name="last_name"
-                placeholder="Last Name *"
-                value={formData.last_name}
-                onChange={handleChange}
-                required
-              />
-              <input
-                className={styles.formInput}
-                type="date"
-                name="date_of_birth"
-                value={formData.date_of_birth}
-                onChange={handleChange}
-              />
-              <select
-                className={styles.formInput}
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Gender *</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-              <select
-                className={styles.formInput}
-                name="blood_group"
-                value={formData.blood_group}
-                onChange={handleChange}
-              >
-                <option value="">Blood Group</option>
-                <option value="A+">A+</option>
-                <option value="B+">B+</option>
-                <option value="O+">O+</option>
-                <option value="AB+">AB+</option>
-                <option value="A-">A-</option>
-                <option value="B-">B-</option>
-                <option value="O-">O-</option>
-                <option value="AB-">AB-</option>
-              </select>
+              <div className={styles.fieldWrapper}>
+                <span className={styles.fieldLabel}>First Name *</span>
+                <input
+                  className={styles.formInput}
+                  name="first_name"
+                  placeholder="First Name"
+                  value={formData.first_name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className={styles.fieldWrapper}>
+                <span className={styles.fieldLabel}>Last Name *</span>
+                <input
+                  className={styles.formInput}
+                  name="last_name"
+                  placeholder="Last Name"
+                  value={formData.last_name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className={styles.fieldWrapper}>
+                <span className={styles.fieldLabel}>Date of Birth</span>
+                <input
+                  className={styles.formInput}
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className={styles.fieldWrapper}>
+                <span className={styles.fieldLabel}>Gender *</span>
+                <select
+                  className={styles.formInput}
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className={styles.fieldWrapper}>
+                <span className={styles.fieldLabel}>Blood Group</span>
+                <select
+                  className={styles.formInput}
+                  name="blood_group"
+                  value={formData.blood_group}
+                  onChange={handleChange}
+                >
+                  <option value="">Blood Group</option>
+                  <option value="A+">A+</option>
+                  <option value="B+">B+</option>
+                  <option value="O+">O+</option>
+                  <option value="AB+">AB+</option>
+                  <option value="A-">A-</option>
+                  <option value="B-">B-</option>
+                  <option value="O-">O-</option>
+                  <option value="AB-">AB-</option>
+                </select>
+              </div>
             </div>
           </div>
         </section>
@@ -423,58 +448,85 @@ export default function EditStaff() {
             <span className={styles.cardTitle}>Contact Information</span>
           </h2>
           <div className={styles.grid}>
-            <input
-              className={styles.formInput}
-              name="phone_number"
-              placeholder="Phone Number *"
-              value={formData.phone_number}
-              onChange={handleChange}
-              required
-            />
-            <input
-              className={styles.formInput}
-              name="email"
-              placeholder="Official Email *"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-            <input
-              className={styles.formInput}
-              name="personal_email"
-              placeholder="Personal Email"
-              value={formData.personal_email}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="city"
-              placeholder="City"
-              value={formData.city}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="state"
-              placeholder="State"
-              value={formData.state}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="pincode"
-              placeholder="Pincode"
-              value={formData.pincode}
-              onChange={handleChange}
-            />
-            <textarea
-              className={styles.formTextarea}
-              name="address"
-              placeholder="Full Residential Address"
-              value={formData.address}
-              onChange={handleChange}
-              rows="3"
-            />
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Phone Number *</span>
+              <input
+                className={styles.formInput}
+                name="phone_number"
+                placeholder="Phone Number"
+                value={formData.phone_number}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Official Email *</span>
+              <input
+                className={styles.formInput}
+                name="email"
+                placeholder="Official Email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Personal Email</span>
+              <input
+                className={styles.formInput}
+                name="personal_email"
+                placeholder="Personal Email"
+                value={formData.personal_email}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>City</span>
+              <input
+                className={styles.formInput}
+                name="city"
+                placeholder="City"
+                value={formData.city}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>State</span>
+              <input
+                className={styles.formInput}
+                name="state"
+                placeholder="State"
+                value={formData.state}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Pincode</span>
+              <input
+                className={styles.formInput}
+                name="pincode"
+                placeholder="Pincode"
+                value={formData.pincode}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Full Residential Address</span>
+              <textarea
+                className={styles.formTextarea}
+                name="address"
+                placeholder="Full Residential Address"
+                value={formData.address}
+                onChange={handleChange}
+                rows="3"
+              />
+            </div>
           </div>
         </section>
 
@@ -486,98 +538,119 @@ export default function EditStaff() {
             <span className={styles.cardTitle}>Professional Details</span>
           </h2>
           <div className={styles.grid}>
-            <select
-              className={styles.formInput}
-              name="department_code"
-              value={formData.department_code}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select Department *</option>
-              <option value="CSE">Computer Science</option>
-              <option value="AI_DS">AI & DS</option>
-              <option value="IT">Information Technology</option>
-              <option value="ECE">ECE</option>
-              <option value="EEE">EEE</option>
-              <option value="MECH">Mechanical</option>
-              <option value="CIVIL">Civil</option>
-            </select>
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Department *</span>
+              <select
+                className={styles.formInput}
+                name="department_code"
+                value={formData.department_code}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Department</option>
+                <option value="CSE">Computer Science</option>
+                <option value="AI&DS">AI & DS</option>
+                <option value="IT">Information Technology</option>
+                <option value="ECE">ECE</option>
+                <option value="EEE">EEE</option>
+                <option value="MECH">Mechanical</option>
+                <option value="CIVIL">Civil</option>
+              </select>
+            </div>
 
-            <select
-              className={styles.formInput}
-              name="designation"
-              value={formData.designation}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select Designation *</option>
-              <option value="Professor">Professor</option>
-              <option value="Associate Professor">Associate Professor</option>
-              <option value="Assistant Professor">Assistant Professor</option>
-              <option value="HOD">HOD</option>
-              <option value="Lab Assistant">Lab Assistant</option>
-              <option value="Office Staff">Office Staff</option>
-              <option value="Accountant">Accountant</option>
-              <option value="Librarian">Librarian</option>
-            </select>
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Designation *</span>
+              <select
+                className={styles.formInput}
+                name="designation"
+                value={formData.designation}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Designation</option>
+                <option value="Professor">Professor</option>
+                <option value="Associate Professor">Associate Professor</option>
+                <option value="Assistant Professor">Assistant Professor</option>
+                <option value="HOD">HOD</option>
+                <option value="Lab Assistant">Lab Assistant</option>
+                <option value="Office Staff">Office Staff</option>
+                <option value="Accountant">Accountant</option>
+                <option value="Librarian">Librarian</option>
+              </select>
+            </div>
 
-            <select
-              className={styles.formInput}
-              name="role_type"
-              value={formData.role_type}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Role Type *</option>
-              <option value="Teaching">Teaching</option>
-              <option value="Non-Teaching">Non-Teaching</option>
-              <option value="Administrative">Administrative</option>
-              <option value="Management">Management</option>
-            </select>
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Role Type *</span>
+              <select
+                className={styles.formInput}
+                name="role_type"
+                value={formData.role_type}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Role Type</option>
+                <option value="Teaching">Teaching</option>
+                <option value="Non-Teaching">Non-Teaching</option>
+                <option value="Administrative">Administrative</option>
+                <option value="Management">Management</option>
+              </select>
+            </div>
 
-            <select
-              className={styles.formInput}
-              name="employment_type"
-              value={formData.employment_type}
-              onChange={handleChange}
-            >
-              <option value="">Employment Type</option>
-              <option value="FullTime">Full Time</option>
-              <option value="PartTime">Part Time</option>
-              <option value="Contract">Contract</option>
-              <option value="Temporary">Temporary</option>
-            </select>
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Employment Type</span>
+              <select
+                className={styles.formInput}
+                name="employment_type"
+                value={formData.employment_type}
+                onChange={handleChange}
+              >
+                <option value="">Select Employment Type</option>
+                <option value="FullTime">Full Time</option>
+                <option value="PartTime">Part Time</option>
+                <option value="Contract">Contract</option>
+                <option value="Temporary">Temporary</option>
+              </select>
+            </div>
 
-            <input
-              className={styles.formInput}
-              type="date"
-              name="joining_date"
-              value={formData.joining_date}
-              onChange={handleChange}
-              required
-            />
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Joining Date *</span>
+              <input
+                className={styles.formInput}
+                type="date"
+                name="joining_date"
+                value={formData.joining_date}
+                onChange={handleChange}
+                required
+              />
+            </div>
 
-            <input
-              className={styles.formInput}
-              name="experience_years"
-              placeholder="Years of Experience"
-              value={formData.experience_years}
-              onChange={handleChange}
-            />
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Years of Experience</span>
+              <input
+                className={styles.formInput}
+                name="experience_years"
+                placeholder="Years of Experience"
+                value={formData.experience_years}
+                onChange={handleChange}
+              />
+            </div>
 
-            <select
-              className={styles.formInput}
-              name="staff_status"
-              value={formData.staff_status}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Staff Status *</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-              <option value="On Leave">On Leave</option>
-              <option value="Terminated">Terminated</option>
-            </select>
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Staff Status *</span>
+              <select
+                className={styles.formInput}
+                name="staff_status"
+                value={formData.staff_status}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Staff Status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="On Leave">On Leave</option>
+                <option value="Terminated">Terminated</option>
+              </select>
+            </div>
           </div>
         </section>
 
@@ -589,20 +662,49 @@ export default function EditStaff() {
             <span className={styles.cardTitle}>Education Details</span>
           </h2>
           <div className={styles.grid}>
-            <input
-              className={styles.formInput}
-              name="highest_qualification"
-              placeholder="Highest Qualification"
-              value={formData.highest_qualification}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="specialization"
-              placeholder="Specialization"
-              value={formData.specialization}
-              onChange={handleChange}
-            />
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Highest Qualification</span>
+              <input
+                className={styles.formInput}
+                name="highest_qualification"
+                placeholder="Highest Qualification"
+                value={formData.highest_qualification}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Specialization</span>
+              <input
+                className={styles.formInput}
+                name="specialization"
+                placeholder="Specialization"
+                value={formData.specialization}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>University / Institution</span>
+              <input
+                className={styles.formInput}
+                name="university"
+                placeholder="University / Institution"
+                value={formData.university}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Passing Year</span>
+              <input
+                className={styles.formInput}
+                name="passing_year"
+                placeholder="Passing Year"
+                value={formData.passing_year}
+                onChange={handleChange}
+              />
+            </div>
           </div>
         </section>
 
@@ -614,20 +716,27 @@ export default function EditStaff() {
             <span className={styles.cardTitle}>Statutory Details</span>
           </h2>
           <div className={styles.grid}>
-            <input
-              className={styles.formInput}
-              name="aadhar_number"
-              placeholder="Aadhar Number"
-              value={formData.aadhar_number}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="pan_number"
-              placeholder="PAN Number"
-              value={formData.pan_number}
-              onChange={handleChange}
-            />
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Aadhar Number</span>
+              <input
+                className={styles.formInput}
+                name="aadhar_number"
+                placeholder="Aadhar Number"
+                value={formData.aadhar_number}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>PAN Number</span>
+              <input
+                className={styles.formInput}
+                name="pan_number"
+                placeholder="PAN Number"
+                value={formData.pan_number}
+                onChange={handleChange}
+              />
+            </div>
           </div>
         </section>
 
@@ -639,41 +748,60 @@ export default function EditStaff() {
             <span className={styles.cardTitle}>Bank Details</span>
           </h2>
           <div className={styles.grid}>
-            <input
-              className={styles.formInput}
-              name="bank_name"
-              placeholder="Bank Name"
-              value={formData.bank_name}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="account_number"
-              placeholder="Account Number"
-              value={formData.account_number}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="ifsc_code"
-              placeholder="IFSC Code"
-              value={formData.ifsc_code}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="branch_name"
-              placeholder="Branch Name"
-              value={formData.branch_name}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="salary"
-              placeholder="Salary/CTC"
-              value={formData.salary}
-              onChange={handleChange}
-            />
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Bank Name</span>
+              <input
+                className={styles.formInput}
+                name="bank_name"
+                placeholder="Bank Name"
+                value={formData.bank_name}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Account Number</span>
+              <input
+                className={styles.formInput}
+                name="account_number"
+                placeholder="Account Number"
+                value={formData.account_number}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>IFSC Code</span>
+              <input
+                className={styles.formInput}
+                name="ifsc_code"
+                placeholder="IFSC Code"
+                value={formData.ifsc_code}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Branch Name</span>
+              <input
+                className={styles.formInput}
+                name="branch_name"
+                placeholder="Branch Name"
+                value={formData.branch_name}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Salary/CTC</span>
+              <input
+                className={styles.formInput}
+                name="salary"
+                placeholder="Salary/CTC"
+                value={formData.salary}
+                onChange={handleChange}
+              />
+            </div>
           </div>
         </section>
 
@@ -685,20 +813,27 @@ export default function EditStaff() {
             <span className={styles.cardTitle}>Emergency Contact</span>
           </h2>
           <div className={styles.grid}>
-            <input
-              className={styles.formInput}
-              name="emergency_contact_name"
-              placeholder="Emergency Contact Name"
-              value={formData.emergency_contact_name}
-              onChange={handleChange}
-            />
-            <input
-              className={styles.formInput}
-              name="emergency_contact_number"
-              placeholder="Emergency Contact Number"
-              value={formData.emergency_contact_number}
-              onChange={handleChange}
-            />
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Emergency Contact Name</span>
+              <input
+                className={styles.formInput}
+                name="emergency_contact_name"
+                placeholder="Emergency Contact Name"
+                value={formData.emergency_contact_name}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Emergency Contact Number</span>
+              <input
+                className={styles.formInput}
+                name="emergency_contact_number"
+                placeholder="Emergency Contact Number"
+                value={formData.emergency_contact_number}
+                onChange={handleChange}
+              />
+            </div>
           </div>
         </section>
       </form>

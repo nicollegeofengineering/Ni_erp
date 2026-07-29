@@ -254,6 +254,21 @@
   margin-top: 2px;
 }
 
+/* NEW: Field wrapper & label */
+.fieldWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* Form Grid */
 .grid {
   padding: 32px;
@@ -568,4 +583,3 @@
     size: A4 portrait;
   }
 }
-
