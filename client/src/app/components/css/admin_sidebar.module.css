@@ -1,3 +1,6 @@
+/* =========================
+   SIDEBAR CONTAINER
+========================= */
 .sidebar {
   --navy: #142447;
   --navy-soft: rgba(20, 36, 71, 0.06);
@@ -6,21 +9,33 @@
 
   width: 264px;
   max-width: 85vw;
+
   height: calc(100vh - 100px);
+  box-sizing: border-box;
+
   background: #fdfcfa;
+
   position: fixed;
   top: 100px;
   left: 0;
-  padding: 64px 16px 24px;
+
+  padding: 20px 16px 20px; /* extra top padding */
+
   display: flex;
   flex-direction: column;
   gap: 4px;
+
   border-radius: 0 22px 22px 0;
+
   box-shadow: 4px 0 24px rgba(20, 36, 71, 0.1);
-  overflow-y: auto;
+
+  overflow: hidden;
 
   transform: translateX(-100%);
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  transition:
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
   z-index: 1000;
 }
 
@@ -28,17 +43,30 @@
   transform: translateX(0);
 }
 
+/* =========================
+   BRAND
+========================= */
 .brand {
+  flex-shrink: 0;
+
   font-size: 15px;
   font-weight: bold;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+
   color: var(--gold);
-  padding: 0 14px 16px;
+
+  margin-top: 8px; /* align below hamburger */
+  padding: 0 0 16px 0;
   margin-bottom: 4px;
+  padding-left:50px;
+
   border-bottom: 1px solid rgba(20, 36, 71, 0.08);
 }
 
+/* =========================
+   NAVIGATION CONTAINER
+========================= */
 .navList {
   list-style: none;
   margin: 0;
@@ -46,8 +74,32 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(20, 36, 71, 0.2) transparent;
 }
 
+.navList::-webkit-scrollbar {
+  width: 5px;
+}
+.navList::-webkit-scrollbar-track {
+  background: transparent;
+}
+.navList::-webkit-scrollbar-thumb {
+  background: rgba(20, 36, 71, 0.2);
+  border-radius: 10px;
+}
+.navList::-webkit-scrollbar-thumb:hover {
+  background: rgba(20, 36, 71, 0.35);
+}
+
+/* =========================
+   NAV ITEMS ANIMATION
+========================= */
 .navList li {
   opacity: 0;
   animation: itemIn 0.35s ease forwards;
@@ -65,18 +117,28 @@
   }
 }
 
+/* =========================
+   MAIN NAV LINK / BUTTON
+========================= */
 .navLink {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
+  border: none;
   border-radius: 12px;
+  background: transparent;
   text-decoration: none;
   color: var(--navy);
+  font-family: inherit;
   font-size: 15px;
   font-weight: bold;
+  text-align: left;
   position: relative;
-  transition: background 0.2s ease, transform 0.15s ease;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background 0.2s ease, transform 0.15s ease, color 0.2s ease;
 }
 
 .navLink::before {
@@ -84,10 +146,10 @@
   position: absolute;
   left: -16px;
   top: 50%;
-  height: 0;
   width: 3px;
+  height: 0;
   background: var(--gold);
-  border-radius: 0;
+  border-radius: 0 3px 3px 0;
   transform: translateY(-50%);
   transition: height 0.2s ease;
 }
@@ -100,19 +162,8 @@
 .navLink.active {
   background: var(--gold-soft);
 }
-
 .navLink.active::before {
   height: 60%;
-}
-
-.navLink.active .icon {
-  color: var(--gold);
-  opacity: 1;
-}
-
-.navLink:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
 }
 
 .icon {
@@ -125,53 +176,151 @@
 .navLink:hover .icon {
   opacity: 1;
 }
+.navLink.active .icon {
+  color: var(--gold);
+  opacity: 1;
+}
 
-/* Menu button - animated hamburger that morphs into an X */
+.chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.65;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+.chevronOpen {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+
+.submenu {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  margin-left: 21px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(20, 36, 71, 0.12);
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
+}
+.submenuOpen {
+  max-height: 300px;
+  opacity: 1;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.submenuLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  margin-bottom: 2px;
+  border-radius: 9px;
+  text-decoration: none;
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+.submenuLink:hover {
+  background: var(--navy-soft);
+  transform: translateX(2px);
+}
+.submenuActive {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+.submenuDot {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.navLink:focus-visible,
+.submenuLink:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* =========================
+   MENU BUTTON (with visible bars)
+========================= */
 .menuBtn {
   position: fixed;
   top: 108px;
   left: 20px;
-  z-index: 1001;
+  z-index: 1002;
+
   width: 44px;
   height: 44px;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 5px;
+
   border: none;
   border-radius: 12px;
-  background: #fff;
+  background: #ffffff;
   box-shadow: 0 4px 14px rgba(20, 36, 71, 0.16);
   cursor: pointer;
-}
+  appearance: none;
 
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+.menuBtn:hover {
+  background: #f8faff;
+  box-shadow: 0 5px 16px rgba(20, 36, 71, 0.2);
+}
 .menuBtn:focus-visible {
-  outline: 2px solid #c9a14d;
+  outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
 
+/* ----- BARS (visible) ----- */
 .bar {
+  display: block;
   width: 20px;
-  height: 2px;
-  background: var(--navy, #142447);
+  height: 2.5px;
+  flex-shrink: 0;
+  background: var(--navy); /* dark navy */
   border-radius: 2px;
+  transform-origin: center;
   transition: transform 0.25s ease, opacity 0.2s ease;
 }
 
-.menuBtnOpen .bar:nth-child(1) {
+/* Closed state */
+.menuBtn:not(.menuBtnOpen) .bar:nth-child(1) {
+  transform: translateY(0) rotate(0);
+}
+.menuBtn:not(.menuBtnOpen) .bar:nth-child(2) {
+  opacity: 1;
+  transform: scaleX(1);
+}
+.menuBtn:not(.menuBtnOpen) .bar:nth-child(3) {
+  transform: translateY(0) rotate(0);
+}
+
+/* Open → X */
+.menuBtn.menuBtnOpen .bar:nth-child(1) {
   transform: translateY(7px) rotate(45deg);
 }
-
-.menuBtnOpen .bar:nth-child(2) {
+.menuBtn.menuBtnOpen .bar:nth-child(2) {
   opacity: 0;
+  transform: scaleX(0);
 }
-
-.menuBtnOpen .bar:nth-child(3) {
+.menuBtn.menuBtnOpen .bar:nth-child(3) {
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* Overlay dims the background and captures outside clicks on mobile */
+/* =========================
+   OVERLAY
+========================= */
 .overlay {
   position: fixed;
   inset: 0;
@@ -180,10 +329,37 @@
   z-index: 999;
 }
 
+/* =========================
+   RESPONSIVE
+========================= */
 @media (max-width: 640px) {
   .sidebar {
     width: 78vw;
+    max-width: 320px;
     border-radius: 0 18px 18px 0;
+    padding: 20px 14px 14px;
+  }
+  .menuBtn {
+    left: 14px;
+  }
+}
+
+@media (max-height: 700px) {
+  .sidebar {
+    padding-top: 16px;
+    padding-bottom: 12px;
+  }
+  .navLink {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+  .submenuLink {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+  .brand {
+    padding-bottom: 12px;
+    margin-top: 4px;
   }
 }
 
@@ -191,9 +367,14 @@
   .sidebar,
   .navLink,
   .bar,
-  .navList li {
+  .navList li,
+  .submenu,
+  .submenuLink,
+  .chevron {
     transition: none;
     animation: none;
+  }
+  .navList li {
     opacity: 1;
   }
 }

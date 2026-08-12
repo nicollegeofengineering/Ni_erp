@@ -10,11 +10,68 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const [error, setError] = useState("");
   const [errorTimeout, setErrorTimeout] = useState(5);
   const router = useRouter();
 
-  // Auto‑dismiss error after a few seconds
+  // ---------- Auto-login check ----------
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/me`,
+          { withCredentials: true }
+        );
+        if (response.data.status === "success") {
+          const user = response.data.user;
+          // Store user data in sessionStorage for other pages
+          sessionStorage.setItem("isLoggedIn", "true");
+          sessionStorage.setItem("role", user.role);
+          sessionStorage.setItem("userName", user.name);
+          if (user.profile_image) {
+            sessionStorage.setItem("profileImage", user.profile_image);
+          } else {
+            sessionStorage.setItem("profileImage", "/user.png");
+          }
+
+          // Redirect based on role
+          const role = user.role;
+          if (role === "Admin") router.push("/admin");
+          else if (role === "Student") router.push("/student");
+          else if (role === "Staff") router.push("/staff");
+          else if (role === "HOD") router.push("/hod");
+          else {
+            setLoadingAuth(false);
+          }
+        } else {
+          setLoadingAuth(false);
+        }
+      } catch (err) {
+        setLoadingAuth(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  // ---------- Token refresh ----------
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      try {
+        await axios.post(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/refresh-token`,
+          {},
+          { withCredentials: true }
+        );
+      } catch (err) {
+        console.log("Token refresh failed:", err);
+      }
+    }, 15 * 60 * 1000);
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // ---------- Auto-dismiss error ----------
   useEffect(() => {
     if (errorTimeout === 0) {
       setError("");
@@ -44,9 +101,15 @@ export default function Home() {
 
       const data = response.data;
       if (data.status === "success") {
+        // ✅ Store name, role, and profile image
         sessionStorage.setItem("isLoggedIn", "true");
         sessionStorage.setItem("role", data.role);
         sessionStorage.setItem("userName", data.name);
+        if (data.profile_image) {
+          sessionStorage.setItem("profileImage", data.profile_image);
+        } else {
+          sessionStorage.setItem("profileImage", "/user.png"); // fallback
+        }
 
         // Redirect based on role
         const role = data.role;
@@ -56,12 +119,9 @@ export default function Home() {
           router.push("/student");
         } else if (role === "Staff") {
           router.push("/staff");
-
-        }else if(role==="HOD"){
+        } else if (role === "HOD") {
           router.push("/hod");
-        } 
-        
-        else {
+        } else {
           setError("Unknown user role");
           setErrorTimeout(5);
           setLoading(false);
@@ -99,18 +159,19 @@ export default function Home() {
       }
       if (data.profile_image) {
         sessionStorage.setItem("profileImage", data.profile_image);
+      } else {
+        sessionStorage.setItem("profileImage", "/user.png");
       }
       if (data.status === "success") {
         sessionStorage.setItem("isLoggedIn", "true");
         sessionStorage.setItem("role", data.role);
+        sessionStorage.setItem("userName", data.name);
         const role = data.role;
-        if (role === "admin") {
-          router.push("/admin");
-        } else if (role === "student") {
-          router.push("/student");
-        } else if (role === "staff" || role === "hod") {
-          router.push("/staff");
-        } else {
+        if (role === "Admin") router.push("/admin");
+        else if (role === "Student") router.push("/student");
+        else if (role === "Staff") router.push("/staff");
+        else if (role === "HOD") router.push("/hod");
+        else {
           setError("Unknown user role");
           setErrorTimeout(5);
         }
@@ -130,6 +191,21 @@ export default function Home() {
     setLoading(false);
   };
 
+  // ---------- Loading state ----------
+  if (loadingAuth) {
+    return (
+      <>
+        <Header />
+        <div className={styles.wrapper}>
+          <div className={styles.card} style={{ textAlign: "center" }}>
+            <div className={styles.spinner} style={{ margin: "40px auto" }}></div>
+            <p>Checking session...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Header />
@@ -147,7 +223,6 @@ export default function Home() {
           </h1>
           <p className={styles.subtitle}>Sign in to your college portal</p>
 
-          {/* Login Form */}
           <div className={styles.form}>
             <label>College Email Address</label>
             <input
@@ -169,10 +244,7 @@ export default function Home() {
             />
 
             <div className={styles.forgotRow}>
-              <a
-                href="/forgot-password"
-                className={styles.forgotLink}
-              >
+              <a href="/forgot-password" className={styles.forgotLink}>
                 Forgot password?
               </a>
             </div>
@@ -189,7 +261,6 @@ export default function Home() {
               <span>or continue with</span>
             </div>
 
-            {/* Google Login Button */}
             <div className={styles.googleWrapper}>
               {loading ? (
                 <button className={styles.googleLoading} disabled>

@@ -11,6 +11,7 @@ const db = require("./config/db");
 const loginRoute = require("./routes/auth/login");
 const adminVerifyRoute = require("./routes/admin/admin_verify");
 const adminStaffRoute = require("./routes/admin/staff");
+const adminHallRoute = require("./routes/admin/hall");
 
 // ---------------- App
 const app = express();
@@ -37,6 +38,7 @@ app.use(
 app.use("/auth", loginRoute);
 app.use("/api", adminVerifyRoute);
 app.use("/api/admin/staff", adminStaffRoute);
+app.use("/api/admin/hall",adminHallRoute);
 
 app.use(
     "/uploads",

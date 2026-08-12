@@ -3,6 +3,7 @@ const router = express.Router();
 
 const OTP = require('../../models/OTP');
 const User = require('../../models/User');
+const Staff = require('../../models/Staff');          // 👈 added
 const PasswordReset = require("../../models/PasswordReset");
 const transporter = require("../../config/mailer");
 
@@ -11,16 +12,27 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require("google-auth-library");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const { loginLimiter,forgotPasswordLimiter,resetPasswordLimiter } = require('../../middleware/rateLimiter');
+const { loginLimiter, forgotPasswordLimiter, resetPasswordLimiter } = require('../../middleware/rateLimiter');
 
 require('dotenv').config();
 
 // Determine secure flag for cookies: enable only in production (HTTPS)
 const isProd = process.env.NODE_ENV === 'production';
 
-//Login route login is dont with users username and password and token genarated and set as cookies with 20min expairy
-//and if user uses the system continueously the token refresh automatically before 5 minutes of expairy 
-// and if user is inactive for 20 minutes the token will expire and user need to login again and
+// ---------- Helper: get profile image from Staff or User ----------
+const getProfileImage = async (user) => {
+    // If user role is Staff or HOD, try to fetch from Staff model
+    if (user.role === 'Staff' || user.role === 'HOD') {
+        const staff = await Staff.findOne({ staff_id: user.username }); // username = staff_id
+        if (staff && staff.photo_url) {
+            return staff.photo_url;
+        }
+    }
+    // Fallback: user's own profile_image
+    return user.profile_image || null;
+};
+
+// ---------- Login ----------
 router.post("/login", loginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -43,7 +55,6 @@ router.post("/login", loginLimiter, async (req, res) => {
             email: normalizedEmail
         });
 
-      
         if (!user) {
             return res.status(401).json({
                 message: "Invalid email or password"
@@ -57,6 +68,9 @@ router.post("/login", loginLimiter, async (req, res) => {
                 message: "Invalid email or password"
             });
         }
+
+        // Get profile image from Staff if applicable
+        const profileImage = await getProfileImage(user);
 
         const token = jwt.sign(
             {
@@ -81,7 +95,8 @@ router.post("/login", loginLimiter, async (req, res) => {
         return res.status(200).json({
             status: "success",
             role: user.role,
-            name: user.name
+            name: user.name,
+            profile_image: profileImage   // 👈 from Staff (or fallback)
         });
 
     } catch (error) {
@@ -92,105 +107,9 @@ router.post("/login", loginLimiter, async (req, res) => {
         });
     }
 });
-/*
-router.post("/create-user",loginLimiter, async (req, res) => {
-    try {
-        const {
-            email,
-            username,
-            password,
-            name,
-            role,
-            profile_image
-        } = req.body;
 
-        // Validate required fields
-        if (!email || !username || !password || !name || !role) {
-            return res.status(400).json({
-                message: "Email, username, password, name and role are required"
-            });
-        }
-
-        // Validate role
-        const allowedRoles = ["admin", "staff", "student", "hod"];
-
-        if (!allowedRoles.includes(role)) {
-            return res.status(400).json({
-                message: "Invalid role"
-            });
-        }
-
-        // Normalize values
-        const normalizedEmail = email.trim().toLowerCase();
-        const normalizedUsername = username.trim();
-
-        // Check existing email
-        const existingEmail = await User.findOne({
-            email: normalizedEmail
-        });
-
-        if (existingEmail) {
-            return res.status(409).json({
-                message: "Email already exists"
-            });
-        }
-
-        // Check existing username
-        const existingUsername = await User.findOne({
-            username: normalizedUsername
-        });
-
-        if (existingUsername) {
-            return res.status(409).json({
-                message: "Username already exists"
-            });
-        }
-
-        // Create user
-        const user = new User({
-            email: normalizedEmail,
-            username: normalizedUsername,
-            password: password,
-            name: name.trim(),
-            role: role,
-            profile_image: profile_image || null
-        });
-
-        // IMPORTANT:
-        // UserSchema.pre('save') automatically hashes password
-        await user.save();
-
-        return res.status(201).json({
-            status: "success",
-            message: "User created successfully",
-            user: {
-                id: user._id,
-                email: user.email,
-                username: user.username,
-                name: user.name,
-                role: user.role
-            }
-        });
-
-    } catch (error) {
-        console.error("Create user error:", error);
-
-        // Handle MongoDB duplicate key error
-        if (error.code === 11000) {
-            return res.status(409).json({
-                message: "Email or username already exists"
-            });
-        }
-
-        return res.status(500).json({
-            message: "Internal server error"
-        });
-    }
-});
-*/
-
-//---------------------------- Forgot Password and Reset Password Routes -----------------
-router.post("/forgot-password",forgotPasswordLimiter, async (req, res) => {
+// ---------- Forgot Password ----------
+router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
     try {
         const { email } = req.body;
 
@@ -206,7 +125,6 @@ router.post("/forgot-password",forgotPasswordLimiter, async (req, res) => {
             email: normalizedEmail
         });
 
-        
         if (!user) {
             return res.status(200).json({
                 message:
@@ -302,9 +220,7 @@ router.post("/forgot-password",forgotPasswordLimiter, async (req, res) => {
     }
 });
 
-//---------------------------- Reset Password Route -----------------
-
-
+// ---------- Reset Password ----------
 router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     try {
         const {
@@ -321,7 +237,6 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
             });
         }
 
-        // Basic password validation
         // Password validation
         if (password.length < 8) {
             return res.status(400).json({
@@ -339,31 +254,31 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
             return res.status(400).json({
                 message: "Password must not start or end with spaces"
             });
-    }
+        }
 
-    // Reject commonly used weak passwords
-    const commonPasswords = [
-        "password",
-        "password123",
-        "12345678",
-        "123456789",
-        "1234567890",
-        "qwerty123",
-        "qwertyui",
-        "admin123",
-        "admin1234",
-        "welcome123",
-        "letmein123",
-        "college123",
-        "student123",
-        "manush123"
-    ];
+        // Reject commonly used weak passwords
+        const commonPasswords = [
+            "password",
+            "password123",
+            "12345678",
+            "123456789",
+            "1234567890",
+            "qwerty123",
+            "qwertyui",
+            "admin123",
+            "admin1234",
+            "welcome123",
+            "letmein123",
+            "college123",
+            "student123",
+            "manush123"
+        ];
 
-    if (commonPasswords.includes(password.toLowerCase())) {
-        return res.status(400).json({
-            message: "This password is too common. Please choose a stronger password"
-        });
-    }
+        if (commonPasswords.includes(password.toLowerCase())) {
+            return res.status(400).json({
+                message: "This password is too common. Please choose a stronger password"
+            });
+        }
 
         // Hash token received from frontend
         const tokenHash = crypto
@@ -423,35 +338,40 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     }
 });
 
-
-// ---------- /verify_google  ----------
+// ---------- Google Login ----------
 router.post("/verify_google", async (req, res) => {
-  try {
-    const { token } = req.body;
-    if (!token) {
-      return res.status(400).json({ error: "Google token required" });
-    }
+    try {
+        const { token } = req.body;
+        if (!token) {
+            return res.status(400).json({ error: "Google token required" });
+        }
 
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-    const payload = ticket.getPayload();
-    const email = payload.email;
-    const image = payload.picture;
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+        const payload = ticket.getPayload();
+        const email = payload.email;
+        const googleImage = payload.picture;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(201).json({
-        message: "Email not registered. Contact admin."
-      });
-    }
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(201).json({
+                message: "Email not registered. Contact admin."
+            });
+        }
 
-    const jwtToken = jwt.sign(
-      { email,name: user.name,role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "20m" }
-    );
+        // Get profile image from Staff if applicable
+        const profileImage = await getProfileImage(user);
+
+        // If no Staff image, use the Google picture as fallback
+        const finalImage = profileImage || googleImage;
+
+        const jwtToken = jwt.sign(
+            { email, name: user.name, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: "20m" }
+        );
 
         res.cookie("ni_erp_token", jwtToken, {
             httpOnly: true,
@@ -461,52 +381,146 @@ router.post("/verify_google", async (req, res) => {
             path: "/"
         });
 
-    return res.json({
-      status: "success",
-      message: "Login success",
-      role: user.role,
-      profile_image: image
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(401).json({ error: "Invalid Google token" });
-  }
+        return res.json({
+            status: "success",
+            message: "Login success",
+            role: user.role,
+            name: user.name,
+            profile_image: finalImage   // 👈 Staff image if exists, otherwise Google image
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(401).json({ error: "Invalid Google token" });
+    }
 });
 
-
-// ---------- /logout (unchanged) ----------
+// ---------- Logout ----------
 router.post("/logout", (req, res) => {
-  try {
-    const token = req.cookies.ni_erp_token;
-    if (!token) {
-      return res.status(401).json({ error: "No token found", status: "failed" });
+    try {
+        const token = req.cookies.ni_erp_token;
+        if (!token) {
+            return res.status(401).json({ error: "No token found", status: "failed" });
+        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        res.clearCookie("ni_erp_token", {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: "lax",
+            path: "/"
+        });
+
+        return res.json({ message: "Logged out successfully", status: "success" });
+    } catch (err) {
+        console.error("Logout error:", err.message);
+        res.clearCookie("ni_erp_token", {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: "lax",
+            path: "/"
+        });
+        return res.status(401).json({
+            error: err.message || "Invalid token",
+            status: "failed"
+        });
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+});
 
+// ---------- Auto Login (/me) ----------
+router.get("/me", async (req, res) => {
+    try {
+        const token = req.cookies.ni_erp_token;
+        if (!token) {
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Get user details from DB
+        const user = await User.findById(decoded.id).select('email name role profile_image username');
+        if (!user) {
+            // Clear invalid cookie
+            res.clearCookie("ni_erp_token", {
+                httpOnly: true,
+                secure: isProd,
+                sameSite: "lax",
+                path: "/"
+            });
+            return res.status(401).json({ message: "User not found" });
+        }
+
+        // Get profile image from Staff if applicable
+        const profileImage = await getProfileImage(user);
+
+        return res.status(200).json({
+            status: "success",
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                profile_image: profileImage || user.profile_image
+            }
+        });
+    } catch (error) {
+        console.error("Auth check error:", error);
+        // Token invalid - clear cookie
         res.clearCookie("ni_erp_token", {
             httpOnly: true,
             secure: isProd,
             sameSite: "lax",
             path: "/"
         });
+        return res.status(401).json({ message: "Invalid token" });
+    }
+});
 
-    return res.json({ message: "Logged out successfully", status: "success" });
-  } catch (err) {
-    console.error("Logout error:", err.message);
+// ---------- Token Refresh ----------
+router.post("/refresh-token", async (req, res) => {
+    try {
+        const token = req.cookies.ni_erp_token;
+        if (!token) {
+            return res.status(401).json({ message: "No token" });
+        }
+
+        // Verify existing token (ignoring expiration)
+        const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
+
+        // Issue new token with fresh 20‑min expiry
+        const newToken = jwt.sign(
+            {
+                id: decoded.id,
+                email: decoded.email,
+                role: decoded.role
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "20m" }
+        );
+
+        // Set new cookie
+        res.cookie("ni_erp_token", newToken, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: "lax",
+            maxAge: 20 * 60 * 1000,
+            path: "/"
+        });
+
+        return res.status(200).json({
+            status: "success",
+            message: "Token refreshed"
+        });
+    } catch (error) {
+        console.error("Refresh token error:", error);
+        // Clear cookie on any error
         res.clearCookie("ni_erp_token", {
             httpOnly: true,
             secure: isProd,
             sameSite: "lax",
             path: "/"
         });
-    return res.status(401).json({
-      error: err.message || "Invalid token",
-      status: "failed"
-    });
-  }
+        return res.status(401).json({ message: "Invalid token" });
+    }
 });
 
 module.exports = router;
-
-
-
