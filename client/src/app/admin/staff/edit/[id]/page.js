@@ -427,13 +427,22 @@ export default function EditStaff() {
                 >
                   <option value="">Blood Group</option>
                   <option value="A+">A+</option>
-                  <option value="B+">B+</option>
-                  <option value="O+">O+</option>
-                  <option value="AB+">AB+</option>
                   <option value="A-">A-</option>
+                  <option value="B+">B+</option>
                   <option value="B-">B-</option>
-                  <option value="O-">O-</option>
+                  <option value="AB+">AB+</option>
                   <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                  <option value="A1+">A1+</option>
+                  <option value="A1-">A1-</option>
+                  <option value="A2+">A2+</option>
+                  <option value="A2-">A2-</option>
+                  <option value="A1B+">A1B+</option>
+                  <option value="A1B-">A1B-</option>
+                  <option value="A2B+">A2B+</option>
+                  <option value="A2B-">A2B-</option>
+                  
                 </select>
               </div>
             </div>
@@ -551,13 +560,14 @@ export default function EditStaff() {
                 <option value="CSE">Computer Science</option>
                 <option value="AI&DS">AI & DS</option>
                 <option value="IT">Information Technology</option>
-                <option value="ECE">ECE</option>
-                <option value="EEE">EEE</option>
+                <option value="ECE">Electronics & Communication</option>
+                <option value="EEE">Electrical & Electronics</option>
                 <option value="MECH">Mechanical</option>
                 <option value="CIVIL">Civil</option>
               </select>
             </div>
 
+            {/* ✅ Updated Designation options to match backend */}
             <div className={styles.fieldWrapper}>
               <span className={styles.fieldLabel}>Designation *</span>
               <select
@@ -569,16 +579,20 @@ export default function EditStaff() {
               >
                 <option value="">Select Designation</option>
                 <option value="Professor">Professor</option>
-                <option value="Associate Professor">Associate Professor</option>
                 <option value="Assistant Professor">Assistant Professor</option>
+                <option value="Associate Professor">Associate Professor</option>
+                <option value="Lecturer">Lecturer</option>
                 <option value="HOD">HOD</option>
                 <option value="Lab Assistant">Lab Assistant</option>
-                <option value="Office Staff">Office Staff</option>
+                <option value="Clerk">Clerk</option>
                 <option value="Accountant">Accountant</option>
-                <option value="Librarian">Librarian</option>
+                <option value="Manager">Manager</option>
+                <option value="Director">Director</option>
+                <option value="Principal">Principal</option>
               </select>
             </div>
 
+            {/* ✅ Updated Role Type options to match backend */}
             <div className={styles.fieldWrapper}>
               <span className={styles.fieldLabel}>Role Type *</span>
               <select
@@ -589,10 +603,11 @@ export default function EditStaff() {
                 required
               >
                 <option value="">Select Role Type</option>
-                <option value="Teaching">Teaching</option>
-                <option value="Non-Teaching">Non-Teaching</option>
-                <option value="Administrative">Administrative</option>
-                <option value="Management">Management</option>
+                <option value="Admin">Admin</option>
+                <option value="Hod">HOD</option>
+                <option value="Staff">Staff</option>
+                <option value="Student">Student</option>
+                <option value="Accountant">Accountant</option>
               </select>
             </div>
 
@@ -635,6 +650,7 @@ export default function EditStaff() {
               />
             </div>
 
+            {/* ✅ Updated Staff Status to match backend */}
             <div className={styles.fieldWrapper}>
               <span className={styles.fieldLabel}>Staff Status *</span>
               <select
@@ -647,8 +663,8 @@ export default function EditStaff() {
                 <option value="">Select Staff Status</option>
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
-                <option value="On Leave">On Leave</option>
-                <option value="Terminated">Terminated</option>
+                <option value="Resigned">Resigned</option>
+                <option value="Retired">Retired</option>
               </select>
             </div>
           </div>

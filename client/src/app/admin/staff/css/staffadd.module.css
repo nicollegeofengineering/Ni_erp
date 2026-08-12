@@ -256,7 +256,21 @@
     text-align: center;
     max-width: 80%;
 }
+.fieldWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
+.fieldLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
 /* --- Mobile Responsiveness --- */
 @media(max-width: 768px) {
     .container {

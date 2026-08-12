@@ -1,0 +1,186 @@
+/* ========== LAYOUT ========== */
+.wrapper {
+  min-height: 100vh;
+  background: #f5f7fb;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px 20px;
+}
+
+.card {
+  width: 400px;
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 28px;
+  box-shadow: 10px 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== TYPOGRAPHY ========== */
+.title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.subtitle {
+  margin-top: 8px;
+  color: #7c859a;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* ========== FORM ========== */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.form label {
+  font-size: 16px;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.darkInput {
+  background: #eaebec;
+  color: #000000;
+  border: none;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 16px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.darkInput::placeholder {
+  color: #9ca3af;
+}
+
+/* ========== BUTTONS ========== */
+.primaryBtn {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ========== BACK TO LOGIN ========== */
+.loginLink {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.loginLink a {
+  color: #2563eb;
+  font-size: 14px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.loginLink a:hover {
+  text-decoration: underline;
+}
+
+/* ========== SUCCESS ACTIONS ========== */
+.successActions {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+/* ========== ERROR TOAST ========== */
+.error {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  color: #b91c1c;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 999;
+  animation: slideDown 0.3s ease;
+}
+
+.errorIcon {
+  font-size: 18px;
+}
+
+.error button {
+  background: none;
+  border: none;
+  color: #b91c1c;
+  cursor: pointer;
+  font-size: 16px;
+  margin-left: 8px;
+}
+
+.error button:hover {
+  opacity: 0.7;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* ========== RESPONSIVE ========== */
+@media screen and (max-width: 500px) {
+  .card {
+    padding: 30px 20px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+  }
+
+  .darkInput {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .primaryBtn {
+    font-size: 14px;
+    padding: 12px;
+  }
+}

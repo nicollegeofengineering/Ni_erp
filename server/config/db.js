@@ -1,20 +1,48 @@
-const mysql=require('mysql2');
-require('dotenv').config();
+const mongoose = require("mongoose");
 
-const pool=mysql.createPool({
-    host:process.env.DB_HOST,
-    user:process.env.DB_USER,
-    password:process.env.DB_PASSWORD,
-    database:process.env.DB_NAME,
-    waitForConnections:true,
-    connectionLimit:10,
-})
+let cached = global._mongoose;
 
-pool.query('SELECT 1',(err,result)=>{
-    if(err){
-        console.error('Error connecting to the database:',err);
-    }else{
-        console.log('Database connection successful');
+if (!cached) {
+    cached = global._mongoose = {
+        conn: null,
+        promise: null
+    };
+}
+
+async function connectDB() {
+    // Already connected
+    if (cached.conn) {
+        return cached.conn;
     }
-});
-module.exports=pool.promise();
+
+    // Connection not started yet
+    if (!cached.promise) {
+        mongoose.set("bufferCommands", false);
+
+        cached.promise = mongoose
+            .connect(process.env.MONGO_URI, {
+                dbName: "TEST_ERP"
+            })
+            .then((m) => {
+                console.log("Connected to MongoDB - database: TEST");
+                return m;
+            });
+    }
+
+    try {
+        cached.conn = await cached.promise;
+    } catch (err) {
+        cached.promise = null;
+
+        console.error(
+            "MongoDB connection failed:",
+            err.message
+        );
+
+        throw err;
+    }
+
+    return cached.conn;
+}
+
+module.exports = connectDB;

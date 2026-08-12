@@ -1,10 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../../config/db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const Staff = require('../../models/Staff');
+const User = require('../../models/User');
+
+// ----- Multer Configuration -----
 const uploadDir = path.resolve(__dirname, "../../uploads/staff");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -28,12 +31,11 @@ const upload = multer({
   },
 });
 
-// Helper function to convert empty strings to null
+// ----- Helper Functions -----
 const nullIfEmpty = (value) => {
   return (value && value.trim() !== '') ? value : null;
 };
 
-// Helper function to delete uploaded image
 const deleteUploadedImage = (filename) => {
   if (!filename) return;
   const filePath = path.join(uploadDir, filename);
@@ -47,11 +49,28 @@ const deleteUploadedImage = (filename) => {
   }
 };
 
-// ----------------------
-// POST /add
-// ----------------------
+// ----- Validation Constants (shared) -----
+const nameRegex = /^[A-Za-z ]+$/;
+const phoneRegex = /^\d{10}$/;
+const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+const validGender = ["Male", "Female", "Other"];
+const validEmploymentType = ["FullTime", "PartTime", "Contract", "Temporary"];
+const validStaffStatus = ["Active", "Inactive", "Resigned", "Retired"];
+const validRoleType = ["Admin", "Hod", "Staff", "Student", "Accountant"];
+const validDesignation = [
+  "Professor", "Assistant Professor", "Associate Professor",
+  "Lecturer", "Lab Assistant", "Clerk", "Accountant",
+  "Manager", "Director", "Principal", "HOD"
+];
+const validBloodGroup = [
+  'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-',
+  'O+', 'O-', 'A1+', 'A1-', 'A2+', 'A2-',
+  'A1B+', 'A1B-', 'A2B+', 'A2B-'
+];
+const validMaritalStatus = ["Single", "Married", "Divorced", "Widowed"];
+
+// ----- POST /add -----
 router.post('/add', upload.single('photo'), async (req, res) => {
-  const connection = await db.getConnection();
   let uploadedFileName = null;
   
   try {
@@ -86,18 +105,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       ifsc_code, branch_name, salary, blood_group, marital_status
     } = staffData;
 
-    // ----- Validation Regex Patterns -----
-    const nameRegex = /^[A-Za-z ]+$/;
-    const phoneRegex = /^\d{10}$/;
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
-    const validGender = ["Male", "Female", "Other"];
-    const validEmploymentType = ["FullTime", "PartTime", "Contract", "Temporary"];
-    const validStaffStatus = ["Active", "Inactive", "Resigned", "Retired"]; // unified
-    const validRoleType = ["Teaching", "Non-Teaching", "Administrative", "Management"];
-    const validBloodGroup = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
-    const validMaritalStatus = ["Single", "Married", "Divorced", "Widowed"];
-
-    // ----- Required Fields Validation -----
+    // ----- Required Fields -----
     if (!staff_id?.trim()) return sendError("Staff ID is required");
     if (!prefix?.trim()) return sendError("Prefix is required");
     if (!req.file) return sendError("Photo is required");
@@ -112,119 +120,86 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (!joining_date) return sendError("Joining date is required");
     if (!staff_status) return sendError("Staff status is required");
 
-    // ----- Name Validation -----
+    // ----- Field-specific Validations -----
     if (!nameRegex.test(first_name)) return sendError("Invalid first name");
     if (!nameRegex.test(last_name)) return sendError("Invalid last name");
-
-    // ----- Gender Validation -----
     if (!validGender.includes(gender)) return sendError("Invalid gender");
-
-    // ----- Phone Validation -----
     if (!phoneRegex.test(phone_number)) return sendError("Invalid phone number (must be 10 digits)");
     if (emergency_contact_number && !phoneRegex.test(emergency_contact_number))
       return sendError("Invalid emergency contact number (must be 10 digits)");
-
-    // ----- Email Validation -----
     if (!emailRegex.test(email)) return sendError("Invalid email address");
-
-    // ----- Role Type Validation -----
     if (!validRoleType.includes(role_type)) return sendError("Invalid role type");
-
-    // ----- Employment Type Validation -----
+    if (!validDesignation.includes(designation)) return sendError("Invalid designation");
     if (employment_type && !validEmploymentType.includes(employment_type))
       return sendError("Invalid employment type");
-
-    // ----- Staff Status Validation -----
     if (!validStaffStatus.includes(staff_status)) return sendError("Invalid staff status");
-
-    // ----- Address Fields Validation -----
     if (address && address.trim().length < 5) return sendError("Address must be at least 5 characters");
     if (city && !nameRegex.test(city)) return sendError("Invalid city (letters and spaces only)");
     if (state && !nameRegex.test(state)) return sendError("Invalid state (letters and spaces only)");
     if (pincode && !/^\d{6}$/.test(pincode)) return sendError("Invalid pincode (must be 6 digits)");
     if (emergency_contact_name && !nameRegex.test(emergency_contact_name))
       return sendError("Invalid emergency contact name");
-
-    // ----- Date of Birth Validation -----
     if (date_of_birth && new Date(date_of_birth) > new Date())
       return sendError("Date of birth cannot be in future");
     if (date_of_birth && new Date(date_of_birth).getFullYear() < 1940)
       return sendError("Invalid date of birth");
-
-    // ----- Joining Date Validation -----
     if (new Date(joining_date) > new Date())
       return sendError("Joining date cannot be in future");
-
-    // ----- Experience Years Validation -----
     if (experience_years) {
       const expNum = Number(experience_years);
       if (isNaN(expNum) || expNum < 0 || expNum > 70) {
         return sendError("Experience years must be a number between 0 and 70");
       }
     }
-
-    // ----- Aadhar Validation -----
     if (aadhar_number && !/^\d{12}$/.test(aadhar_number))
       return sendError("Aadhar must contain 12 digits");
-
-    // ----- PAN Validation -----
     if (pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan_number))
       return sendError("Invalid PAN number format");
-
-    // ----- Bank Fields Validation -----
     if (bank_name && bank_name.trim().length < 2)
       return sendError("Bank name must be at least 2 characters");
     if (account_number && !/^\d{9,18}$/.test(account_number))
       return sendError("Invalid account number (9-18 digits)");
     if (branch_name && branch_name.trim().length < 2)
       return sendError("Branch name must be at least 2 characters");
-
-    // ----- Salary Validation -----
     if (salary) {
       const salaryNum = Number(salary);
       if (isNaN(salaryNum) || salaryNum < 0 || salaryNum > 10000000) {
         return sendError("Salary must be between 0 and 10,000,000");
       }
     }
-
-    // ----- Education Fields Validation (optional) -----
     if (highest_qualification && highest_qualification.trim().length < 2)
       return sendError("Qualification must be at least 2 characters");
     if (specialization && specialization.trim().length < 2)
       return sendError("Specialization must be at least 2 characters");
-
-    // ----- Blood Group Validation -----
     if (blood_group && !validBloodGroup.includes(blood_group))
       return sendError("Invalid blood group");
-
-    // ----- Marital Status Validation -----
     if (marital_status && !validMaritalStatus.includes(marital_status))
       return sendError("Invalid marital status");
 
-    // ----- Clean Data -----
-    const cleanData = {
-      staff_id: nullIfEmpty(staff_id),
-      prefix: nullIfEmpty(prefix),
-      photo_url: photo_url,
-      first_name: nullIfEmpty(first_name),
-      last_name: nullIfEmpty(last_name),
-      gender: nullIfEmpty(gender),
-      date_of_birth: nullIfEmpty(date_of_birth),
-      phone_number: nullIfEmpty(phone_number),
-      email: nullIfEmpty(email),
+    // ----- Build Staff Document -----
+    const staffDoc = {
+      staff_id: staff_id.trim(),
+      prefix: prefix.trim(),
+      photo_url,
+      first_name: first_name.trim(),
+      last_name: last_name.trim(),
+      gender,
+      date_of_birth: date_of_birth || null,
+      phone_number: phone_number.trim(),
+      email: email.trim().toLowerCase(),
       address: nullIfEmpty(address),
       city: nullIfEmpty(city),
       state: nullIfEmpty(state),
       pincode: nullIfEmpty(pincode),
       emergency_contact_name: nullIfEmpty(emergency_contact_name),
       emergency_contact_number: nullIfEmpty(emergency_contact_number),
-      department_code: nullIfEmpty(department_code),
-      designation: nullIfEmpty(designation),
-      role_type: nullIfEmpty(role_type),
+      department_code: department_code.trim(),
+      designation: designation.trim(),
+      role_type,
       employment_type: nullIfEmpty(employment_type),
-      joining_date: nullIfEmpty(joining_date),
+      joining_date: joining_date,
       experience_years: experience_years ? Number(experience_years) : null,
-      staff_status: nullIfEmpty(staff_status),
+      staff_status,
       highest_qualification: nullIfEmpty(highest_qualification),
       specialization: nullIfEmpty(specialization),
       university: nullIfEmpty(university),
@@ -240,106 +215,63 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       marital_status: nullIfEmpty(marital_status)
     };
 
-    // ----- Check for Duplicates in Staff Table -----
-    const [existingStaff] = await connection.query(
-      `SELECT * FROM staff WHERE staff_id = ? OR email = ? OR phone_number = ?`,
-      [cleanData.staff_id, cleanData.email, cleanData.phone_number]
-    );
-    if (existingStaff.length > 0) {
+    // ----- Check Duplicates in Staff -----
+    const existingStaff = await Staff.findOne({
+      $or: [
+        { staff_id: staffDoc.staff_id },
+        { email: staffDoc.email },
+        { phone_number: staffDoc.phone_number }
+      ]
+    });
+    if (existingStaff) {
       return sendError("Staff with the same ID, email, or phone already exists");
     }
 
-    if (cleanData.aadhar_number) {
-      const [existingAadhar] = await connection.query(
-        `SELECT * FROM staff WHERE aadhar_number = ?`,
-        [cleanData.aadhar_number]
-      );
-      if (existingAadhar.length > 0) {
+    if (staffDoc.aadhar_number) {
+      const existingAadhar = await Staff.findOne({ aadhar_number: staffDoc.aadhar_number });
+      if (existingAadhar) {
         return sendError("Staff with the same Aadhar number already exists");
       }
     }
-
-    if (cleanData.pan_number) {
-      const [existingPan] = await connection.query(
-        `SELECT * FROM staff WHERE pan_number = ?`,
-        [cleanData.pan_number]
-      );
-      if (existingPan.length > 0) {
+    if (staffDoc.pan_number) {
+      const existingPan = await Staff.findOne({ pan_number: staffDoc.pan_number });
+      if (existingPan) {
         return sendError("Staff with the same PAN number already exists");
       }
     }
 
-    // ----- Check for Duplicates in Users Table -----
-    const [existingUser] = await connection.query(
-      `SELECT * FROM users WHERE username = ? OR email = ?`,
-      [cleanData.staff_id, cleanData.email]
-    );
-    if (existingUser.length > 0) {
+    // ----- Check Duplicates in Users -----
+    const existingUser = await User.findOne({
+      $or: [
+        { username: staffDoc.staff_id },
+        { email: staffDoc.email }
+      ]
+    });
+    if (existingUser) {
       return sendError("Username or email already in use");
     }
 
-    // ----- Insert into Staff Table (now with university & passing_year) -----
-    const staffQuery = `
-      INSERT INTO staff (
-        staff_id, prefix, photo_url, first_name, last_name, gender,
-        date_of_birth, phone_number, email, address, city, state,
-        pincode, emergency_contact_name, emergency_contact_number,
-        department_code, designation, role_type, employment_type,
-        joining_date, experience_years, staff_status,
-        highest_qualification, specialization, university, passing_year,
-        aadhar_number, pan_number,
-        bank_name, bank_account_number, ifsc_code, branch_name,
-        salary, blood_group, marital_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+    // ----- Create Staff -----
+    const newStaff = new Staff(staffDoc);
+    await newStaff.save();
 
-    await connection.beginTransaction();
+    // ----- Create User with default password -----
+    const defaultPassword = "Staff@123";
+    // Map incoming role to one of the User model's enum values (case-insensitive)
+    const normalizedInput = (staffDoc.role_type || '').toString().trim().toLowerCase();
+    const allowedUserRoles = (User.schema && User.schema.path('role') && User.schema.path('role').enumValues) || [];
+    let userRole = allowedUserRoles.find(r => r.toLowerCase() === normalizedInput);
+    if (!userRole) userRole = allowedUserRoles.length ? allowedUserRoles[0] : 'Staff';
 
-    await connection.query(staffQuery, [
-      cleanData.staff_id,
-      cleanData.prefix,
-      cleanData.photo_url,
-      cleanData.first_name,
-      cleanData.last_name,
-      cleanData.gender,
-      cleanData.date_of_birth,
-      cleanData.phone_number,
-      cleanData.email,
-      cleanData.address,
-      cleanData.city,
-      cleanData.state,
-      cleanData.pincode,
-      cleanData.emergency_contact_name,
-      cleanData.emergency_contact_number,
-      cleanData.department_code,
-      cleanData.designation,
-      cleanData.role_type,
-      cleanData.employment_type,
-      cleanData.joining_date,
-      cleanData.experience_years,
-      cleanData.staff_status,
-      cleanData.highest_qualification,
-      cleanData.specialization,
-      cleanData.university,
-      cleanData.passing_year,
-      cleanData.aadhar_number,
-      cleanData.pan_number,
-      cleanData.bank_name,
-      cleanData.bank_account_number,
-      cleanData.ifsc_code,
-      cleanData.branch_name,
-      cleanData.salary,
-      cleanData.blood_group,
-      cleanData.marital_status
-    ]);
-
-    // Insert into users
-    await connection.query(
-      `INSERT INTO users (username, email, role) VALUES (?, ?, ?)`,
-      [cleanData.staff_id, cleanData.email, cleanData.role_type]
-    );
-
-    await connection.commit();
+    const newUser = new User({
+      username: staffDoc.staff_id,
+      email: staffDoc.email,
+      password: defaultPassword,
+      name: `${staffDoc.prefix} ${staffDoc.first_name} ${staffDoc.last_name}`.trim(),
+      role: userRole,
+      profile_image: staffDoc.photo_url
+    });
+    await newUser.save();
 
     res.status(201).json({
       success: true,
@@ -349,25 +281,19 @@ router.post('/add', upload.single('photo'), async (req, res) => {
 
   } catch (error) {
     console.error("Error adding staff:", error);
-    await connection.rollback();
     if (uploadedFileName) {
       deleteUploadedImage(uploadedFileName);
     }
     res.status(500).json({
+      success: false,
       message: "Internal Server Error",
       error: error.message
     });
-  } finally {
-    connection.release();
   }
 });
 
-// ----------------------
-// GET / (list)
-// ----------------------
+// ----- GET / (List) -----
 router.get('/', async (req, res) => {
-  const connection = await db.getConnection();
-  
   try {
     const {
       page = 1,
@@ -379,89 +305,110 @@ router.get('/', async (req, res) => {
       category = ''
     } = req.query;
 
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const offset = (pageNum - 1) * limitNum;
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const skip = (pageNum - 1) * limitNum;
 
-    let baseQuery = `
-      SELECT 
-        staff_id,
-        CONCAT(prefix, ' ', first_name, ' ', last_name) AS name,
-        staff_id AS staff_code,
-        department_code AS department,
-        designation,
-        role_type AS category,
-        email,
-        phone_number AS phone,
-        staff_status AS status,
-        employment_type AS type,
-        joining_date,
-        photo_url
-      FROM staff
-      WHERE 1=1
-    `;
-
-    const conditions = [];
-    const params = [];
+    // Build filter
+    const filter = {};
 
     if (search && search.trim() !== '') {
-      const searchTerm = `%${search.trim()}%`;
-      conditions.push(`
-        (staff_id LIKE ? OR 
-         CONCAT(first_name, ' ', last_name) LIKE ? OR 
-         email LIKE ?)
-      `);
-      params.push(searchTerm, searchTerm, searchTerm);
+      const searchRegex = new RegExp(search.trim(), 'i');
+      filter.$or = [
+        { staff_id: searchRegex },
+        { first_name: searchRegex },
+        { last_name: searchRegex },
+        { email: searchRegex }
+      ];
     }
 
     if (department && department.trim() !== '') {
-      conditions.push(`department_code = ?`);
-      params.push(department.trim());
+      filter.department_code = department.trim();
     }
-
     if (designation && designation.trim() !== '') {
-      conditions.push(`designation = ?`);
-      params.push(designation.trim());
+      filter.designation = designation.trim();
     }
-
     if (status && status.trim() !== '') {
-      conditions.push(`staff_status = ?`);
-      params.push(status.trim());
+      filter.staff_status = status.trim();
     }
-
     if (category && category.trim() !== '') {
-      conditions.push(`role_type = ?`);
-      params.push(category.trim());
+      filter.role_type = category.trim();
     }
 
-    if (conditions.length > 0) {
-      baseQuery += ` AND ${conditions.join(' AND ')}`;
-    }
+    // Count total matching
+    const totalItems = await Staff.countDocuments(filter);
 
-    const countQuery = `SELECT COUNT(*) AS total FROM (${baseQuery}) AS filtered`;
-    const [countResult] = await connection.query(countQuery, params);
-    const totalItems = countResult[0]?.total || 0;
+    // Fetch staff with pagination
+    const staffList = await Staff.find(filter)
+      .select({
+        staff_id: 1,
+        first_name: 1,
+        last_name: 1,
+        prefix: 1,
+        department_code: 1,
+        designation: 1,
+        role_type: 1,
+        email: 1,
+        phone_number: 1,
+        staff_status: 1,
+        employment_type: 1,
+        joining_date: 1,
+        photo_url: 1,
+        _id: 0
+      })
+      .sort({ staff_id: 1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
 
-    const finalQuery = `
-      ${baseQuery}
-      ORDER BY staff_id ASC
-      LIMIT ? OFFSET ?
-    `;
+    // Format staff list
+    const formattedStaff = staffList.map(staff => ({
+      id: staff.staff_id,
+      image: staff.photo_url || null,
+      name: `${staff.prefix || ''} ${staff.first_name || ''} ${staff.last_name || ''}`.trim(),
+      staffCode: staff.staff_id,
+      department: staff.department_code || '',
+      designation: staff.designation || '',
+      category: staff.role_type || '',
+      email: staff.email || '',
+      phone: staff.phone_number || '',
+      status: staff.staff_status || 'Inactive',
+      type: staff.employment_type || '',
+      joiningDate: staff.joining_date || ''
+    }));
 
-    const queryParams = [...params, limitNum, offset];
-    const [staffList] = await connection.query(finalQuery, queryParams);
+    // ----- Stats Aggregation -----
+    const statsResult = await Staff.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          totalStaff: { $sum: 1 },
+          activeStaff: {
+            $sum: { $cond: [{ $eq: ['$staff_status', 'Active'] }, 1, 0] }
+          },
+          teachingStaff: {
+            $sum: {
+              $cond: [
+                { $in: ['$designation', ['Professor', 'Assistant Professor', 'Associate Professor', 'Lecturer', 'HOD']] },
+                1,
+                0
+              ]
+            }
+          },
+          nonTeachingStaff: {
+            $sum: {
+              $cond: [
+                { $in: ['$designation', ['Lab Assistant', 'Clerk', 'Accountant', 'Manager', 'Director']] },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
 
-    const statsQuery = `
-      SELECT 
-        COUNT(*) AS totalStaff,
-        SUM(CASE WHEN staff_status = 'Active' THEN 1 ELSE 0 END) AS activeStaff,
-        SUM(CASE WHEN role_type = 'Teaching' THEN 1 ELSE 0 END) AS teachingStaff,
-        SUM(CASE WHEN role_type = 'Non-Teaching' THEN 1 ELSE 0 END) AS nonTeachingStaff
-      FROM staff
-      WHERE 1=1 ${conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''}
-    `;
-
-    const [statsResult] = await connection.query(statsQuery, params);
     const stats = statsResult[0] || {
       totalStaff: 0,
       activeStaff: 0,
@@ -469,52 +416,29 @@ router.get('/', async (req, res) => {
       nonTeachingStaff: 0
     };
 
-    const [departments] = await connection.query(`
-      SELECT DISTINCT department_code 
-      FROM staff 
-      WHERE department_code IS NOT NULL AND department_code != ''
-      ORDER BY department_code ASC
-    `);
-    const departmentList = departments.map(d => d.department_code);
-
-    const [designations] = await connection.query(`
-      SELECT DISTINCT designation 
-      FROM staff 
-      WHERE designation IS NOT NULL AND designation != ''
-      ORDER BY designation ASC
-    `);
-    const designationList = designations.map(d => d.designation);
+    // ----- Distinct departments and designations -----
+    const departmentList = await Staff.distinct('department_code', {
+      department_code: { $ne: null }
+    });
+    const designationList = await Staff.distinct('designation', {
+      designation: { $ne: null }
+    });
 
     const totalPages = Math.ceil(totalItems / limitNum);
-    const startIndex = offset + 1;
-    const endIndex = Math.min(offset + limitNum, totalItems);
-
-    const formattedStaffList = staffList.map(staff => ({
-      id: staff.staff_id,
-      image: staff.photo_url || null,
-      name: staff.name || '',
-      staffCode: staff.staff_code || '',
-      department: staff.department || '',
-      designation: staff.designation || '',
-      category: staff.category || '',
-      email: staff.email || '',
-      phone: staff.phone || '',
-      status: staff.status || 'Inactive',
-      type: staff.type || '',
-      joiningDate: staff.joining_date || ''
-    }));
+    const startIndex = skip + 1;
+    const endIndex = Math.min(skip + limitNum, totalItems);
 
     res.status(200).json({
       success: true,
       data: {
-        staff: formattedStaffList,
+        staff: formattedStaff,
         pagination: {
           currentPage: pageNum,
-          totalPages: totalPages,
-          totalItems: totalItems,
+          totalPages,
+          totalItems,
           itemsPerPage: limitNum,
-          startIndex: startIndex,
-          endIndex: endIndex
+          startIndex,
+          endIndex
         },
         stats: {
           totalStaff: stats.totalStaff || 0,
@@ -523,8 +447,8 @@ router.get('/', async (req, res) => {
           nonTeachingStaff: stats.nonTeachingStaff || 0
         },
         filters: {
-          departments: departmentList,
-          designations: designationList
+          departments: departmentList.filter(d => d),
+          designations: designationList.filter(d => d)
         }
       }
     });
@@ -536,20 +460,13 @@ router.get('/', async (req, res) => {
       message: 'Internal Server Error',
       error: error.message
     });
-  } finally {
-    connection.release();
   }
 });
 
-// ----------------------
-// GET /:id
-// ----------------------
+// ----- GET /:id -----
 router.get('/:id', async (req, res) => {
-  const connection = await db.getConnection();
-  
   try {
     const { id } = req.params;
-
     if (!id) {
       return res.status(400).json({
         success: false,
@@ -557,59 +474,36 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    const query = `
-      SELECT 
-        staff_id,
-        prefix,
-        first_name,
-        last_name,
-        gender,
-        date_of_birth,
-        phone_number,
-        email,
-        address,
-        city,
-        state,
-        pincode,
-        emergency_contact_name,
-        emergency_contact_number,
-        department_code,
-        designation,
-        role_type,
-        employment_type,
-        joining_date,
-        experience_years,
-        staff_status,
-        highest_qualification,
-        specialization,
-        university,
-        passing_year,
-        aadhar_number,
-        pan_number,
-        bank_name,
-        bank_account_number,
-        ifsc_code,
-        branch_name,
-        salary,
-        blood_group,
-        marital_status,
-        photo_url,
-        created_at,
-        updated_at
-      FROM staff
-      WHERE staff_id = ?
-    `;
-
-    const [staffResult] = await connection.query(query, [id]);
-
-    if (staffResult.length === 0) {
+    const staff = await Staff.findOne({ staff_id: id }).lean();
+    if (!staff) {
       return res.status(404).json({
         success: false,
         message: 'Staff member not found'
       });
     }
 
-    const staff = staffResult[0];
+    // Format helpers
+    const formatDate = (date) => {
+      if (!date) return '';
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const formatSalary = (salary) => {
+      if (!salary) return '';
+      const num = parseFloat(salary);
+      if (isNaN(num)) return '';
+      if (num >= 10000000) {
+        return `₹${(num / 10000000).toFixed(1)} Crore / Year`;
+      } else if (num >= 100000) {
+        return `₹${(num / 100000).toFixed(1)} Lakh / Year`;
+      } else {
+        return `₹${num.toLocaleString()} / Year`;
+      }
+    };
 
     const staffDetails = {
       staff_id: staff.staff_id,
@@ -637,13 +531,13 @@ router.get('/:id', async (req, res) => {
       specialization: staff.specialization || '',
       university: staff.university || '',
       passing_year: staff.passing_year || '',
-      aadhar_number: staff.aadhar_number,
+      aadhar_number: staff.aadhar_number || '',
       pan_number: staff.pan_number || '',
       bank_name: staff.bank_name || '',
-      account_number: staff.bank_account_number,
+      account_number: staff.bank_account_number || '',
       ifsc_code: staff.ifsc_code || '',
       branch_name: staff.branch_name || '',
-      salary: staff.salary ? formatSalary(staff.salary) : '',
+      salary: formatSalary(staff.salary),
       blood_group: staff.blood_group || '',
       marital_status: staff.marital_status || '',
       profile_image: staff.photo_url || '/user.png',
@@ -662,39 +556,11 @@ router.get('/:id', async (req, res) => {
       message: 'Internal Server Error',
       error: error.message
     });
-  } finally {
-    connection.release();
   }
 });
 
-// Helper functions
-const formatDate = (date) => {
-  if (!date) return '';
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const formatSalary = (salary) => {
-  if (!salary) return '';
-  const num = parseFloat(salary);
-  if (isNaN(num)) return '';
-  if (num >= 10000000) {
-    return `₹${(num / 10000000).toFixed(1)} Crore / Year`;
-  } else if (num >= 100000) {
-    return `₹${(num / 100000).toFixed(1)} Lakh / Year`;
-  } else {
-    return `₹${num.toLocaleString()} / Year`;
-  }
-};
-
-// ----------------------
-// PUT /:id
-// ----------------------
+// ----- PUT /:id -----
 router.put('/:id', upload.single('photo'), async (req, res) => {
-  const connection = await db.getConnection();
   let uploadedFileName = null;
   
   try {
@@ -712,17 +578,13 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       return res.status(statusCode).json({ emessage: message });
     };
 
-    // Check if staff exists
-    const [existingStaff] = await connection.query(
-      'SELECT * FROM staff WHERE staff_id = ?',
-      [id]
-    );
-    
-    if (existingStaff.length === 0) {
+    // Find existing staff
+    const existingStaff = await Staff.findOne({ staff_id: id });
+    if (!existingStaff) {
       return sendError('Staff member not found', 404);
     }
 
-    const photo_url = req.file ? `/uploads/staff/${req.file.filename}` : existingStaff[0].photo_url;
+    const photo_url = req.file ? `/uploads/staff/${req.file.filename}` : existingStaff.photo_url;
 
     const {
       prefix, first_name, last_name, gender, date_of_birth,
@@ -735,18 +597,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       ifsc_code, branch_name, salary, blood_group, marital_status
     } = staffData;
 
-    // ----- Validation -----
-    const nameRegex = /^[A-Za-z ]+$/;
-    const phoneRegex = /^\d{10}$/;
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
-    const validGender = ["Male", "Female", "Other"];
-    const validEmploymentType = ["FullTime", "PartTime", "Contract", "Temporary"];
-    const validStaffStatus = ["Active", "Inactive", "Resigned", "Retired"]; // unified
-    const validRoleType = ["Teaching", "Non-Teaching", "Administrative", "Management"];
-    const validBloodGroup = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
-    const validMaritalStatus = ["Single", "Married", "Divorced", "Widowed"];
-
-    // Required fields (university & passing_year are now optional)
+    // ----- Validation (same as POST) -----
     if (!prefix?.trim()) return sendError("Prefix is required");
     if (!first_name?.trim()) return sendError("First name is required");
     if (!last_name?.trim()) return sendError("Last name is required");
@@ -759,118 +610,84 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (!joining_date) return sendError("Joining date is required");
     if (!staff_status) return sendError("Staff status is required");
 
-    // Name Validation
     if (!nameRegex.test(first_name)) return sendError("Invalid first name");
     if (!nameRegex.test(last_name)) return sendError("Invalid last name");
-
-    // Gender
     if (!validGender.includes(gender)) return sendError("Invalid gender");
-
-    // Phone
     if (!phoneRegex.test(phone_number)) return sendError("Invalid phone number (must be 10 digits)");
     if (emergency_contact_number && !phoneRegex.test(emergency_contact_number))
       return sendError("Invalid emergency contact number (must be 10 digits)");
-
-    // Email
     if (!emailRegex.test(email)) return sendError("Invalid email address");
-
-    // Role Type
     if (!validRoleType.includes(role_type)) return sendError("Invalid role type");
-
-    // Employment Type
+    if (!validDesignation.includes(designation)) return sendError("Invalid designation");
     if (employment_type && !validEmploymentType.includes(employment_type))
       return sendError("Invalid employment type");
-
-    // Staff Status
     if (!validStaffStatus.includes(staff_status)) return sendError("Invalid staff status");
-
-    // Address fields
     if (address && address.trim().length < 5) return sendError("Address must be at least 5 characters");
     if (city && !nameRegex.test(city)) return sendError("Invalid city (letters and spaces only)");
     if (state && !nameRegex.test(state)) return sendError("Invalid state (letters and spaces only)");
     if (pincode && !/^\d{6}$/.test(pincode)) return sendError("Invalid pincode (must be 6 digits)");
     if (emergency_contact_name && !nameRegex.test(emergency_contact_name))
       return sendError("Invalid emergency contact name");
-
-    // Date of Birth
     if (date_of_birth && new Date(date_of_birth) > new Date())
       return sendError("Date of birth cannot be in future");
     if (date_of_birth && new Date(date_of_birth).getFullYear() < 1940)
       return sendError("Invalid date of birth");
-
-    // Joining Date
     if (new Date(joining_date) > new Date())
       return sendError("Joining date cannot be in future");
-
-    // Experience Years
     if (experience_years) {
       const expNum = Number(experience_years);
       if (isNaN(expNum) || expNum < 0 || expNum > 70) {
         return sendError("Experience years must be a number between 0 and 70");
       }
     }
-
-    // Aadhar
     if (aadhar_number && !/^\d{12}$/.test(aadhar_number))
       return sendError("Aadhar must contain 12 digits");
-
-    // PAN
     if (pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan_number))
       return sendError("Invalid PAN number format");
-
-    // Bank fields
     if (bank_name && bank_name.trim().length < 2)
       return sendError("Bank name must be at least 2 characters");
     if (account_number && !/^\d{9,18}$/.test(account_number))
       return sendError("Invalid account number (9-18 digits)");
     if (branch_name && branch_name.trim().length < 2)
       return sendError("Branch name must be at least 2 characters");
-
-    // Salary
     if (salary) {
       const salaryNum = Number(salary);
       if (isNaN(salaryNum) || salaryNum < 0 || salaryNum > 10000000) {
         return sendError("Salary must be between 0 and 10,000,000");
       }
     }
-
-    // Education (optional)
     if (highest_qualification && highest_qualification.trim().length < 2)
       return sendError("Qualification must be at least 2 characters");
     if (specialization && specialization.trim().length < 2)
       return sendError("Specialization must be at least 2 characters");
-
-    // Blood Group
     if (blood_group && !validBloodGroup.includes(blood_group))
       return sendError("Invalid blood group");
-
-    // Marital Status
     if (marital_status && !validMaritalStatus.includes(marital_status))
       return sendError("Invalid marital status");
 
-    // ----- Clean Data -----
-    const cleanData = {
-      prefix: nullIfEmpty(prefix),
+    // ----- Build update object -----
+    const updateFields = {
+      prefix: prefix.trim(),
       photo_url: photo_url,
-      first_name: nullIfEmpty(first_name),
-      last_name: nullIfEmpty(last_name),
-      gender: nullIfEmpty(gender),
-      date_of_birth: nullIfEmpty(date_of_birth),
-      phone_number: nullIfEmpty(phone_number),
-      email: nullIfEmpty(email),
+      first_name: first_name.trim(),
+      last_name: last_name.trim(),
+      gender,
+      date_of_birth: date_of_birth || null,
+      phone_number: phone_number.trim(),
+      email: email.trim().toLowerCase(),
       address: nullIfEmpty(address),
       city: nullIfEmpty(city),
       state: nullIfEmpty(state),
       pincode: nullIfEmpty(pincode),
       emergency_contact_name: nullIfEmpty(emergency_contact_name),
       emergency_contact_number: nullIfEmpty(emergency_contact_number),
-      department_code: nullIfEmpty(department_code),
-      designation: nullIfEmpty(designation),
-      role_type: nullIfEmpty(role_type),
+      department_code: department_code.trim(),
+      designation: designation.trim(),
+      role_type,
       employment_type: nullIfEmpty(employment_type),
-      joining_date: nullIfEmpty(joining_date),
+      joining_date: joining_date,
       experience_years: experience_years ? Number(experience_years) : null,
-      staff_status: nullIfEmpty(staff_status),
+      staff_status,
       highest_qualification: nullIfEmpty(highest_qualification),
       specialization: nullIfEmpty(specialization),
       university: nullIfEmpty(university),
@@ -886,127 +703,65 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       marital_status: nullIfEmpty(marital_status)
     };
 
-    // ----- Check for Duplicates (excluding current) -----
-    const [duplicateCheck] = await connection.query(
-      `SELECT * FROM staff WHERE (email = ? OR phone_number = ?) AND staff_id != ?`,
-      [cleanData.email, cleanData.phone_number, id]
-    );
-    if (duplicateCheck.length > 0) {
+    // ----- Check duplicates (excluding current) -----
+    const duplicateStaff = await Staff.findOne({
+      $and: [
+        { staff_id: { $ne: id } },
+        {
+          $or: [
+            { email: updateFields.email },
+            { phone_number: updateFields.phone_number }
+          ]
+        }
+      ]
+    });
+    if (duplicateStaff) {
       return sendError("Email or phone already in use by another staff member");
     }
 
-    if (cleanData.aadhar_number) {
-      const [existingAadhar] = await connection.query(
-        `SELECT * FROM staff WHERE aadhar_number = ? AND staff_id != ?`,
-        [cleanData.aadhar_number, id]
-      );
-      if (existingAadhar.length > 0) {
+    if (updateFields.aadhar_number) {
+      const existingAadhar = await Staff.findOne({
+        staff_id: { $ne: id },
+        aadhar_number: updateFields.aadhar_number
+      });
+      if (existingAadhar) {
         return sendError("Aadhar number already in use by another staff member");
       }
     }
-
-    if (cleanData.pan_number) {
-      const [existingPan] = await connection.query(
-        `SELECT * FROM staff WHERE pan_number = ? AND staff_id != ?`,
-        [cleanData.pan_number, id]
-      );
-      if (existingPan.length > 0) {
+    if (updateFields.pan_number) {
+      const existingPan = await Staff.findOne({
+        staff_id: { $ne: id },
+        pan_number: updateFields.pan_number
+      });
+      if (existingPan) {
         return sendError("PAN number already in use by another staff member");
       }
     }
 
     // ----- Update Staff -----
-    const updateQuery = `
-      UPDATE staff SET
-        prefix = ?,
-        photo_url = ?,
-        first_name = ?,
-        last_name = ?,
-        gender = ?,
-        date_of_birth = ?,
-        phone_number = ?,
-        email = ?,
-        address = ?,
-        city = ?,
-        state = ?,
-        pincode = ?,
-        emergency_contact_name = ?,
-        emergency_contact_number = ?,
-        department_code = ?,
-        designation = ?,
-        role_type = ?,
-        employment_type = ?,
-        joining_date = ?,
-        experience_years = ?,
-        staff_status = ?,
-        highest_qualification = ?,
-        specialization = ?,
-        university = ?,
-        passing_year = ?,
-        aadhar_number = ?,
-        pan_number = ?,
-        bank_name = ?,
-        bank_account_number = ?,
-        ifsc_code = ?,
-        branch_name = ?,
-        salary = ?,
-        blood_group = ?,
-        marital_status = ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE staff_id = ?
-    `;
-
-    await connection.beginTransaction();
-
-    await connection.query(updateQuery, [
-      cleanData.prefix,
-      cleanData.photo_url,
-      cleanData.first_name,
-      cleanData.last_name,
-      cleanData.gender,
-      cleanData.date_of_birth,
-      cleanData.phone_number,
-      cleanData.email,
-      cleanData.address,
-      cleanData.city,
-      cleanData.state,
-      cleanData.pincode,
-      cleanData.emergency_contact_name,
-      cleanData.emergency_contact_number,
-      cleanData.department_code,
-      cleanData.designation,
-      cleanData.role_type,
-      cleanData.employment_type,
-      cleanData.joining_date,
-      cleanData.experience_years,
-      cleanData.staff_status,
-      cleanData.highest_qualification,
-      cleanData.specialization,
-      cleanData.university,
-      cleanData.passing_year,
-      cleanData.aadhar_number,
-      cleanData.pan_number,
-      cleanData.bank_name,
-      cleanData.bank_account_number,
-      cleanData.ifsc_code,
-      cleanData.branch_name,
-      cleanData.salary,
-      cleanData.blood_group,
-      cleanData.marital_status,
-      id
-    ]);
-
-    // Update users table
-    await connection.query(
-      `UPDATE users SET email = ?, role = ? WHERE username = ?`,
-      [cleanData.email, cleanData.role_type, id]
+    await Staff.findOneAndUpdate(
+      { staff_id: id },
+      { $set: updateFields },
+      { new: true, runValidators: true }
     );
 
-    await connection.commit();
+    // ----- Update User -----
+    await User.findOneAndUpdate(
+      { username: id },
+      {
+        $set: {
+          email: updateFields.email,
+          role: updateFields.role_type,
+          name: `${updateFields.prefix} ${updateFields.first_name} ${updateFields.last_name}`.trim(),
+          profile_image: updateFields.photo_url
+        }
+      },
+      { runValidators: true }
+    );
 
-    // Delete old image if a new one was uploaded
-    if (req.file && existingStaff[0].photo_url) {
-      const oldImage = path.basename(existingStaff[0].photo_url);
+    // Delete old image if new uploaded
+    if (req.file && existingStaff.photo_url) {
+      const oldImage = path.basename(existingStaff.photo_url);
       deleteUploadedImage(oldImage);
     }
 
@@ -1018,16 +773,14 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
 
   } catch (error) {
     console.error("Error updating staff:", error);
-    await connection.rollback();
     if (uploadedFileName) {
       deleteUploadedImage(uploadedFileName);
     }
     res.status(500).json({
+      success: false,
       message: "Internal Server Error",
       error: error.message
     });
-  } finally {
-    connection.release();
   }
 });
 

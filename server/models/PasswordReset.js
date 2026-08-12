@@ -1,0 +1,36 @@
+const mongoose = require("mongoose");
+
+const PasswordResetSchema = new mongoose.Schema(
+    {
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+            index: true
+        },
+
+        tokenHash: {
+            type: String,
+            required: true,
+            unique: true
+        },
+
+        expiresAt: {
+            type: Date
+        }
+    },
+    {
+        timestamps: true
+    }
+);
+
+// Automatically delete expired reset tokens
+PasswordResetSchema.index(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0 }
+);
+
+module.exports = mongoose.model(
+    "PasswordReset",
+    PasswordResetSchema
+);
