@@ -1,0 +1,429 @@
+"use client";
+
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import axios from "axios";
+import styles from "./viewtimetable.module.css";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+
+
+export default function ViewTimetablePage() {
+  // ---------- STATE ----------
+  const [academicYear, setAcademicYear] = useState("2026-2027");
+  const [semesterType, setSemesterType] = useState("ODD");
+  const [wef, setWef] = useState("");
+  const pdfContainerRef = useRef(null);
+
+  const [departments, setDepartments] = useState([]);
+  const [selectedDept, setSelectedDept] = useState("");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [timetableData, setTimetableData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const viewRef = useRef(null);
+
+  const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
+  withCredentials: true,
+});
+
+  // ---------- CONSTANTS ----------
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const dayMap = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5 };
+
+  const columnDefs = [
+    { type: "period", label: "I", period: 1 },
+    { type: "period", label: "II", period: 2 },
+    { type: "break", label: "Break 1" },
+    { type: "period", label: "III", period: 3 },
+    { type: "period", label: "IV", period: 4 },
+    { type: "break", label: "Lunch Break" },
+    { type: "period", label: "V", period: 5 },
+    { type: "period", label: "VI", period: 6 },
+    { type: "break", label: "Break 2" },
+    { type: "period", label: "VII", period: 7 },
+  ];
+
+  useEffect(() => {
+    const today = new Date();
+    setWef(today.toISOString().split("T")[0]);
+    const currentYear = new Date().getFullYear();
+    setAcademicYear(`${currentYear}-${currentYear + 1}`);
+  }, []);
+
+  // ---------- FETCH DEPARTMENTS (updated endpoint) ----------
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        // ✅ Using /admin/department/all
+        const res = await api.get("/admin/department/all");
+        const deptList = res.data.data || [];
+        setDepartments(deptList);
+        if (deptList.length > 0) {
+          // Use the 'code' field from the Department model
+          setSelectedDept(deptList[0].code);
+        }
+      } catch (err) {
+        console.error("Failed to fetch departments:", err);
+      }
+    };
+    fetchDepartments();
+  }, []);
+
+  // ---------- FETCH TIMETABLE (updated endpoint) ----------
+  const fetchTimetable = useCallback(async () => {
+    if (!selectedDept) return;
+    setLoading(true);
+    setError("");
+    try {
+      const params = { academicYear, department: selectedDept };
+      if (selectedYear !== "All") {
+        params.year = parseInt(selectedYear);
+      }
+      // ✅ Using /admin/timetable/all
+      const res = await api.get("/admin/timetable/all", { params });
+      setTimetableData(res.data.data || []);
+    } catch (err) {
+      setError("Failed to load timetable");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [academicYear, selectedDept, selectedYear]);
+
+  useEffect(() => {
+    if (selectedDept) {
+      fetchTimetable();
+    }
+  }, [fetchTimetable, selectedDept]);
+
+  // ---------- GROUP BY YEAR ----------
+  const groupedByYear = useMemo(() => {
+    const groups = {};
+    timetableData.forEach((entry) => {
+      const yr = entry.year;
+      if (!groups[yr]) groups[yr] = [];
+      groups[yr].push(entry);
+    });
+    return Object.keys(groups)
+      .sort((a, b) => a - b)
+      .map((year) => ({
+        year: parseInt(year),
+        entries: groups[year],
+      }));
+  }, [timetableData]);
+
+  // ---------- BUILD ROWS ----------
+  const buildTimetableRows = (entries) => {
+    const entryMap = {};
+    entries.forEach((entry) => {
+      const key = `${entry.day}|${entry.period}`;
+      entryMap[key] = entry;
+    });
+
+    return days.map((day, idx) => {
+      const dayNum = idx + 1;
+      const periods = columnDefs.map((col) => {
+        if (col.type === "break") {
+          return { type: "break", label: col.label };
+        }
+        const key = `${dayNum}|${col.period}`;
+        const entry = entryMap[key];
+        if (entry) {
+          // Use backend-provided staffName and staff_code
+          return {
+            type: "period",
+            subjectCode: entry.subject?.subjectCode || "",
+            staffCode: entry.staff?.staff_code || "",
+            staffName: entry.staffName || "",
+          };
+        }
+        return { type: "period", subjectCode: "", staffCode: "" };
+      });
+      return { day, periods };
+    });
+  };
+
+  // ---------- SUBJECT REFERENCE ----------
+  const generateReference = (entries) => {
+    const map = new Map();
+    entries.forEach((entry) => {
+      if (entry.subject && entry.staff) {
+        const key = `${entry.subject._id}|${entry.staff._id}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            subjectCode: entry.subject.subjectCode,
+            subjectName: entry.subject.subjectName,
+            category: entry.subject.Category || "",
+            // Use backend staffName and staff_code
+            staffName: entry.staffName || "",
+            staffCode: entry.staff.staff_code || "",
+            facultyId: entry.staff.staff_id || "",
+          });
+        }
+      }
+    });
+    return Array.from(map.values());
+  };
+
+  // ---------- FIND MOST FREQUENT HALL ----------
+  const getMostFrequentHall = (entries) => {
+    const hallCounts = {};
+    entries.forEach((entry) => {
+      if (entry.hall && entry.hall.hallName) {
+        const name = entry.hall.hallName;
+        hallCounts[name] = (hallCounts[name] || 0) + 1;
+      }
+    });
+    let maxCount = 0;
+    let mostFrequentHall = "";
+    for (const [name, count] of Object.entries(hallCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostFrequentHall = name;
+      }
+    }
+    return mostFrequentHall;
+  };
+
+  // ---------- EXPORT PDF (unchanged) ----------
+  const handleExportPDF = async () => {
+    const element = viewRef.current;
+    if (!element) return;
+    const printEl = element.cloneNode(true);
+    const filters = printEl.querySelector(`.${styles.filterBar}`);
+    if (filters) filters.remove();
+    const cards = printEl.querySelectorAll(`.${styles.timetableCard}`);
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i];
+      const wrapper = document.createElement("div");
+      wrapper.style.position = "absolute";
+      wrapper.style.left = "-9999px";
+      wrapper.style.top = "0";
+      wrapper.style.width = "210mm";
+      wrapper.style.padding = "20px";
+      wrapper.style.background = "white";
+      wrapper.appendChild(card.cloneNode(true));
+      document.body.appendChild(wrapper);
+
+      const canvas = await html2canvas(wrapper, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: 794,
+        height: 1123,
+      });
+      document.body.removeChild(wrapper);
+
+      const imgData = canvas.toDataURL("image/png");
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    }
+    pdf.save("NI_Timetable.pdf");
+  };
+
+  // ---------- RENDER ----------
+  return (
+    <div className={styles.mcontainer}>
+      <div className={styles.container} ref={pdfContainerRef}>
+        <div ref={viewRef} className={styles.viewWrapper}>
+          {/* Filters Bar */}
+          <div className={styles.filterBar}>
+            <div className={styles.filterGroup}>
+              <label>Department</label>
+              <select
+                value={selectedDept}
+                onChange={(e) => setSelectedDept(e.target.value)}
+                className={styles.filterSelect}
+              >
+                {departments.map((dept) => (
+                  <option key={dept._id} value={dept.code}>
+                    {dept.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.filterGroup}>
+              <label>Year</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className={styles.filterSelect}
+              >
+                <option value="All">All</option>
+                <option value="1">I</option>
+                <option value="2">II</option>
+                <option value="3">III</option>
+                <option value="4">IV</option>
+              </select>
+              <select
+                value={semesterType}
+                onChange={(e) => setSemesterType(e.target.value)}
+                className={styles.filterSelect}
+              >
+                <option value="ODD">ODD</option>
+                <option value="EVEN">EVEN</option>
+              </select>
+              <select
+                value={academicYear}
+                onChange={(e) => setAcademicYear(e.target.value)}
+                className={styles.filterSelect}
+              >
+                {useMemo(() => {
+                  const currentYear = new Date().getFullYear();
+                  const options = [];
+                  for (let i = -1; i <= 1; i++) {
+                    const start = currentYear + i;
+                    const end = start + 1;
+                    const label = `${start}-${end}`;
+                    options.push(
+                      <option key={label} value={label}>
+                        {label}
+                      </option>
+                    );
+                  }
+                  return options;
+                }, [])}
+              </select>
+            </div>
+            <button onClick={fetchTimetable} className={styles.viewBtn}>
+              View
+            </button>
+            <button onClick={handleExportPDF} className={styles.pdfBtn}>
+              Export PDF
+            </button>
+          </div>
+
+          {/* Loading / Error */}
+          {loading && <div className={styles.loading}>Loading…</div>}
+          {error && <div className={styles.error}>{error}</div>}
+
+          {/* Timetable Cards */}
+          {!loading && !error && groupedByYear.length === 0 && (
+            <div className={styles.noData}>No timetable data found.</div>
+          )}
+
+          {!loading && !error && groupedByYear.map(({ year, entries }) => {
+            const rows = buildTimetableRows(entries);
+            const refData = generateReference(entries);
+            const hall = getMostFrequentHall(entries);
+            const yearLabel = ["I", "II", "III", "IV"][year - 1];
+            const semesterNum = semesterType === "ODD" ? (year * 2 - 1) : (year * 2);
+
+            return (
+              <div key={year} className={styles.timetableCard}>
+                {/* Header */}
+                <div className={styles.header}>
+                  <img src="/nilogo.png" alt="College Logo" width="700" height="104.3" />
+                </div>
+
+                <div className={styles.headtop}>
+                  <h3>CLASS TIMETABLE</h3>
+                  <span>{"("}</span>
+                  <p>{academicYear}</p>
+                  <span>{")-("}</span>
+                  <p>{semesterType}</p>
+                  <span>{")"}</span>
+                </div>
+
+                <div className={styles.headbottom}>
+                  <p>Dept.: {selectedDept}</p>
+                  <p>Hall No.: {hall || "—"}</p>
+                  <p>YEAR/SEM.: {yearLabel} / {semesterNum}</p>
+                  <div className={styles.wef}>
+                    <p>w.e.f.:</p>
+                    <input type="date" value={wef} onChange={(e) => setWef(e.target.value)} />
+                  </div>
+                </div>
+
+                {/* Timetable Table */}
+                <table className={styles.timetableTable}>
+                  <tbody>
+                    <tr>
+                      <th className={styles.dayHeaderCell}>Day / Period</th>
+                      {columnDefs.map((col, idx) => {
+                        if (col.type === "break") {
+                          return (
+                            <td
+                              key={idx}
+                              rowSpan={days.length + 1}
+                              className={styles.breakColumn}
+                            >
+                              <span>{col.label}</span>
+                            </td>
+                          );
+                        }
+                        return <th key={idx}>{col.label}</th>;
+                      })}
+                    </tr>
+                    {rows.map((row) => (
+                      <tr key={row.day}>
+                        <td className={styles.dayCell}>{row.day}</td>
+                        {row.periods.map((p, colIdx) => {
+                          if (p.type === "break") return null;
+                          return (
+                            <td key={colIdx} className={styles.periodCell}>
+                              <div className={styles.cellContent}>
+                                <span className={styles.subjectCode}>{p.subjectCode}</span>
+                                <span className={styles.staffCode}>{p.staffCode}</span>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Subject Reference */}
+                {refData.length > 0 && (
+                  <div className={styles.referenceWrapper}>
+                    <table className={styles.refTable}>
+                      <thead>
+                        <tr>
+                          <th>Subject Code</th>
+                          <th>Subject Name</th>
+                          <th>Category</th>
+                          <th>Staff Name</th>
+                          <th>Staff Code</th>
+                          <th>Faculty ID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {refData.map((item, idx) => (
+                          <tr key={idx}>
+                            <td>{item.subjectCode}</td>
+                            <td className={styles.leftAlign}>{item.subjectName}</td>
+                            <td>{item.category}</td>
+                            <td className={styles.leftAlign}>{item.staffName}</td>
+                            <td>{item.staffCode}</td>
+                            <td>{item.facultyId}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className={styles.cardFooter}>
+                  <span>HOD</span>
+                  <span>PRINCIPAL</span>
+                </div>
+                <div className={styles.creditLine}>
+                  Generated via NI‑Timetable Management System | © {new Date().getFullYear()} Department of Artificial Intelligence and Data Science, Noorul Islam College of Engineering and Technology. All Rights Reserved.
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}

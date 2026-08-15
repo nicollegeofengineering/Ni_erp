@@ -133,7 +133,7 @@ export default function EditStaff() {
           setError(response.data.message || 'Failed to fetch staff details');
         }
       } catch (err) {
-      //if (handleUnauthorized(err)) return;
+      if (handleUnauthorized(err)) return;
 
         console.error('Error fetching staff details:', err);
         setError(

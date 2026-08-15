@@ -59,11 +59,12 @@ export default function Staff() {
   const handleUnauthorized = (error) => {
     if (error.response?.data?.islogout === true) {
       // Redirect to login; the cookie will be cleared by the backend logout endpoint
-      router.push("/login");
+      router.push("/");
       return true;
     }
     return false;
   };
+  
 
   // Fetch staff data
   const fetchStaff = async () => {
@@ -91,8 +92,9 @@ export default function Staff() {
         setDesignations(response.data.data.filters.designations)
         setPagination(response.data.data.pagination)
       }
+      
     } catch (error) {
-      if (handleUnauthorized(err)) return;
+      if (handleUnauthorized(error)) return;
 
       console.error('Error fetching staff:', error)
     } finally {

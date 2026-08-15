@@ -307,7 +307,8 @@ router.post('/add', upload.single('photo'), async (req, res) => {
 // ----- GET / (List) -----
 router.get('/', async (req, res) => {
   const role = req.user?.role;
-    if (role !== 'Admin') {
+  
+    if (role !== 'Admin'&&role !=='Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -492,7 +493,7 @@ router.get('/all', async (req, res) => {
   const role = req.user?.role;
 
   // Admin only
-  if (role !== 'Admin') {
+  if (role !== 'Admin'&&role!=='Hod') {
     return res.status(403).json({
       success: false,
       message: 'Access denied',
@@ -542,7 +543,7 @@ router.get('/all', async (req, res) => {
 // ----- GET /:id -----
 router.get('/:id', async (req, res) => {
   const role = req.user?.role;
-    if (role !== 'Admin') {
+    if (role !== 'Admin'&&role!=='Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',

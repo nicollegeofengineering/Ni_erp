@@ -2,11 +2,26 @@
 import style from "./css/admin-top.module.css";
 import styles from "./css/header.module.css";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 export default function AdminTop() {
+    const router = useRouter();
     const [userName, setUserName] = useState("");
     const [profileImage, setProfileImage] = useState("/user.png");
+
+    // ---------- Helper: redirect on unauthorized (islogout) ----------
+  const handleUnauthorized = (error) => {
+    sessionStorage.removeItem("isLoggedIn");
+    sessionStorage.removeItem("role");
+    sessionStorage.removeItem("userName");
+    sessionStorage.removeItem("profileImage");
+    if (error?.response?.data?.islogout === true || !error?.response?.data?.status || error?.response?.status === 401) {
+      router.push("/");
+      return true;
+    }
+    return false;
+  };
 
     useEffect(() => {
         const name = sessionStorage.getItem("userName") || "";
@@ -26,14 +41,16 @@ export default function AdminTop() {
                 }
             );
 
-            if (result.data.status === "success") {
+            if (result.data.status === "success" || result.data.islogout === true || result.data.status === "failed") {
                 sessionStorage.removeItem("isLoggedIn");
                 sessionStorage.removeItem("role");
                 sessionStorage.removeItem("userName");
                 sessionStorage.removeItem("profileImage");
                 window.location.href = "/";
+                return;
             }
         } catch (error) {
+            if (handleUnauthorized(error)) return;
             console.error("Logout failed:", error.response?.data || error.message);
             alert("Logout failed: " + (error.response?.data?.error || error.message));
         }

@@ -40,7 +40,7 @@ export default function Home() {
           if (role === "Admin") router.push("/admin");
           else if (role === "Student") router.push("/student");
           else if (role === "Staff") router.push("/staff");
-          else if (role === "HOD") router.push("/hod");
+          else if (role === "Hod") router.push("/hod");
           else {
             setLoadingAuth(false);
           }
@@ -119,7 +119,7 @@ export default function Home() {
           router.push("/student");
         } else if (role === "Staff") {
           router.push("/staff");
-        } else if (role === "HOD") {
+        } else if (role === "Hod") {
           router.push("/hod");
         } else {
           setError("Unknown user role");
@@ -170,7 +170,7 @@ export default function Home() {
         if (role === "Admin") router.push("/admin");
         else if (role === "Student") router.push("/student");
         else if (role === "Staff") router.push("/staff");
-        else if (role === "HOD") router.push("/hod");
+        else if (role === "Hod") router.push("/hod");
         else {
           setError("Unknown user role");
           setErrorTimeout(5);

@@ -21,8 +21,9 @@ const isProd = process.env.NODE_ENV === 'production';
 
 // ---------- Helper: get profile image from Staff or User ----------
 const getProfileImage = async (user) => {
+    const normalizedRole = (user.role || '').toString();
     // If user role is Staff or HOD, try to fetch from Staff model
-    if (user.role === 'Staff' || user.role === 'HOD') {
+    if (normalizedRole === 'Staff' || normalizedRole === 'Hod' || normalizedRole === 'HOD') {
         const staff = await Staff.findOne({ staff_id: user.username }); // username = staff_id
         if (staff && staff.photo_url) {
             return staff.photo_url;
@@ -368,7 +369,12 @@ router.post("/verify_google", async (req, res) => {
         const finalImage = profileImage || googleImage;
 
         const jwtToken = jwt.sign(
-            { email, name: user.name, role: user.role },
+            {
+                id: user._id.toString(),
+                email: user.email,
+                name: user.name,
+                role: user.role
+            },
             process.env.JWT_SECRET,
             { expiresIn: "20m" }
         );
@@ -399,7 +405,17 @@ router.post("/logout", (req, res) => {
     try {
         const token = req.cookies.ni_erp_token;
         if (!token) {
-            return res.status(401).json({ error: "No token found", status: "failed" });
+            res.clearCookie("ni_erp_token", {
+                httpOnly: true,
+                secure: isProd,
+                sameSite: "lax",
+                path: "/"
+            });
+            return res.status(200).json({
+                message: "No active session found",
+                status: "success",
+                islogout: true
+            });
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -419,9 +435,10 @@ router.post("/logout", (req, res) => {
             sameSite: "lax",
             path: "/"
         });
-        return res.status(401).json({
+        return res.status(200).json({
             error: err.message || "Invalid token",
-            status: "failed"
+            status: "success",
+            islogout: true
         });
     }
 });

@@ -32,6 +32,14 @@ const fetchTimetableWithPopulate = async (filter) => {
 // ---------- GET /api/timetable/all ----------
 router.get("/all", async (req, res) => {
   try {
+    const role = req.user?.role;
+    if (role !== 'Admin'&&role !=='Hod') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
     await connectDB();
 
     const { academicYear, department, year } = req.query;
@@ -65,6 +73,14 @@ router.get("/all", async (req, res) => {
 // ---------- PUT /api/timetable/upsert ----------
 router.put("/upsert", async (req, res) => {
   try {
+    const role = req.user?.role;
+    if (role !== 'Admin'&&role !=='Hod') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
     await connectDB();
 
     const {
@@ -244,6 +260,14 @@ router.put("/upsert", async (req, res) => {
 // ---------- DELETE /api/timetable/cell ----------
 router.delete("/cell", async (req, res) => {
   try {
+    const role = req.user?.role;
+    if (role !== 'Admin'&&role !=='Hod') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
     await connectDB();
 
     const { academicYear, department, year, semester, day, period } = req.query;
@@ -284,6 +308,14 @@ router.delete("/cell", async (req, res) => {
 // ---------- DELETE /api/timetable/row ----------
 router.delete("/row", async (req, res) => {
   try {
+    const role = req.user?.role;
+    if (role !== 'Admin'&&role !=='Hod') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
     await connectDB();
 
     const { academicYear, department, year, semester, day } = req.query;
@@ -319,6 +351,14 @@ router.delete("/row", async (req, res) => {
 // ---------- DELETE /api/timetable/class ----------
 router.delete("/class", async (req, res) => {
   try {
+    const role = req.user?.role;
+    if (role !== 'Admin'&&role !=='Hod') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
     await connectDB();
 
     const { academicYear, department, year, semester } = req.query;
@@ -353,6 +393,14 @@ router.delete("/class", async (req, res) => {
 // ---------- GET /api/timetable/subject-reference ----------
 router.get("/subject-reference", async (req, res) => {
   try {
+    const role = req.user?.role;
+    if (role !== 'Admin'&&role !=='Hod') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
     await connectDB();
 
     const { academicYear, department, year } = req.query;
@@ -407,6 +455,14 @@ router.get("/subject-reference", async (req, res) => {
 // ---------- GET /api/timetable/staffview ----------
 router.get("/staffview", async (req, res) => {
   try {
+    const role = req.user?.role;
+    if (role !== 'Admin'&&role !=='Hod') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
     await connectDB();
 
     const { academicYear, staffId, search } = req.query;
@@ -460,6 +516,14 @@ router.get("/staffview", async (req, res) => {
 // ---------- GET /api/timetable/hallview ----------
 router.get("/hallview", async (req, res) => {
   try {
+    const role = req.user?.role;
+    if (role !== 'Admin'&&role !=='Hod') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
     await connectDB();
 
     const { academicYear, hallId, search } = req.query;
