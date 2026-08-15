@@ -55,6 +55,16 @@ export default function Staff() {
 
   const handleImgError = (id) => setImgError(prev => new Set(prev).add(id))
 
+  // ---------- Helper: redirect on unauthorized (islogout) ----------
+  const handleUnauthorized = (error) => {
+    if (error.response?.data?.islogout === true) {
+      // Redirect to login; the cookie will be cleared by the backend logout endpoint
+      router.push("/login");
+      return true;
+    }
+    return false;
+  };
+
   // Fetch staff data
   const fetchStaff = async () => {
     try {
@@ -70,7 +80,8 @@ export default function Staff() {
       })
 
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff?${params}`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff?${params}`,
+        { withCredentials: true }
       )
 
       if (response.data.success) {
@@ -81,6 +92,8 @@ export default function Staff() {
         setPagination(response.data.data.pagination)
       }
     } catch (error) {
+      if (handleUnauthorized(err)) return;
+
       console.error('Error fetching staff:', error)
     } finally {
       setLoading(false)

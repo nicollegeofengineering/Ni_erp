@@ -1,12 +1,13 @@
-.container{
+.container {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 20px;
-    background-color:white;
+    background-color: white;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.logout_btn{
+
+.logout_btn {
     background-color: transparent;
     color: #ff4d4d;
     border: 1px solid #ff4d4d;
@@ -14,33 +15,36 @@
     cursor: pointer;
     border-radius: 5px;
 }
-.logout_btn:hover{
+
+.logout_btn:hover {
     background-color: #ff4d4d;
     color: white;
 }
-.right_con{
+
+.right_con {
     display: flex;
     align-items: center;
     gap: 20px;
 }
-.userImage{
-    border-radius: 50%;       /* ✅ Round image */
-    object-fit: cover;        /* ✅ Ensure image fills without distortion */
-}
-.logo{
+
+.logo {
     margin-left: 0px;
     margin-top: 0px;
 }
-.logoImage{
-  width: 280px; 
-  height: 80px;
+
+.logoImage {
+    width: 280px;
+    height: 80px;
 }
+
 .userName {
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 800;
     color: #1f2937;
     margin-left: 4px;
 }
+
+
 .userImageWrapper {
   position: relative;
   width: 45px;
@@ -48,9 +52,12 @@
   flex-shrink: 0;
   border-radius: 50%;
   overflow: hidden;
+  background-color: #e5e7eb;
 }
 
 .userImage {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -58,20 +65,20 @@
   display: block;
 }
 
-@media screen and (max-width: 500px){
-    .userImage{
-        width: 20px;
-        height: 20px;
-    }
-    .right_con{
-        gap: 8px;
-    }
-    .logout_btn{
-        padding: 3px 6px;
-        font-size: 12px;
-    }
-    .userName {
-        font-size: 12px;
-        display: none; /* optional: hide on small screens */
-    }
+@media screen and (max-width: 500px) {
+  .userImageWrapper {
+    width: 20px;
+    height: 20px;
+  }
+  .right_con {
+    gap: 8px;
+  }
+  .logout_btn {
+    padding: 3px 6px;
+    font-size: 12px;
+  }
+  .userName {
+    font-size: 12px;
+    display: none;
+  }
 }

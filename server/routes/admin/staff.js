@@ -72,6 +72,14 @@ const validMaritalStatus = ["Single", "Married", "Divorced", "Widowed"];
 // ----- POST /add -----
 router.post('/add', upload.single('photo'), async (req, res) => {
   let uploadedFileName = null;
+  const role = req.user?.role;
+    if (role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
   
   try {
     const staffData = req.body;
@@ -94,8 +102,8 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     const photo_url = req.file ? `/uploads/staff/${req.file.filename}` : null;
 
     const {
-      staff_id, prefix, first_name, last_name, gender, date_of_birth,
-      phone_number, email, address, city, state, pincode,
+      staff_id, prefix, first_name, last_name,staff_code, gender, date_of_birth,
+      phone_number, email, personal_email, address, city, state, pincode,
       emergency_contact_name, emergency_contact_number,
       department_code, designation, role_type, employment_type,
       joining_date, experience_years, staff_status,
@@ -119,6 +127,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (!role_type) return sendError("Role type is required");
     if (!joining_date) return sendError("Joining date is required");
     if (!staff_status) return sendError("Staff status is required");
+    if (!staff_code) return sendError("Staff Code is required");
 
     // ----- Field-specific Validations -----
     if (!nameRegex.test(first_name)) return sendError("Invalid first name");
@@ -128,6 +137,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (emergency_contact_number && !phoneRegex.test(emergency_contact_number))
       return sendError("Invalid emergency contact number (must be 10 digits)");
     if (!emailRegex.test(email)) return sendError("Invalid email address");
+    if (personal_email && !emailRegex.test(personal_email)) return sendError("Invalid personal email address");
     if (!validRoleType.includes(role_type)) return sendError("Invalid role type");
     if (!validDesignation.includes(designation)) return sendError("Invalid designation");
     if (employment_type && !validEmploymentType.includes(employment_type))
@@ -183,10 +193,12 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       photo_url,
       first_name: first_name.trim(),
       last_name: last_name.trim(),
+      staff_code:staff_code.trim(),
       gender,
       date_of_birth: date_of_birth || null,
       phone_number: phone_number.trim(),
       email: email.trim().toLowerCase(),
+      personal_email: nullIfEmpty(personal_email)?.toLowerCase() || null,
       address: nullIfEmpty(address),
       city: nullIfEmpty(city),
       state: nullIfEmpty(state),
@@ -294,6 +306,14 @@ router.post('/add', upload.single('photo'), async (req, res) => {
 
 // ----- GET / (List) -----
 router.get('/', async (req, res) => {
+  const role = req.user?.role;
+    if (role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
   try {
     const {
       page = 1,
@@ -347,6 +367,7 @@ router.get('/', async (req, res) => {
         prefix: 1,
         department_code: 1,
         designation: 1,
+        staff_code:1,
         role_type: 1,
         email: 1,
         phone_number: 1,
@@ -366,7 +387,7 @@ router.get('/', async (req, res) => {
       id: staff.staff_id,
       image: staff.photo_url || null,
       name: `${staff.prefix || ''} ${staff.first_name || ''} ${staff.last_name || ''}`.trim(),
-      staffCode: staff.staff_id,
+      staffCode: staff.staff_code,
       department: staff.department_code || '',
       designation: staff.designation || '',
       category: staff.role_type || '',
@@ -462,9 +483,72 @@ router.get('/', async (req, res) => {
     });
   }
 });
+// ============================================================
+// GET /all
+// Get all staff members
+// Used by timetable and other master-data pages
+// ============================================================
+router.get('/all', async (req, res) => {
+  const role = req.user?.role;
+
+  // Admin only
+  if (role !== 'Admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied',
+      islogout: true
+    });
+  }
+
+  try {
+    const staffList = await Staff.find({
+      staff_status: { $ne: 'Inactive' }
+    })
+      .select({
+        _id: 1,
+        staff_id: 1,
+        prefix: 1,
+        first_name: 1,
+        last_name: 1,
+        staff_code: 1,
+        department_code: 1,
+        designation: 1,
+        role_type: 1,
+        staff_status: 1
+      })
+      .sort({
+        department_code: 1,
+        staff_code: 1
+      })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: staffList
+    });
+
+  } catch (error) {
+    console.error('Error fetching all staff:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: error.message
+    });
+  }
+});
+
 
 // ----- GET /:id -----
 router.get('/:id', async (req, res) => {
+  const role = req.user?.role;
+    if (role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
   try {
     const { id } = req.params;
     if (!id) {
@@ -511,9 +595,11 @@ router.get('/:id', async (req, res) => {
       first_name: staff.first_name || '',
       last_name: staff.last_name || '',
       gender: staff.gender || '',
+      staff_code:staff.staff_code||'',
       date_of_birth: staff.date_of_birth ? formatDate(staff.date_of_birth) : '',
       phone_number: staff.phone_number || '',
       email: staff.email || '',
+      personal_email:staff.personal_email||'',
       address: staff.address || '',
       city: staff.city || '',
       state: staff.state || '',
@@ -561,6 +647,14 @@ router.get('/:id', async (req, res) => {
 
 // ----- PUT /:id -----
 router.put('/:id', upload.single('photo'), async (req, res) => {
+  const role = req.user?.role;
+    if (role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+        islogout: true
+      });
+    }
   let uploadedFileName = null;
   
   try {
@@ -587,8 +681,8 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     const photo_url = req.file ? `/uploads/staff/${req.file.filename}` : existingStaff.photo_url;
 
     const {
-      prefix, first_name, last_name, gender, date_of_birth,
-      phone_number, email, address, city, state, pincode,
+      prefix, first_name, last_name,staff_code, gender, date_of_birth,
+      phone_number, email, personal_email, address, city, state, pincode,
       emergency_contact_name, emergency_contact_number,
       department_code, designation, role_type, employment_type,
       joining_date, experience_years, staff_status,
@@ -601,6 +695,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (!prefix?.trim()) return sendError("Prefix is required");
     if (!first_name?.trim()) return sendError("First name is required");
     if (!last_name?.trim()) return sendError("Last name is required");
+    if (!staff_code.trim()) return sendError("Staff Code is required")
     if (!gender?.trim()) return sendError("Gender is required");
     if (!phone_number?.trim()) return sendError("Phone number is required");
     if (!email?.trim()) return sendError("Email is required");
@@ -617,6 +712,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (emergency_contact_number && !phoneRegex.test(emergency_contact_number))
       return sendError("Invalid emergency contact number (must be 10 digits)");
     if (!emailRegex.test(email)) return sendError("Invalid email address");
+    if (personal_email && !emailRegex.test(personal_email)) return sendError("Invalid personal email address");
     if (!validRoleType.includes(role_type)) return sendError("Invalid role type");
     if (!validDesignation.includes(designation)) return sendError("Invalid designation");
     if (employment_type && !validEmploymentType.includes(employment_type))
@@ -671,10 +767,12 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       photo_url: photo_url,
       first_name: first_name.trim(),
       last_name: last_name.trim(),
+      staff_code:staff_code.trim(),
       gender,
       date_of_birth: date_of_birth || null,
       phone_number: phone_number.trim(),
       email: email.trim().toLowerCase(),
+      personal_email: nullIfEmpty(personal_email)?.toLowerCase() || null,
       address: nullIfEmpty(address),
       city: nullIfEmpty(city),
       state: nullIfEmpty(state),
@@ -783,5 +881,8 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     });
   }
 });
+
+
+
 
 module.exports = router;

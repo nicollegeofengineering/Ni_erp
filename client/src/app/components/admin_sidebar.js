@@ -61,20 +61,19 @@ const NAV_ITEMS = [
     icon: CalendarCheck,
   },
   {
+    href: "/admin/hall",
     label: "Hall Management",
     icon: Building2,
-    children: [
-      { href: "/admin/hall", label: "View Halls" },
-      { href: "/admin/halls/add", label: "Add Hall" },
-    ],
   },
   {
+    href: "/admin/subjects",
     label: "Subjects",
     icon: BookOpen,
-    children: [
-      { href: "/admin/subjects", label: "View Subjects" },
-      { href: "/admin/subjects/add", label: "Add Subject" },
-    ],
+  },
+  {
+    href: "/admin/department",
+    label: "Department",
+    icon: Building2,
   },
   {
     label: "Timetable",
@@ -83,6 +82,7 @@ const NAV_ITEMS = [
       { href: "/admin/timetable/master", label: "Master Timetable" },
       { href: "/admin/timetable/class", label: "Class Timetable" },
       { href: "/admin/timetable/staff", label: "Staff Timetable" },
+      { href: "/admin/timetable/hall", label:"Hall Timetable"}
     ],
   },
   {

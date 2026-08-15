@@ -1,7 +1,6 @@
 "use client";
 import style from "./css/admin-top.module.css";
 import styles from "./css/header.module.css";
-import Image from "next/image";
 import axios from "axios";
 import { useState, useEffect } from "react";
 
@@ -28,7 +27,6 @@ export default function AdminTop() {
             );
 
             if (result.data.status === "success") {
-                // Clear all session data
                 sessionStorage.removeItem("isLoggedIn");
                 sessionStorage.removeItem("role");
                 sessionStorage.removeItem("userName");
@@ -44,30 +42,24 @@ export default function AdminTop() {
     return (
         <div className={style.container}>
             <div className={style.logo}>
-                <Image
+                <img
                     src="/logoni1.png"
                     alt="Logo"
                     height={100}
                     width={100}
                     className={style.logoImage}
-                    unoptimized
-                    priority
                 />
             </div>
             <div className={style.right_con}>
                 <div className={styles.userImageWrapper}>
-                <Image
-                    src={profileImage}
-                    alt="User"
-                    height={45}
-                    width={45}
-                    className={styles.userImage}
-                    unoptimized
-                    priority
-                    id="hide-on-pdf"
-                />
+                    <img
+                        src={profileImage}
+                        alt="User"
+                        className={styles.userImage}
+                        id="hide-on-pdf"
+                    />
                 </div>
-                <span className={style.userName}>{userName}</span>
+                <span className={style.userName}id="hide-on-pdf">{userName}</span>
                 <button className={style.logout_btn} onClick={handleLogout} id="hide-on-pdf">
                     Logout
                 </button>

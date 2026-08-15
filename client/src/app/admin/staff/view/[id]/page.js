@@ -25,6 +25,15 @@ export default function ViewStaff() {
   const [imgError, setImgError] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
 
+  const handleUnauthorized = (error) => {
+    if (error.response?.data?.islogout === true) {
+      // Redirect to login; the cookie will be cleared by the backend logout endpoint
+      router.push("/");
+      return true;
+    }
+    return false;
+  };
+
   // Fetch staff details on component mount
   useEffect(() => {
     const fetchStaffDetails = async () => {
@@ -37,7 +46,8 @@ export default function ViewStaff() {
       try {
         setLoading(true);
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff/${staffId}`
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff/${staffId}`,
+          { withCredentials: true }
         );
 
         if (response.data.success) {
@@ -46,6 +56,7 @@ export default function ViewStaff() {
           setError(response.data.message || 'Failed to fetch staff details');
         }
       } catch (err) {
+      if (handleUnauthorized(err)) return;
         console.error('Error fetching staff details:', err);
         setError(
           err.response?.data?.message || 
@@ -217,6 +228,7 @@ export default function ViewStaff() {
           <SectionHeader index="03" icon={<Briefcase size={16} className={styles.cardTitleIcon} />} title="Professional Details" />
           <div className={styles.grid}>
             <DataField label="Staff ID" value={staffDetails.staff_id} copyable fieldKey="staffId" />
+            <DataField label="Staff Code" value={staffDetails.staff_code}/>
             <DataField label="Department" value={staffDetails.department_id} />
             <DataField label="Designation" value={staffDetails.designation_id} />
             <DataField label="Role Type" value={staffDetails.role_type} />

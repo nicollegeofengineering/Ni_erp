@@ -1,6 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { connectDB } = require('../../config/db');
+const connectDB  = require('../../config/db');
 const Hall = require('../../models/Hall');
 
 const router = express.Router();
@@ -12,10 +12,12 @@ const router = express.Router();
 router.get('/all', async (req, res) => {
   try {
     const role = req.user?.role;
+    
     if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
+        islogout: true
       });
     }
     await connectDB();
@@ -79,15 +81,17 @@ router.get('/all', async (req, res) => {
 });
 
 /**
- * GET /api/hall/search/:term
+ * GET /api/admin/hall/search/:term
  */
 router.get('/search/:term', async (req, res) => {
+  
   try {
     const role = req.user?.role;
     if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
+        islogout: true
       });
     }
     await connectDB();
@@ -126,12 +130,14 @@ router.get('/search/:term', async (req, res) => {
  * POST /api/hall/
  */
 router.post('/', async (req, res) => {
+  
   try {
     const role = req.user?.role;
     if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
+        islogout: true
       });
     }
     await connectDB();
@@ -220,12 +226,14 @@ router.post('/', async (req, res) => {
  * PUT /api/hall/:id
  */
 router.put('/:id', async (req, res) => {
+  
   try {
     const role = req.user?.role;
     if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
+        islogout: true
       });
     }
     await connectDB();
@@ -362,6 +370,7 @@ router.delete('/:id', async (req, res) => {
     return res.status(403).json({
       success: false,
       message: 'Access denied',
+      islogout: true
     });
   }
   try {

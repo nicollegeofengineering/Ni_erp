@@ -19,6 +19,7 @@ export default function AddStaff() {
     photo_url: "",
     first_name: "",
     last_name: "",
+    staff_code:"",
     gender: "",
     date_of_birth: "",
     phone_number: "",
@@ -60,6 +61,16 @@ export default function AddStaff() {
     }));
   };
 
+  // ---------- Helper: redirect on unauthorized (islogout) ----------
+  const handleUnauthorized = (error) => {
+    if (error.response?.data?.islogout === true) {
+      // Redirect to login; the cookie will be cleared by the backend logout endpoint
+      router.push("/");
+      return true;
+    }
+    return false;
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -91,6 +102,7 @@ export default function AddStaff() {
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff/add`,
         submitData,
         {
+          withCredentials: true,
           headers: {
             "Content-Type": "multipart/form-data"
           }
@@ -113,6 +125,7 @@ export default function AddStaff() {
           photo_url: "",
           first_name: "",
           last_name: "",
+          staff_code:"",
           gender: "",
           date_of_birth: "",
           phone_number: "",
@@ -154,6 +167,8 @@ export default function AddStaff() {
       setEmessage(response.data.message || "Unable to add staff. Please try again.");
       setSmessage("");
     } catch (err) {
+      if (handleUnauthorized(err)) return;
+
       const errorMessage =
         err.response?.data?.emessage ||
         err.response?.data?.message ||
@@ -427,6 +442,18 @@ export default function AddStaff() {
                 name="staff_id" 
                 placeholder="Staff ID" 
                 value={formData.staff_id}
+                onChange={handleChange} 
+                required
+              />
+            </div>
+            
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Staff Code *</span>
+              <input 
+                className={styles.formInput} 
+                name="staff_code"
+                placeholder="Staff Code" 
+                value={formData.staff_code}
                 onChange={handleChange} 
                 required
               />

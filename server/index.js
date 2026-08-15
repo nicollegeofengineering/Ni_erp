@@ -12,6 +12,11 @@ const loginRoute = require("./routes/auth/login");
 const adminVerifyRoute = require("./routes/admin/admin_verify");
 const adminStaffRoute = require("./routes/admin/staff");
 const adminHallRoute = require("./routes/admin/hall");
+const adminSubjectRoute = require("./routes/admin/subject");
+const timetableRoute=require("./routes/admin/timetable");
+const DepartmentRoute=require("./routes/admin/department");
+
+const authMiddleware = require("./middleware/verifytoken");
 
 // ---------------- App
 const app = express();
@@ -36,9 +41,12 @@ app.use(
 
 // ---------------- Routes
 app.use("/auth", loginRoute);
-app.use("/api", adminVerifyRoute);
-app.use("/api/admin/staff", adminStaffRoute);
-app.use("/api/admin/hall",adminHallRoute);
+app.use("/api", authMiddleware, adminVerifyRoute);
+app.use("/api/admin/staff", authMiddleware, adminStaffRoute);
+app.use("/api/admin/hall", authMiddleware, adminHallRoute);
+app.use("/api/admin/subject", authMiddleware, adminSubjectRoute);
+app.use("/api/admin/timetable",authMiddleware,timetableRoute)
+app.use("/api/admin/department",authMiddleware,DepartmentRoute)
 
 app.use(
     "/uploads",

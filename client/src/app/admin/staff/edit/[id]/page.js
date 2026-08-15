@@ -25,6 +25,7 @@ export default function EditStaff() {
     prefix: "",
     first_name: "",
     last_name: "",
+    staff_code:"",
     gender: "",
     date_of_birth: "",
     phone_number: "",
@@ -58,6 +59,16 @@ export default function EditStaff() {
     staff_status: "Active"
   });
 
+  // ---------- Helper: redirect on unauthorized (islogout) ----------
+  const handleUnauthorized = (error) => {
+    if (error.response?.data?.islogout === true) {
+      // Redirect to login; the cookie will be cleared by the backend logout endpoint
+      router.push("/");
+      return true;
+    }
+    return false;
+  };
+  
   // Fetch staff details on component mount
   useEffect(() => {
     const fetchStaffDetails = async () => {
@@ -70,7 +81,8 @@ export default function EditStaff() {
       try {
         setLoading(true);
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff/${staffId}`
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/staff/${staffId}`,
+          { withCredentials: true }
         );
 
         if (response.data.success) {
@@ -80,6 +92,7 @@ export default function EditStaff() {
             prefix: data.prefix || "",
             first_name: data.first_name || "",
             last_name: data.last_name || "",
+            staff_code:data.staff_code||"",
             gender: data.gender || "",
             date_of_birth: data.date_of_birth || "",
             phone_number: data.phone_number || "",
@@ -120,6 +133,8 @@ export default function EditStaff() {
           setError(response.data.message || 'Failed to fetch staff details');
         }
       } catch (err) {
+      //if (handleUnauthorized(err)) return;
+
         console.error('Error fetching staff details:', err);
         setError(
           err.response?.data?.message || 
@@ -222,7 +237,7 @@ export default function EditStaff() {
         {
           headers: {
             "Content-Type": "multipart/form-data"
-          }
+          },  withCredentials: true 
         }
       );
 
@@ -239,6 +254,7 @@ export default function EditStaff() {
         }, 1500);
       }
     } catch (err) {
+      if (handleUnauthorized(err)) return;
       const errorMessage =
         err.response?.data?.emessage ||
         err.response?.data?.message ||
@@ -547,6 +563,18 @@ export default function EditStaff() {
             <span className={styles.cardTitle}>Professional Details</span>
           </h2>
           <div className={styles.grid}>
+
+            <div className={styles.fieldWrapper}>
+              <span className={styles.fieldLabel}>Staff Code</span>
+              <input
+                className={styles.formInput}
+                name="staff_code"
+                placeholder="Staff Code"
+                value={formData.staff_code}
+                onChange={handleChange}
+              />
+            </div>
+
             <div className={styles.fieldWrapper}>
               <span className={styles.fieldLabel}>Department *</span>
               <select

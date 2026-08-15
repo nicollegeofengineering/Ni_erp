@@ -6,12 +6,13 @@ const verifyToken = (req, res, next) => {
 
     try {
 
-        const token = req.cookies.app_token;
+        const token = req.cookies.ni_erp_token;
 
         if (!token) {
 
             return res.status(401).json({
-                error: "Token missing"
+                error: "Token missing",
+                islogout: true
             });
 
         }
@@ -29,24 +30,11 @@ const verifyToken = (req, res, next) => {
 
         // Less than 5 mins
         if (remainingTime < 300) {
-
-            const crypto = require("crypto");
-
-            const newSessionId =
-                crypto.randomUUID();
-
-            activeSessions.set(decoded.email, {
-                sessionId: newSessionId,
-                fingerprint,
-                expiresAt:
-                    Date.now() +
-                    (20 * 60 * 1000)
-            });
-
+            
             const newToken = jwt.sign(
                 {
                     email: decoded.email,
-                    sessionId: newSessionId,
+                    id: decoded.id, 
                     role: decoded.role
                 },
                 process.env.JWT_SECRET,
@@ -55,7 +43,7 @@ const verifyToken = (req, res, next) => {
                 }
             );
 
-            res.cookie("app_token", newToken, {
+            res.cookie("ni_erp_token", newToken, {
                 httpOnly: false,
                 secure: false,
                 sameSite: "lax",
