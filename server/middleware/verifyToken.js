@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-
+const isProd = process.env.NODE_ENV === "production";
 
 const verifyToken = (req, res, next) => {
 
@@ -44,10 +44,11 @@ const verifyToken = (req, res, next) => {
             );
 
             res.cookie("ni_erp_token", newToken, {
-                httpOnly: false,
-                secure: false,
+                httpOnly: true,
+                secure: isProd,
                 sameSite: isProd ? "none" : "lax",
-                maxAge: 20 * 60 * 1000
+                maxAge: 20 * 60 * 1000,
+                path: "/"
             });
         }
 

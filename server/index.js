@@ -5,6 +5,13 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
+const isProd = process.env.NODE_ENV === "production";
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    "http://localhost:3000",
+    "https://ni-erp.vercel.app"
+].filter(Boolean);
+
 const db = require("./config/db");
 
 // ---------------- Routes
@@ -23,6 +30,7 @@ const authMiddleware = require("./middleware/verifyToken");
 
 // ---------------- App
 const app = express();
+app.set("trust proxy", 1);
 
 // ---------------- Middleware
 app.use(express.json());
@@ -30,8 +38,17 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    credentials: true
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+
+        callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 app.use(
