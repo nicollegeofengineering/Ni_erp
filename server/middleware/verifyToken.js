@@ -16,6 +16,15 @@ const verifyToken = (req, res, next) => {
         const token = cookieToken || bearerToken;
 
         if (!token) {
+            // Diagnostic logging: show cookie header and related request info so production issues can be diagnosed
+            console.error(
+                "Token missing — request cookies:",
+                req.headers.cookie,
+                "Authorization:", authHeader,
+                "Origin:", req.headers.origin,
+                "X-Forwarded-Proto:", req.headers['x-forwarded-proto']
+            );
+
             return res.status(401).json({
                 error: "Token missing",
                 islogout: true
@@ -44,6 +53,8 @@ const verifyToken = (req, res, next) => {
                 maxAge: 20 * 60 * 1000,
                 path: "/"
             });
+            // Diagnostic: log when middleware refreshes the token
+            console.log("Middleware refreshed ni_erp_token; secure=", isProd, "sameSite=", isProd ? "none" : "lax");
         }
 
         req.user = decoded;

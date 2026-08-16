@@ -30,7 +30,8 @@ const authMiddleware = require("./middleware/verifyToken");
 
 // ---------------- App
 const app = express();
-app.set("trust proxy", 1);
+app.set("trust proxy", true);
+console.log("Express trust proxy set to true. NODE_ENV=", process.env.NODE_ENV);
 
 // ---------------- Middleware
 app.use(express.json());

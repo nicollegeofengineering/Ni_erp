@@ -95,6 +95,8 @@ router.post("/login", loginLimiter, async (req, res) => {
             maxAge: 20 * 60 * 1000,
             path: "/"
         });
+        // Diagnostic: log cookie attributes when issuing token (helpful in production)
+        console.log("Set ni_erp_token cookie on login; secure=", isProd, "sameSite=", isProd ? "none" : "lax");
 
         return res.status(200).json({
             status: "success",
@@ -390,6 +392,8 @@ router.post("/verify_google", async (req, res) => {
             maxAge: 20 * 60 * 1000,
             path: "/"
         });
+        // Diagnostic: log cookie attributes when issuing token (Google login)
+        console.log("Set ni_erp_token cookie on google login; secure=", isProd, "sameSite=", isProd ? "none" : "lax");
 
         return res.json({
             status: "success",
@@ -526,6 +530,8 @@ router.post("/refresh-token", async (req, res) => {
             maxAge: 20 * 60 * 1000,
             path: "/"
         });
+        // Diagnostic: log when refresh endpoint sets a new cookie
+        console.log("Set ni_erp_token cookie on refresh; secure=", isProd, "sameSite=", isProd ? "none" : "lax");
 
         return res.status(200).json({
             status: "success",
