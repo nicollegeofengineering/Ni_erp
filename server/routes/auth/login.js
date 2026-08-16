@@ -89,7 +89,7 @@ router.post("/login", loginLimiter, async (req, res) => {
         res.cookie("ni_erp_token", token, {
             httpOnly: true,
             secure: isProd,
-            sameSite: "lax",
+            sameSite: isProd ? "none" : "lax",
             maxAge: 20 * 60 * 1000,
             path: "/"
         });
@@ -382,7 +382,7 @@ router.post("/verify_google", async (req, res) => {
 
         res.cookie("ni_erp_token", jwtToken, {
             httpOnly: true,
-            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
             sameSite: "lax",
             maxAge: 20 * 60 * 1000,
             path: "/"
@@ -408,7 +408,7 @@ router.post("/logout", (req, res) => {
         if (!token) {
             res.clearCookie("ni_erp_token", {
                 httpOnly: true,
-                secure: isProd,
+                sameSite: isProd ? "none" : "lax",
                 sameSite: "lax",
                 path: "/"
             });
@@ -422,7 +422,7 @@ router.post("/logout", (req, res) => {
 
         res.clearCookie("ni_erp_token", {
             httpOnly: true,
-            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
             sameSite: "lax",
             path: "/"
         });
@@ -432,7 +432,7 @@ router.post("/logout", (req, res) => {
         console.error("Logout error:", err.message);
         res.clearCookie("ni_erp_token", {
             httpOnly: true,
-            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
             sameSite: "lax",
             path: "/"
         });
@@ -518,7 +518,7 @@ router.post("/refresh-token", async (req, res) => {
         // Set new cookie
         res.cookie("ni_erp_token", newToken, {
             httpOnly: true,
-            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
             sameSite: "lax",
             maxAge: 20 * 60 * 1000,
             path: "/"
@@ -533,7 +533,7 @@ router.post("/refresh-token", async (req, res) => {
         // Clear cookie on any error
         res.clearCookie("ni_erp_token", {
             httpOnly: true,
-            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
             sameSite: "lax",
             path: "/"
         });

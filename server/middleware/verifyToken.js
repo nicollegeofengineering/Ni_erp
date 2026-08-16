@@ -45,7 +45,7 @@ const verifyToken = (req, res, next) => {
 
             res.cookie("ni_erp_token", newToken, {
                 httpOnly: false,
-                secure: false,
+                sameSite: isProd ? "none" : "lax",
                 sameSite: "lax",
                 maxAge: 20 * 60 * 1000
             });
