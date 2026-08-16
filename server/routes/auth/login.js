@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 
@@ -14,7 +15,7 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const { loginLimiter, forgotPasswordLimiter, resetPasswordLimiter } = require('../../middleware/rateLimiter');
 
-require('dotenv').config();
+
 
 // Determine secure flag for cookies: enable only in production (HTTPS)
 const isProd = process.env.NODE_ENV === 'production';
@@ -25,14 +26,14 @@ const getProfileImage = async (user) => {
     // If user role is Staff or HOD, try to fetch from Staff model
     if (normalizedRole === 'Staff' || normalizedRole === 'Hod' || normalizedRole === 'HOD') {
         const staff = await Staff.findOne({ staff_id: user.username }); // username = staff_id
-        if (staff && staff.photo_url) {
-            return staff.photo_url;
+        if (staff && staff.photo_file_id) {
+            // ✅ Return the secure Google Drive photo endpoint
+            return `/api/admin/staff/${staff.staff_id}/photo`;
         }
     }
-    // Fallback: user's own profile_image
+    // Fallback: user's own profile_image (could be old URL or null)
     return user.profile_image || null;
 };
-
 // ---------- Login ----------
 router.post("/login", loginLimiter, async (req, res) => {
     try {

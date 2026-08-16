@@ -1,199 +1,191 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const connectDB = require('../../config/db');
+
+// ---- Google Drive service ----
+const {
+  uploadStaffPhoto,
+  getStaffPhoto,
+  deleteStaffPhoto,
+} = require('../../services/googleDrive');
 
 const Staff = require('../../models/Staff');
 const User = require('../../models/User');
 
-// ----- Multer Configuration -----
-const uploadDir = path.resolve(__dirname, "../../uploads/staff");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}${ext}`);
-  },
-});
-
+// ----- Multer (memory storage) -----
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/jpg", "image/png"];
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowed.includes(file.mimetype)) {
-      return cb(new Error("Only JPG, JPEG and PNG files are allowed"));
+      return cb(new Error('Only JPG, JPEG, PNG and WEBP files are allowed'));
     }
     cb(null, true);
   },
 });
 
-// ----- Helper Functions -----
-const nullIfEmpty = (value) => {
-  return (value && value.trim() !== '') ? value : null;
-};
+// ----- Helper: nullIfEmpty -----
+const nullIfEmpty = (value) => (value && value.trim() !== '' ? value : null);
 
-const deleteUploadedImage = (filename) => {
-  if (!filename) return;
-  const filePath = path.join(uploadDir, filename);
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      console.log(`Deleted uploaded image: ${filename}`);
-    }
-  } catch (error) {
-    console.error(`Error deleting image ${filename}:`, error);
-  }
-};
+// ----- Helper: build a cache-busted photo URL -----
+const buildPhotoUrl = (staffId, photoFileId, photoVersion) =>
+  photoFileId ? `/api/admin/staff/${staffId}/photo?v=${photoVersion || 0}` : null;
 
-// ----- Validation Constants (shared) -----
+// ----- Validation constants -----
 const nameRegex = /^[A-Za-z ]+$/;
 const phoneRegex = /^\d{10}$/;
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
-const validGender = ["Male", "Female", "Other"];
-const validEmploymentType = ["FullTime", "PartTime", "Contract", "Temporary"];
-const validStaffStatus = ["Active", "Inactive", "Resigned", "Retired"];
-const validRoleType = ["Admin", "Hod", "Staff", "Student", "Accountant"];
+const validGender = ['Male', 'Female', 'Other'];
+const validEmploymentType = ['FullTime', 'PartTime', 'Contract', 'Temporary'];
+const validStaffStatus = ['Active', 'Inactive', 'Resigned', 'Retired'];
+const validRoleType = ['Admin', 'Hod', 'Staff', 'Student', 'Accountant'];
 const validDesignation = [
-  "Professor", "Assistant Professor", "Associate Professor",
-  "Lecturer", "Lab Assistant", "Clerk", "Accountant",
-  "Manager", "Director", "Principal", "HOD"
+  'Professor', 'Assistant Professor', 'Associate Professor',
+  'Lecturer', 'Lab Assistant', 'Clerk', 'Accountant',
+  'Manager', 'Director', 'Principal', 'HOD',
 ];
 const validBloodGroup = [
   'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-',
   'O+', 'O-', 'A1+', 'A1-', 'A2+', 'A2-',
-  'A1B+', 'A1B-', 'A2B+', 'A2B-'
+  'A1B+', 'A1B-', 'A2B+', 'A2B-',
 ];
-const validMaritalStatus = ["Single", "Married", "Divorced", "Widowed"];
+const validMaritalStatus = ['Single', 'Married', 'Divorced', 'Widowed'];
 
-// ----- POST /add -----
+// ============================================================
+// 1. POST /add
+// ============================================================
 router.post('/add', upload.single('photo'), async (req, res) => {
-  let uploadedFileName = null;
   const role = req.user?.role;
-    if (role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied',
-        islogout: true
-      });
-    }
-  
+  if (role !== 'Admin') {
+    return res.status(403).json({ success: false, message: 'Access denied', islogout: true });
+  }
+
   try {
+    await connectDB();
     const staffData = req.body;
-    
-    if (req.file) {
-      uploadedFileName = req.file.filename;
+    if (!req.file) {
+      return res.status(400).json({ success: false, emessage: 'Photo is required' });
     }
-
-    const sendError = (message, statusCode = 400) => {
-      if (uploadedFileName) {
-        deleteUploadedImage(uploadedFileName);
-      }
-      return res.status(statusCode).json({ emessage: message });
-    };
-
-    if (!staffData || Object.keys(staffData).length === 0) {
-      return sendError("Staff data is required");
-    }
-
-    const photo_url = req.file ? `/uploads/staff/${req.file.filename}` : null;
 
     const {
-      staff_id, prefix, first_name, last_name,staff_code, gender, date_of_birth,
+      staff_id, prefix, first_name, last_name, staff_code, gender, date_of_birth,
       phone_number, email, personal_email, address, city, state, pincode,
-      emergency_contact_name, emergency_contact_number,
-      department_code, designation, role_type, employment_type,
-      joining_date, experience_years, staff_status,
-      highest_qualification, specialization,
-      university, passing_year,
-      aadhar_number, pan_number, bank_name, account_number,
-      ifsc_code, branch_name, salary, blood_group, marital_status
+      emergency_contact_name, emergency_contact_number, department_code,
+      designation, role_type, employment_type, joining_date, experience_years,
+      staff_status, highest_qualification, specialization, university, passing_year,
+      aadhar_number, pan_number, bank_name, account_number, ifsc_code,
+      branch_name, salary, blood_group, marital_status,
     } = staffData;
 
-    // ----- Required Fields -----
-    if (!staff_id?.trim()) return sendError("Staff ID is required");
-    if (!prefix?.trim()) return sendError("Prefix is required");
-    if (!req.file) return sendError("Photo is required");
-    if (!first_name?.trim()) return sendError("First name is required");
-    if (!last_name?.trim()) return sendError("Last name is required");
-    if (!gender?.trim()) return sendError("Gender is required");
-    if (!phone_number?.trim()) return sendError("Phone number is required");
-    if (!email?.trim()) return sendError("Email is required");
-    if (!department_code) return sendError("Department is required");
-    if (!designation) return sendError("Designation is required");
-    if (!role_type) return sendError("Role type is required");
-    if (!joining_date) return sendError("Joining date is required");
-    if (!staff_status) return sendError("Staff status is required");
-    if (!staff_code) return sendError("Staff Code is required");
+    // ---- Required fields ----
+    if (!staff_id?.trim()) return res.status(400).json({ emessage: 'Staff ID is required' });
+    if (!prefix?.trim()) return res.status(400).json({ emessage: 'Prefix is required' });
+    if (!first_name?.trim()) return res.status(400).json({ emessage: 'First name is required' });
+    if (!last_name?.trim()) return res.status(400).json({ emessage: 'Last name is required' });
+    if (!staff_code?.trim()) return res.status(400).json({ emessage: 'Staff Code is required' });
+    if (!gender?.trim()) return res.status(400).json({ emessage: 'Gender is required' });
+    if (!phone_number?.trim()) return res.status(400).json({ emessage: 'Phone number is required' });
+    if (!email?.trim()) return res.status(400).json({ emessage: 'Email is required' });
+    if (!department_code?.trim()) return res.status(400).json({ emessage: 'Department is required' });
+    if (!designation?.trim()) return res.status(400).json({ emessage: 'Designation is required' });
+    if (!role_type?.trim()) return res.status(400).json({ emessage: 'Role type is required' });
+    if (!joining_date) return res.status(400).json({ emessage: 'Joining date is required' });
+    if (!staff_status?.trim()) return res.status(400).json({ emessage: 'Staff status is required' });
 
-    // ----- Field-specific Validations -----
-    if (!nameRegex.test(first_name)) return sendError("Invalid first name");
-    if (!nameRegex.test(last_name)) return sendError("Invalid last name");
-    if (!validGender.includes(gender)) return sendError("Invalid gender");
-    if (!phoneRegex.test(phone_number)) return sendError("Invalid phone number (must be 10 digits)");
+    // ---- Format validations ----
+    if (!nameRegex.test(first_name)) return res.status(400).json({ emessage: 'Invalid first name' });
+    if (!nameRegex.test(last_name)) return res.status(400).json({ emessage: 'Invalid last name' });
+    if (!validGender.includes(gender)) return res.status(400).json({ emessage: 'Invalid gender' });
+    if (!phoneRegex.test(phone_number)) return res.status(400).json({ emessage: 'Invalid phone number (must be 10 digits)' });
     if (emergency_contact_number && !phoneRegex.test(emergency_contact_number))
-      return sendError("Invalid emergency contact number (must be 10 digits)");
-    if (!emailRegex.test(email)) return sendError("Invalid email address");
-    if (personal_email && !emailRegex.test(personal_email)) return sendError("Invalid personal email address");
-    if (!validRoleType.includes(role_type)) return sendError("Invalid role type");
-    if (!validDesignation.includes(designation)) return sendError("Invalid designation");
+      return res.status(400).json({ emessage: 'Invalid emergency contact number (must be 10 digits)' });
+    if (!emailRegex.test(email)) return res.status(400).json({ emessage: 'Invalid email address' });
+    if (personal_email && !emailRegex.test(personal_email))
+      return res.status(400).json({ emessage: 'Invalid personal email address' });
+    if (!validRoleType.includes(role_type)) return res.status(400).json({ emessage: 'Invalid role type' });
+    if (!validDesignation.includes(designation)) return res.status(400).json({ emessage: 'Invalid designation' });
     if (employment_type && !validEmploymentType.includes(employment_type))
-      return sendError("Invalid employment type");
-    if (!validStaffStatus.includes(staff_status)) return sendError("Invalid staff status");
-    if (address && address.trim().length < 5) return sendError("Address must be at least 5 characters");
-    if (city && !nameRegex.test(city)) return sendError("Invalid city (letters and spaces only)");
-    if (state && !nameRegex.test(state)) return sendError("Invalid state (letters and spaces only)");
-    if (pincode && !/^\d{6}$/.test(pincode)) return sendError("Invalid pincode (must be 6 digits)");
+      return res.status(400).json({ emessage: 'Invalid employment type' });
+    if (!validStaffStatus.includes(staff_status)) return res.status(400).json({ emessage: 'Invalid staff status' });
+    if (address && address.trim().length < 5) return res.status(400).json({ emessage: 'Address must be at least 5 characters' });
+    if (city && !nameRegex.test(city)) return res.status(400).json({ emessage: 'Invalid city (letters and spaces only)' });
+    if (state && !nameRegex.test(state)) return res.status(400).json({ emessage: 'Invalid state (letters and spaces only)' });
+    if (pincode && !/^\d{6}$/.test(pincode)) return res.status(400).json({ emessage: 'Invalid pincode (must be 6 digits)' });
     if (emergency_contact_name && !nameRegex.test(emergency_contact_name))
-      return sendError("Invalid emergency contact name");
+      return res.status(400).json({ emessage: 'Invalid emergency contact name' });
     if (date_of_birth && new Date(date_of_birth) > new Date())
-      return sendError("Date of birth cannot be in future");
+      return res.status(400).json({ emessage: 'Date of birth cannot be in future' });
     if (date_of_birth && new Date(date_of_birth).getFullYear() < 1940)
-      return sendError("Invalid date of birth");
+      return res.status(400).json({ emessage: 'Invalid date of birth' });
     if (new Date(joining_date) > new Date())
-      return sendError("Joining date cannot be in future");
+      return res.status(400).json({ emessage: 'Joining date cannot be in future' });
     if (experience_years) {
       const expNum = Number(experience_years);
-      if (isNaN(expNum) || expNum < 0 || expNum > 70) {
-        return sendError("Experience years must be a number between 0 and 70");
-      }
+      if (isNaN(expNum) || expNum < 0 || expNum > 70)
+        return res.status(400).json({ emessage: 'Experience years must be a number between 0 and 70' });
     }
     if (aadhar_number && !/^\d{12}$/.test(aadhar_number))
-      return sendError("Aadhar must contain 12 digits");
+      return res.status(400).json({ emessage: 'Aadhar must contain 12 digits' });
     if (pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan_number))
-      return sendError("Invalid PAN number format");
+      return res.status(400).json({ emessage: 'Invalid PAN number format' });
     if (bank_name && bank_name.trim().length < 2)
-      return sendError("Bank name must be at least 2 characters");
+      return res.status(400).json({ emessage: 'Bank name must be at least 2 characters' });
     if (account_number && !/^\d{9,18}$/.test(account_number))
-      return sendError("Invalid account number (9-18 digits)");
+      return res.status(400).json({ emessage: 'Invalid account number (9-18 digits)' });
     if (branch_name && branch_name.trim().length < 2)
-      return sendError("Branch name must be at least 2 characters");
+      return res.status(400).json({ emessage: 'Branch name must be at least 2 characters' });
     if (salary) {
       const salaryNum = Number(salary);
-      if (isNaN(salaryNum) || salaryNum < 0 || salaryNum > 10000000) {
-        return sendError("Salary must be between 0 and 10,000,000");
-      }
+      if (isNaN(salaryNum) || salaryNum < 0 || salaryNum > 10000000)
+        return res.status(400).json({ emessage: 'Salary must be between 0 and 10,000,000' });
     }
     if (highest_qualification && highest_qualification.trim().length < 2)
-      return sendError("Qualification must be at least 2 characters");
+      return res.status(400).json({ emessage: 'Qualification must be at least 2 characters' });
     if (specialization && specialization.trim().length < 2)
-      return sendError("Specialization must be at least 2 characters");
+      return res.status(400).json({ emessage: 'Specialization must be at least 2 characters' });
     if (blood_group && !validBloodGroup.includes(blood_group))
-      return sendError("Invalid blood group");
+      return res.status(400).json({ emessage: 'Invalid blood group' });
     if (marital_status && !validMaritalStatus.includes(marital_status))
-      return sendError("Invalid marital status");
+      return res.status(400).json({ emessage: 'Invalid marital status' });
 
-    // ----- Build Staff Document -----
+    // ---- Check duplicates in Staff ----
+    const existingStaff = await Staff.findOne({
+      $or: [
+        { staff_id: staff_id.trim() },
+        { email: email.trim().toLowerCase() },
+        { phone_number: phone_number.trim() },
+      ],
+    });
+    if (existingStaff) return res.status(400).json({ emessage: 'Staff with the same ID, email, or phone already exists' });
+
+    if (aadhar_number) {
+      const existingAadhar = await Staff.findOne({ aadhar_number: aadhar_number.trim() });
+      if (existingAadhar) return res.status(400).json({ emessage: 'Staff with the same Aadhar number already exists' });
+    }
+    if (pan_number) {
+      const existingPan = await Staff.findOne({ pan_number: pan_number.trim() });
+      if (existingPan) return res.status(400).json({ emessage: 'Staff with the same PAN number already exists' });
+    }
+
+    // ---- Check duplicates in Users ----
+    const existingUser = await User.findOne({
+      $or: [{ username: staff_id.trim() }, { email: email.trim().toLowerCase() }],
+    });
+    if (existingUser) return res.status(400).json({ emessage: 'Username or email already in use' });
+
+    // ---- Upload photo to Google Drive ----
+    const photoFileId = await uploadStaffPhoto(req.file);
+    const photoVersion = Date.now(); // ✅ cache-busting version, set alongside the file id
+
+    // ---- Build staff document ----
     const staffDoc = {
       staff_id: staff_id.trim(),
       prefix: prefix.trim(),
-      photo_url,
       first_name: first_name.trim(),
       last_name: last_name.trim(),
-      staff_code:staff_code.trim(),
+      staff_code: staff_code.trim(),
       gender,
       date_of_birth: date_of_birth || null,
       phone_number: phone_number.trim(),
@@ -209,7 +201,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       designation: designation.trim(),
       role_type,
       employment_type: nullIfEmpty(employment_type),
-      joining_date: joining_date,
+      joining_date,
       experience_years: experience_years ? Number(experience_years) : null,
       staff_status,
       highest_qualification: nullIfEmpty(highest_qualification),
@@ -224,169 +216,85 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       branch_name: nullIfEmpty(branch_name),
       salary: salary ? Number(salary) : null,
       blood_group: nullIfEmpty(blood_group),
-      marital_status: nullIfEmpty(marital_status)
+      marital_status: nullIfEmpty(marital_status),
+      photo_file_id: photoFileId,          // ✅ only Drive file ID
+      photo_version: photoVersion,          // ✅ cache-busting version
     };
 
-    // ----- Check Duplicates in Staff -----
-    const existingStaff = await Staff.findOne({
-      $or: [
-        { staff_id: staffDoc.staff_id },
-        { email: staffDoc.email },
-        { phone_number: staffDoc.phone_number }
-      ]
-    });
-    if (existingStaff) {
-      return sendError("Staff with the same ID, email, or phone already exists");
-    }
-
-    if (staffDoc.aadhar_number) {
-      const existingAadhar = await Staff.findOne({ aadhar_number: staffDoc.aadhar_number });
-      if (existingAadhar) {
-        return sendError("Staff with the same Aadhar number already exists");
-      }
-    }
-    if (staffDoc.pan_number) {
-      const existingPan = await Staff.findOne({ pan_number: staffDoc.pan_number });
-      if (existingPan) {
-        return sendError("Staff with the same PAN number already exists");
-      }
-    }
-
-    // ----- Check Duplicates in Users -----
-    const existingUser = await User.findOne({
-      $or: [
-        { username: staffDoc.staff_id },
-        { email: staffDoc.email }
-      ]
-    });
-    if (existingUser) {
-      return sendError("Username or email already in use");
-    }
-
-    // ----- Create Staff -----
     const newStaff = new Staff(staffDoc);
     await newStaff.save();
 
-    // ----- Create User with default password -----
-    const defaultPassword = "Staff@123";
-    // Map incoming role to one of the User model's enum values (case-insensitive)
+    // ---- Create User ----
+    const defaultPassword = 'Staff@123';
     const normalizedInput = (staffDoc.role_type || '').toString().trim().toLowerCase();
-    const allowedUserRoles = (User.schema && User.schema.path('role') && User.schema.path('role').enumValues) || [];
-    let userRole = allowedUserRoles.find(r => r.toLowerCase() === normalizedInput);
+    const allowedUserRoles = User.schema?.path('role')?.enumValues || [];
+    let userRole = allowedUserRoles.find((r) => r.toLowerCase() === normalizedInput);
     if (!userRole) userRole = allowedUserRoles.length ? allowedUserRoles[0] : 'Staff';
 
     const newUser = new User({
       username: staffDoc.staff_id,
       email: staffDoc.email,
       password: defaultPassword,
-      name: `${staffDoc.prefix} ${staffDoc.first_name} ${staffDoc.last_name}`.trim(),
+      name: `${staffDoc.prefix || ''} ${staffDoc.first_name} ${staffDoc.last_name}`.trim(),
       role: userRole,
-      profile_image: staffDoc.photo_url
+      profile_image: buildPhotoUrl(staffDoc.staff_id, staffDoc.photo_file_id, staffDoc.photo_version), // ✅ versioned URL
     });
     await newUser.save();
 
-    res.status(201).json({
-      success: true,
-      message: "Staff added successfully",
-      photo_url: photo_url
-    });
-
+    return res.status(201).json({ success: true, message: 'Staff added successfully' });
   } catch (error) {
-    console.error("Error adding staff:", error);
-    if (uploadedFileName) {
-      deleteUploadedImage(uploadedFileName);
-    }
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message
-    });
+    console.error('Error adding staff:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
-// ----- GET / (List) -----
+// ============================================================
+// 2. GET / (List with pagination & filters)
+// ============================================================
 router.get('/', async (req, res) => {
   const role = req.user?.role;
-  
-    if (role !== 'Admin'&&role !=='Hod') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied',
-        islogout: true
-      });
-    }
-  try {
-    const {
-      page = 1,
-      limit = 10,
-      search = '',
-      department = '',
-      designation = '',
-      status = '',
-      category = ''
-    } = req.query;
+  if (role !== 'Admin' && role !== 'Hod') {
+    return res.status(403).json({ success: false, message: 'Access denied', islogout: true });
+  }
 
+  try {
+    await connectDB();
+    const { page = 1, limit = 10, search = '', department = '', designation = '', status = '', category = '' } = req.query;
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    // Build filter
     const filter = {};
-
     if (search && search.trim() !== '') {
       const searchRegex = new RegExp(search.trim(), 'i');
       filter.$or = [
         { staff_id: searchRegex },
         { first_name: searchRegex },
         { last_name: searchRegex },
-        { email: searchRegex }
+        { email: searchRegex },
       ];
     }
+    if (department && department.trim() !== '') filter.department_code = department.trim();
+    if (designation && designation.trim() !== '') filter.designation = designation.trim();
+    if (status && status.trim() !== '') filter.staff_status = status.trim();
+    if (category && category.trim() !== '') filter.role_type = category.trim();
 
-    if (department && department.trim() !== '') {
-      filter.department_code = department.trim();
-    }
-    if (designation && designation.trim() !== '') {
-      filter.designation = designation.trim();
-    }
-    if (status && status.trim() !== '') {
-      filter.staff_status = status.trim();
-    }
-    if (category && category.trim() !== '') {
-      filter.role_type = category.trim();
-    }
-
-    // Count total matching
     const totalItems = await Staff.countDocuments(filter);
-
-    // Fetch staff with pagination
     const staffList = await Staff.find(filter)
       .select({
-        staff_id: 1,
-        first_name: 1,
-        last_name: 1,
-        prefix: 1,
-        department_code: 1,
-        designation: 1,
-        staff_code:1,
-        role_type: 1,
-        email: 1,
-        phone_number: 1,
-        staff_status: 1,
-        employment_type: 1,
-        joining_date: 1,
-        photo_url: 1,
-        _id: 0
+        staff_id: 1, prefix: 1, first_name: 1, last_name: 1, staff_code: 1,
+        department_code: 1, designation: 1, role_type: 1, email: 1,
+        phone_number: 1, staff_status: 1, employment_type: 1, joining_date: 1,
+        photo_file_id: 1, photo_version: 1,
       })
       .sort({ staff_id: 1 })
       .skip(skip)
       .limit(limitNum)
       .lean();
 
-    // Format staff list
-    const formattedStaff = staffList.map(staff => ({
+    const formattedStaff = staffList.map((staff) => ({
       id: staff.staff_id,
-      image: staff.photo_url || null,
+      image: buildPhotoUrl(staff.staff_id, staff.photo_file_id, staff.photo_version), // ✅ versioned URL
       name: `${staff.prefix || ''} ${staff.first_name || ''} ${staff.last_name || ''}`.trim(),
       staffCode: staff.staff_code,
       department: staff.department_code || '',
@@ -396,55 +304,42 @@ router.get('/', async (req, res) => {
       phone: staff.phone_number || '',
       status: staff.staff_status || 'Inactive',
       type: staff.employment_type || '',
-      joiningDate: staff.joining_date || ''
+      joiningDate: staff.joining_date || '',
     }));
 
-    // ----- Stats Aggregation -----
+    // ---- Stats ----
     const statsResult = await Staff.aggregate([
       { $match: filter },
       {
         $group: {
           _id: null,
           totalStaff: { $sum: 1 },
-          activeStaff: {
-            $sum: { $cond: [{ $eq: ['$staff_status', 'Active'] }, 1, 0] }
-          },
+          activeStaff: { $sum: { $cond: [{ $eq: ['$staff_status', 'Active'] }, 1, 0] } },
           teachingStaff: {
             $sum: {
               $cond: [
                 { $in: ['$designation', ['Professor', 'Assistant Professor', 'Associate Professor', 'Lecturer', 'HOD']] },
                 1,
-                0
-              ]
-            }
+                0,
+              ],
+            },
           },
           nonTeachingStaff: {
             $sum: {
               $cond: [
                 { $in: ['$designation', ['Lab Assistant', 'Clerk', 'Accountant', 'Manager', 'Director']] },
                 1,
-                0
-              ]
-            }
-          }
-        }
-      }
+                0,
+              ],
+            },
+          },
+        },
+      },
     ]);
+    const stats = statsResult[0] || { totalStaff: 0, activeStaff: 0, teachingStaff: 0, nonTeachingStaff: 0 };
 
-    const stats = statsResult[0] || {
-      totalStaff: 0,
-      activeStaff: 0,
-      teachingStaff: 0,
-      nonTeachingStaff: 0
-    };
-
-    // ----- Distinct departments and designations -----
-    const departmentList = await Staff.distinct('department_code', {
-      department_code: { $ne: null }
-    });
-    const designationList = await Staff.distinct('designation', {
-      designation: { $ne: null }
-    });
+    const departmentList = await Staff.distinct('department_code', { department_code: { $ne: null } });
+    const designationList = await Staff.distinct('designation', { designation: { $ne: null } });
 
     const totalPages = Math.ceil(totalItems / limitNum);
     const startIndex = skip + 1;
@@ -460,114 +355,108 @@ router.get('/', async (req, res) => {
           totalItems,
           itemsPerPage: limitNum,
           startIndex,
-          endIndex
+          endIndex,
         },
         stats: {
           totalStaff: stats.totalStaff || 0,
           activeStaff: stats.activeStaff || 0,
           teachingStaff: stats.teachingStaff || 0,
-          nonTeachingStaff: stats.nonTeachingStaff || 0
+          nonTeachingStaff: stats.nonTeachingStaff || 0,
         },
         filters: {
-          departments: departmentList.filter(d => d),
-          designations: designationList.filter(d => d)
-        }
-      }
+          departments: departmentList.filter((d) => d),
+          designations: designationList.filter((d) => d),
+        },
+      },
     });
-
   } catch (error) {
     console.error('Error fetching staff list:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal Server Error',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
   }
 });
+
 // ============================================================
-// GET /all
-// Get all staff members
-// Used by timetable and other master-data pages
+// 3. GET /all  (for master data dropdowns)
 // ============================================================
 router.get('/all', async (req, res) => {
   const role = req.user?.role;
-
-  // Admin only
-  if (role !== 'Admin'&&role!=='Hod') {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied',
-      islogout: true
-    });
+  if (role !== 'Admin' && role !== 'Hod') {
+    return res.status(403).json({ success: false, message: 'Access denied', islogout: true });
   }
 
   try {
-    const staffList = await Staff.find({
-      staff_status: { $ne: 'Inactive' }
-    })
+    await connectDB();
+    const staffList = await Staff.find({ staff_status: { $ne: 'Inactive' } })
       .select({
-        _id: 1,
-        staff_id: 1,
-        prefix: 1,
-        first_name: 1,
-        last_name: 1,
-        staff_code: 1,
-        department_code: 1,
-        designation: 1,
-        role_type: 1,
-        staff_status: 1
+        _id: 1, staff_id: 1, prefix: 1, first_name: 1, last_name: 1,
+        staff_code: 1, department_code: 1, designation: 1, role_type: 1,
+        staff_status: 1, photo_file_id: 1, photo_version: 1,
       })
-      .sort({
-        department_code: 1,
-        staff_code: 1
-      })
+      .sort({ department_code: 1, staff_code: 1 })
       .lean();
 
-    res.status(200).json({
-      success: true,
-      data: staffList
-    });
+    const formatted = staffList.map((s) => ({
+      ...s,
+      photo_url: buildPhotoUrl(s.staff_id, s.photo_file_id, s.photo_version), // ✅ versioned URL
+    }));
 
+    res.status(200).json({ success: true, data: formatted });
   } catch (error) {
     console.error('Error fetching all staff:', error);
-
-    res.status(500).json({
-      success: false,
-      message: 'Internal Server Error',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
   }
 });
 
+// ============================================================
+// 4. GET /:id/photo  (secure photo endpoint) – NO CACHE
+// ============================================================
+router.get('/:id/photo', async (req, res) => {
+  const role = req.user?.role;
+  if (role !== 'Admin' && role !== 'Hod') {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
 
-// ----- GET /:id -----
+  try {
+    await connectDB();
+    const { id } = req.params;
+    const staff = await Staff.findOne({ staff_id: id }).lean();
+    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
+    if (!staff.photo_file_id) return res.status(404).json({ success: false, message: 'Staff photo not found' });
+
+    const driveResponse = await getStaffPhoto(staff.photo_file_id);
+
+    // ✅ Force no caching (secondary safeguard; the ?v= query param does the real work)
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Content-Type', driveResponse.headers['content-type'] || 'image/jpeg');
+
+    driveResponse.data.pipe(res);
+  } catch (error) {
+    console.error('Error serving staff photo:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Unable to load staff photo' });
+    }
+  }
+});
+
+// ============================================================
+// 5. GET /:id  (single staff details)
+// ============================================================
 router.get('/:id', async (req, res) => {
   const role = req.user?.role;
-    if (role !== 'Admin'&&role!=='Hod') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied',
-        islogout: true
-      });
-    }
+  if (role !== 'Admin' && role !== 'Hod') {
+    return res.status(403).json({ success: false, message: 'Access denied', islogout: true });
+  }
+
   try {
+    await connectDB();
     const { id } = req.params;
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Staff ID is required'
-      });
-    }
+    if (!id) return res.status(400).json({ success: false, message: 'Staff ID is required' });
 
     const staff = await Staff.findOne({ staff_id: id }).lean();
-    if (!staff) {
-      return res.status(404).json({
-        success: false,
-        message: 'Staff member not found'
-      });
-    }
+    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
 
-    // Format helpers
     const formatDate = (date) => {
       if (!date) return '';
       const d = new Date(date);
@@ -576,18 +465,13 @@ router.get('/:id', async (req, res) => {
       const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
-
     const formatSalary = (salary) => {
       if (!salary) return '';
       const num = parseFloat(salary);
       if (isNaN(num)) return '';
-      if (num >= 10000000) {
-        return `₹${(num / 10000000).toFixed(1)} Crore / Year`;
-      } else if (num >= 100000) {
-        return `₹${(num / 100000).toFixed(1)} Lakh / Year`;
-      } else {
-        return `₹${num.toLocaleString()} / Year`;
-      }
+      if (num >= 10000000) return `₹${(num / 10000000).toFixed(1)} Crore / Year`;
+      if (num >= 100000) return `₹${(num / 100000).toFixed(1)} Lakh / Year`;
+      return `₹${num.toLocaleString()} / Year`;
     };
 
     const staffDetails = {
@@ -595,12 +479,12 @@ router.get('/:id', async (req, res) => {
       prefix: staff.prefix || '',
       first_name: staff.first_name || '',
       last_name: staff.last_name || '',
+      staff_code: staff.staff_code || '',
       gender: staff.gender || '',
-      staff_code:staff.staff_code||'',
       date_of_birth: staff.date_of_birth ? formatDate(staff.date_of_birth) : '',
       phone_number: staff.phone_number || '',
       email: staff.email || '',
-      personal_email:staff.personal_email||'',
+      personal_email: staff.personal_email || '',
       address: staff.address || '',
       city: staff.city || '',
       state: staff.state || '',
@@ -627,148 +511,127 @@ router.get('/:id', async (req, res) => {
       salary: formatSalary(staff.salary),
       blood_group: staff.blood_group || '',
       marital_status: staff.marital_status || '',
-      profile_image: staff.photo_url || '/user.png',
-      full_name: `${staff.prefix || ''} ${staff.first_name || ''} ${staff.last_name || ''}`.trim()
+      profile_image: buildPhotoUrl(staff.staff_id, staff.photo_file_id, staff.photo_version) || '/user.png', // ✅ versioned URL
+      full_name: `${staff.prefix || ''} ${staff.first_name || ''} ${staff.last_name || ''}`.trim(),
     };
 
-    res.status(200).json({
-      success: true,
-      data: staffDetails
-    });
-
+    res.status(200).json({ success: true, data: staffDetails });
   } catch (error) {
     console.error('Error fetching staff details:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal Server Error',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
   }
 });
 
-// ----- PUT /:id -----
+// ============================================================
+// 6. PUT /:id  (update staff – with optional photo)
+// ============================================================
 router.put('/:id', upload.single('photo'), async (req, res) => {
   const role = req.user?.role;
-    if (role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied',
-        islogout: true
-      });
-    }
-  let uploadedFileName = null;
-  
+  if (role !== 'Admin') {
+    return res.status(403).json({ success: false, message: 'Access denied', islogout: true });
+  }
+
+  let newPhotoFileId = null;
+  let uploadedNewPhoto = false;
+
   try {
+    await connectDB();
     const { id } = req.params;
     const staffData = req.body;
-    
-    if (req.file) {
-      uploadedFileName = req.file.filename;
-    }
 
-    const sendError = (message, statusCode = 400) => {
-      if (uploadedFileName) {
-        deleteUploadedImage(uploadedFileName);
-      }
-      return res.status(statusCode).json({ emessage: message });
-    };
-
-    // Find existing staff
+    // 1. Find existing staff
     const existingStaff = await Staff.findOne({ staff_id: id });
     if (!existingStaff) {
-      return sendError('Staff member not found', 404);
+      return res.status(404).json({ success: false, emessage: 'Staff member not found' });
     }
 
-    const photo_url = req.file ? `/uploads/staff/${req.file.filename}` : existingStaff.photo_url;
-
+    // 2. Extract and validate fields (same as POST)
     const {
-      prefix, first_name, last_name,staff_code, gender, date_of_birth,
+      prefix, first_name, last_name, staff_code, gender, date_of_birth,
       phone_number, email, personal_email, address, city, state, pincode,
-      emergency_contact_name, emergency_contact_number,
-      department_code, designation, role_type, employment_type,
-      joining_date, experience_years, staff_status,
-      highest_qualification, specialization, university, passing_year,
-      aadhar_number, pan_number, bank_name, account_number,
-      ifsc_code, branch_name, salary, blood_group, marital_status
+      emergency_contact_name, emergency_contact_number, department_code,
+      designation, role_type, employment_type, joining_date, experience_years,
+      staff_status, highest_qualification, specialization, university, passing_year,
+      aadhar_number, pan_number, bank_name, account_number, ifsc_code,
+      branch_name, salary, blood_group, marital_status,
     } = staffData;
 
-    // ----- Validation (same as POST) -----
-    if (!prefix?.trim()) return sendError("Prefix is required");
-    if (!first_name?.trim()) return sendError("First name is required");
-    if (!last_name?.trim()) return sendError("Last name is required");
-    if (!staff_code.trim()) return sendError("Staff Code is required")
-    if (!gender?.trim()) return sendError("Gender is required");
-    if (!phone_number?.trim()) return sendError("Phone number is required");
-    if (!email?.trim()) return sendError("Email is required");
-    if (!department_code) return sendError("Department is required");
-    if (!designation) return sendError("Designation is required");
-    if (!role_type) return sendError("Role type is required");
-    if (!joining_date) return sendError("Joining date is required");
-    if (!staff_status) return sendError("Staff status is required");
+    // ---- Required fields ----
+    if (!prefix?.trim()) return res.status(400).json({ emessage: 'Prefix is required' });
+    if (!first_name?.trim()) return res.status(400).json({ emessage: 'First name is required' });
+    if (!last_name?.trim()) return res.status(400).json({ emessage: 'Last name is required' });
+    if (!staff_code?.trim()) return res.status(400).json({ emessage: 'Staff Code is required' });
+    if (!gender?.trim()) return res.status(400).json({ emessage: 'Gender is required' });
+    if (!phone_number?.trim()) return res.status(400).json({ emessage: 'Phone number is required' });
+    if (!email?.trim()) return res.status(400).json({ emessage: 'Email is required' });
+    if (!department_code?.trim()) return res.status(400).json({ emessage: 'Department is required' });
+    if (!designation?.trim()) return res.status(400).json({ emessage: 'Designation is required' });
+    if (!role_type?.trim()) return res.status(400).json({ emessage: 'Role type is required' });
+    if (!joining_date) return res.status(400).json({ emessage: 'Joining date is required' });
+    if (!staff_status?.trim()) return res.status(400).json({ emessage: 'Staff status is required' });
 
-    if (!nameRegex.test(first_name)) return sendError("Invalid first name");
-    if (!nameRegex.test(last_name)) return sendError("Invalid last name");
-    if (!validGender.includes(gender)) return sendError("Invalid gender");
-    if (!phoneRegex.test(phone_number)) return sendError("Invalid phone number (must be 10 digits)");
+    // ---- Format validations (same as POST) ----
+    if (!nameRegex.test(first_name)) return res.status(400).json({ emessage: 'Invalid first name' });
+    if (!nameRegex.test(last_name)) return res.status(400).json({ emessage: 'Invalid last name' });
+    if (!validGender.includes(gender)) return res.status(400).json({ emessage: 'Invalid gender' });
+    if (!phoneRegex.test(phone_number)) return res.status(400).json({ emessage: 'Invalid phone number' });
     if (emergency_contact_number && !phoneRegex.test(emergency_contact_number))
-      return sendError("Invalid emergency contact number (must be 10 digits)");
-    if (!emailRegex.test(email)) return sendError("Invalid email address");
-    if (personal_email && !emailRegex.test(personal_email)) return sendError("Invalid personal email address");
-    if (!validRoleType.includes(role_type)) return sendError("Invalid role type");
-    if (!validDesignation.includes(designation)) return sendError("Invalid designation");
+      return res.status(400).json({ emessage: 'Invalid emergency contact number' });
+    if (!emailRegex.test(email)) return res.status(400).json({ emessage: 'Invalid email address' });
+    if (personal_email && !emailRegex.test(personal_email))
+      return res.status(400).json({ emessage: 'Invalid personal email address' });
+    if (!validRoleType.includes(role_type)) return res.status(400).json({ emessage: 'Invalid role type' });
+    if (!validDesignation.includes(designation)) return res.status(400).json({ emessage: 'Invalid designation' });
     if (employment_type && !validEmploymentType.includes(employment_type))
-      return sendError("Invalid employment type");
-    if (!validStaffStatus.includes(staff_status)) return sendError("Invalid staff status");
-    if (address && address.trim().length < 5) return sendError("Address must be at least 5 characters");
-    if (city && !nameRegex.test(city)) return sendError("Invalid city (letters and spaces only)");
-    if (state && !nameRegex.test(state)) return sendError("Invalid state (letters and spaces only)");
-    if (pincode && !/^\d{6}$/.test(pincode)) return sendError("Invalid pincode (must be 6 digits)");
+      return res.status(400).json({ emessage: 'Invalid employment type' });
+    if (!validStaffStatus.includes(staff_status)) return res.status(400).json({ emessage: 'Invalid staff status' });
+    if (address && address.trim().length < 5) return res.status(400).json({ emessage: 'Address must be at least 5 characters' });
+    if (city && !nameRegex.test(city)) return res.status(400).json({ emessage: 'Invalid city' });
+    if (state && !nameRegex.test(state)) return res.status(400).json({ emessage: 'Invalid state' });
+    if (pincode && !/^\d{6}$/.test(pincode)) return res.status(400).json({ emessage: 'Invalid pincode' });
     if (emergency_contact_name && !nameRegex.test(emergency_contact_name))
-      return sendError("Invalid emergency contact name");
+      return res.status(400).json({ emessage: 'Invalid emergency contact name' });
     if (date_of_birth && new Date(date_of_birth) > new Date())
-      return sendError("Date of birth cannot be in future");
+      return res.status(400).json({ emessage: 'Date of birth cannot be in future' });
     if (date_of_birth && new Date(date_of_birth).getFullYear() < 1940)
-      return sendError("Invalid date of birth");
+      return res.status(400).json({ emessage: 'Invalid date of birth' });
     if (new Date(joining_date) > new Date())
-      return sendError("Joining date cannot be in future");
+      return res.status(400).json({ emessage: 'Joining date cannot be in future' });
     if (experience_years) {
       const expNum = Number(experience_years);
-      if (isNaN(expNum) || expNum < 0 || expNum > 70) {
-        return sendError("Experience years must be a number between 0 and 70");
-      }
+      if (isNaN(expNum) || expNum < 0 || expNum > 70)
+        return res.status(400).json({ emessage: 'Experience years must be between 0 and 70' });
     }
     if (aadhar_number && !/^\d{12}$/.test(aadhar_number))
-      return sendError("Aadhar must contain 12 digits");
+      return res.status(400).json({ emessage: 'Aadhar must contain 12 digits' });
     if (pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan_number))
-      return sendError("Invalid PAN number format");
+      return res.status(400).json({ emessage: 'Invalid PAN number format' });
     if (bank_name && bank_name.trim().length < 2)
-      return sendError("Bank name must be at least 2 characters");
+      return res.status(400).json({ emessage: 'Bank name must be at least 2 characters' });
     if (account_number && !/^\d{9,18}$/.test(account_number))
-      return sendError("Invalid account number (9-18 digits)");
+      return res.status(400).json({ emessage: 'Invalid account number' });
     if (branch_name && branch_name.trim().length < 2)
-      return sendError("Branch name must be at least 2 characters");
+      return res.status(400).json({ emessage: 'Branch name must be at least 2 characters' });
     if (salary) {
       const salaryNum = Number(salary);
-      if (isNaN(salaryNum) || salaryNum < 0 || salaryNum > 10000000) {
-        return sendError("Salary must be between 0 and 10,000,000");
-      }
+      if (isNaN(salaryNum) || salaryNum < 0 || salaryNum > 10000000)
+        return res.status(400).json({ emessage: 'Salary must be between 0 and 10,000,000' });
     }
     if (highest_qualification && highest_qualification.trim().length < 2)
-      return sendError("Qualification must be at least 2 characters");
+      return res.status(400).json({ emessage: 'Qualification must be at least 2 characters' });
     if (specialization && specialization.trim().length < 2)
-      return sendError("Specialization must be at least 2 characters");
+      return res.status(400).json({ emessage: 'Specialization must be at least 2 characters' });
     if (blood_group && !validBloodGroup.includes(blood_group))
-      return sendError("Invalid blood group");
+      return res.status(400).json({ emessage: 'Invalid blood group' });
     if (marital_status && !validMaritalStatus.includes(marital_status))
-      return sendError("Invalid marital status");
+      return res.status(400).json({ emessage: 'Invalid marital status' });
 
-    // ----- Build update object -----
+    // 3. Build update object (without photo)
     const updateFields = {
       prefix: prefix.trim(),
-      photo_url: photo_url,
       first_name: first_name.trim(),
       last_name: last_name.trim(),
-      staff_code:staff_code.trim(),
+      staff_code: staff_code.trim(),
       gender,
       date_of_birth: date_of_birth || null,
       phone_number: phone_number.trim(),
@@ -784,7 +647,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       designation: designation.trim(),
       role_type,
       employment_type: nullIfEmpty(employment_type),
-      joining_date: joining_date,
+      joining_date,
       experience_years: experience_years ? Number(experience_years) : null,
       staff_status,
       highest_qualification: nullIfEmpty(highest_qualification),
@@ -799,52 +662,75 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       branch_name: nullIfEmpty(branch_name),
       salary: salary ? Number(salary) : null,
       blood_group: nullIfEmpty(blood_group),
-      marital_status: nullIfEmpty(marital_status)
+      marital_status: nullIfEmpty(marital_status),
     };
 
-    // ----- Check duplicates (excluding current) -----
+    // 4. Check duplicates (excluding current)
     const duplicateStaff = await Staff.findOne({
       $and: [
         { staff_id: { $ne: id } },
         {
           $or: [
             { email: updateFields.email },
-            { phone_number: updateFields.phone_number }
-          ]
-        }
-      ]
+            { phone_number: updateFields.phone_number },
+          ],
+        },
+      ],
     });
     if (duplicateStaff) {
-      return sendError("Email or phone already in use by another staff member");
+      return res.status(400).json({ emessage: 'Email or phone already in use by another staff member' });
     }
-
     if (updateFields.aadhar_number) {
       const existingAadhar = await Staff.findOne({
         staff_id: { $ne: id },
-        aadhar_number: updateFields.aadhar_number
+        aadhar_number: updateFields.aadhar_number,
       });
-      if (existingAadhar) {
-        return sendError("Aadhar number already in use by another staff member");
-      }
+      if (existingAadhar) return res.status(400).json({ emessage: 'Aadhar number already in use by another staff member' });
     }
     if (updateFields.pan_number) {
       const existingPan = await Staff.findOne({
         staff_id: { $ne: id },
-        pan_number: updateFields.pan_number
+        pan_number: updateFields.pan_number,
       });
-      if (existingPan) {
-        return sendError("PAN number already in use by another staff member");
-      }
+      if (existingPan) return res.status(400).json({ emessage: 'PAN number already in use by another staff member' });
     }
 
-    // ----- Update Staff -----
-    await Staff.findOneAndUpdate(
+    // 5. Upload new photo ONLY after validation passes
+    if (req.file) {
+      console.log('Uploading new staff photo...');
+      newPhotoFileId = await uploadStaffPhoto(req.file);
+      uploadedNewPhoto = true;
+      console.log('New Google Drive photo ID:', newPhotoFileId);
+      updateFields.photo_file_id = newPhotoFileId;
+      updateFields.photo_version = Date.now(); // ✅ bump version so the URL changes and caches bust
+    }
+
+    // 6. Update Staff – using returnDocument: 'after' to avoid deprecation
+    const updatedStaff = await Staff.findOneAndUpdate(
       { staff_id: id },
       { $set: updateFields },
-      { new: true, runValidators: true }
-    );
+      {
+        returnDocument: 'after',   // ✅ instead of new: true
+        runValidators: true,
+      }
+    ).lean();
 
-    // ----- Update User -----
+    if (!updatedStaff) {
+      if (uploadedNewPhoto && newPhotoFileId) {
+        try {
+          await deleteStaffPhoto(newPhotoFileId);
+          console.log('Cleaned up new photo after update failure');
+        } catch (cleanupError) {
+          console.error('Failed to clean up new photo:', cleanupError);
+        }
+      }
+      return res.status(500).json({ success: false, message: 'Staff update failed' });
+    }
+
+    console.log('Staff updated successfully:', updatedStaff.staff_id);
+    console.log('MongoDB photo_file_id:', updatedStaff.photo_file_id, 'version:', updatedStaff.photo_version);
+
+    // 7. Update User
     await User.findOneAndUpdate(
       { username: id },
       {
@@ -852,38 +738,78 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
           email: updateFields.email,
           role: updateFields.role_type,
           name: `${updateFields.prefix} ${updateFields.first_name} ${updateFields.last_name}`.trim(),
-          profile_image: updateFields.photo_url
-        }
+          profile_image: buildPhotoUrl(id, updatedStaff.photo_file_id, updatedStaff.photo_version), // ✅ versioned URL
+        },
       },
       { runValidators: true }
     );
 
-    // Delete old image if new uploaded
-    if (req.file && existingStaff.photo_url) {
-      const oldImage = path.basename(existingStaff.photo_url);
-      deleteUploadedImage(oldImage);
+    // 8. Delete old photo from Drive after DB update succeeds
+    if (uploadedNewPhoto && existingStaff.photo_file_id && existingStaff.photo_file_id !== newPhotoFileId) {
+      try {
+        await deleteStaffPhoto(existingStaff.photo_file_id);
+        console.log('Old staff photo deleted:', existingStaff.photo_file_id);
+      } catch (error) {
+        console.error('Failed to delete old staff photo:', error);
+        // don't fail the update
+      }
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Staff updated successfully",
-      photo_url: photo_url
+      message: 'Staff updated successfully',
+      data: {
+        staff_id: updatedStaff.staff_id,
+        photo_file_id: updatedStaff.photo_file_id || null,
+        photo_version: updatedStaff.photo_version || 0,
+        profile_image: buildPhotoUrl(id, updatedStaff.photo_file_id, updatedStaff.photo_version) || '/user.png', // ✅ versioned URL
+      },
     });
-
   } catch (error) {
-    console.error("Error updating staff:", error);
-    if (uploadedFileName) {
-      deleteUploadedImage(uploadedFileName);
+    console.error('Error updating staff:', error);
+    if (uploadedNewPhoto && newPhotoFileId) {
+      try {
+        await deleteStaffPhoto(newPhotoFileId);
+        console.log('Cleaned up newly uploaded Google Drive photo');
+      } catch (cleanupError) {
+        console.error('Failed to clean up new Google Drive photo:', cleanupError);
+      }
     }
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message
-    });
+    return res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
   }
 });
 
+// ============================================================
+// 7. DELETE /:id
+// ============================================================
+router.delete('/:id', async (req, res) => {
+  const role = req.user?.role;
+  if (role !== 'Admin') {
+    return res.status(403).json({ success: false, message: 'Access denied', islogout: true });
+  }
 
+  try {
+    await connectDB();
+    const { id } = req.params;
+    const staff = await Staff.findOne({ staff_id: id });
+    if (!staff) return res.status(404).json({ success: false, message: 'Staff not found' });
 
+    if (staff.photo_file_id) {
+      try {
+        await deleteStaffPhoto(staff.photo_file_id);
+      } catch (error) {
+        console.error('Failed to delete photo from Drive:', error);
+      }
+    }
+
+    await Staff.findOneAndDelete({ staff_id: id });
+    await User.findOneAndDelete({ username: id });
+
+    res.status(200).json({ success: true, message: 'Staff deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting staff:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
+  }
+});
 
 module.exports = router;

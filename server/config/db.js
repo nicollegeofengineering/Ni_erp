@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-
+require('dotenv').config();
 let cached = global._mongoose;
 
 if (!cached) {
@@ -21,10 +21,10 @@ async function connectDB() {
 
         cached.promise = mongoose
             .connect(process.env.MONGO_URI, {
-                dbName: "TEST_ERP"
+                dbName:process.env.MONGO_DB
             })
             .then((m) => {
-                console.log("Connected to MongoDB - database: TEST");
+                console.log(`Connected to MongoDB - database: ${process.env.MONGO_DB}`);
                 return m;
             });
     }

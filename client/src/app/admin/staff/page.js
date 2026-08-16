@@ -201,13 +201,7 @@ export default function Staff() {
           <option value="Retired">Retired</option>
         </select>
 
-        <select value={selCategory} onChange={e => setSelCategory(e.target.value)}>
-          <option value="">Category: All</option>
-          <option value="Teaching">Teaching</option>
-          <option value="Non-Teaching">Non-Teaching</option>
-          <option value="Administrative">Administrative</option>
-          <option value="Management">Management</option>
-        </select>
+        
 
         <div className={styles.searchBox}>
           <Search size={16} className={styles.searchIcon} />
