@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const express = require('express');
 const router = express.Router();
 
@@ -348,8 +349,7 @@ router.post("/verify_google", async (req, res) => {
         if (!token) {
             return res.status(400).json({ error: "Google token required" });
         }
-        console.log("NODE_ENV:", process.env.NODE_ENV);
-console.log("isProd:", isProd);
+        
 
         const ticket = await client.verifyIdToken({
             idToken: token,
