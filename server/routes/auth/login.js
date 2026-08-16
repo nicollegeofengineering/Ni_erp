@@ -20,6 +20,7 @@ const { loginLimiter, forgotPasswordLimiter, resetPasswordLimiter } = require('.
 // Determine secure flag for cookies: enable only in production (HTTPS)
 const isProd = process.env.NODE_ENV === 'production';
 
+
 // ---------- Helper: get profile image from Staff or User ----------
 const getProfileImage = async (user) => {
     const normalizedRole = (user.role || '').toString();
@@ -347,6 +348,8 @@ router.post("/verify_google", async (req, res) => {
         if (!token) {
             return res.status(400).json({ error: "Google token required" });
         }
+        console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("isProd:", isProd);
 
         const ticket = await client.verifyIdToken({
             idToken: token,
