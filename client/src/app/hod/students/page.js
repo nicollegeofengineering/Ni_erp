@@ -3,21 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Plus,
-  Search,
-  SlidersHorizontal,
-  X,
-  Users,
-  UserCheck,
-  GraduationCap,
-  UserPlus,
-  Eye,
-  Pencil,
-  ChevronLeft,
-  ChevronRight,
-  BookOpen,
-  ArrowUp,
-  ArrowDown,
+  Plus, Search, SlidersHorizontal, X, Users, UserCheck,
+  GraduationCap, UserPlus, Eye, Pencil,
+  ChevronLeft, ChevronRight, BookOpen
 } from 'lucide-react';
 import styles from './css/studentmain.module.css';
 import axios from 'axios';
@@ -72,144 +60,6 @@ export default function Students() {
     return false;
   };
 
-  const handlePromoteAll = async () => {
-  const confirmed = window.confirm(
-    `PROMOTE ALL STUDENTS?\n\n` +
-    `This will promote ALL active students to the next semester.\n\n` +
-    `Semester 1 → 2\n` +
-    `Semester 2 → 3 (Year 1 → Year 2)\n` +
-    `Semester 3 → 4\n` +
-    `Semester 4 → 5 (Year 2 → Year 3)\n` +
-    `Semester 5 → 6\n` +
-    `Semester 6 → 7 (Year 3 → Year 4)\n` +
-    `Semester 7 → 8\n` +
-    `Semester 8 → Graduated\n\n` +
-    `This action affects ALL active students.\n\n` +
-    `Do you want to continue?`
-  );
-
-  if (!confirmed) return;
-
-  // Extra confirmation text for safety
-  const confirmationText = window.prompt(
-    'Type "PROMOTE ALL STUDENTS" to confirm:'
-  );
-
-  if (confirmationText !== 'PROMOTE ALL STUDENTS') {
-    alert('Promotion cancelled. Confirmation text did not match.');
-    return;
-  }
-
-  try {
-    const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/student/promote-all`,
-      {
-        confirmation: 'PROMOTE ALL STUDENTS',
-      },
-      {
-        withCredentials: true,
-      }
-    );
-
-    if (response.data.success) {
-      const promotion = response.data.data?.promotion || {};
-
-      alert(
-        `Students promoted successfully!\n\n` +
-        `1 → 2: ${promotion.semester1To2 || 0}\n` +
-        `2 → 3: ${promotion.semester2To3 || 0}\n` +
-        `3 → 4: ${promotion.semester3To4 || 0}\n` +
-        `4 → 5: ${promotion.semester4To5 || 0}\n` +
-        `5 → 6: ${promotion.semester5To6 || 0}\n` +
-        `6 → 7: ${promotion.semester6To7 || 0}\n` +
-        `7 → 8: ${promotion.semester7To8 || 0}\n` +
-        `Graduated: ${promotion.semester8Graduated || 0}`
-      );
-
-      // Refresh student list
-      await fetchStudents();
-    }
-  } catch (error) {
-    if (handleUnauthorized(error)) return;
-
-    console.error('Error promoting students:', error);
-
-    alert(
-      error.response?.data?.message ||
-      'Failed to promote students.'
-    );
-  }
-};
-
-
-const handleDepromoteAll = async () => {
-  const confirmed = window.confirm(
-    `DEPROMOTE ALL STUDENTS?\n\n` +
-    `This will move ALL active and graduated students to the previous semester.\n\n` +
-    `Semester 2 → 1\n` +
-    `Semester 3 → 2 (Year 2 → Year 1)\n` +
-    `Semester 4 → 3\n` +
-    `Semester 5 → 4 (Year 3 → Year 2)\n` +
-    `Semester 6 → 5\n` +
-    `Semester 7 → 6 (Year 4 → Year 3)\n` +
-    `Semester 8 → 7\n` +
-    `Graduated → Semester 8 (Active)\n\n` +
-    `This action affects ALL students.\n\n` +
-    `Do you want to continue?`
-  );
-
-  if (!confirmed) return;
-
-  const confirmationText = window.prompt(
-    'Type "DEPROMOTE ALL STUDENTS" to confirm:'
-  );
-
-  if (confirmationText !== 'DEPROMOTE ALL STUDENTS') {
-    alert('Depromotion cancelled. Confirmation text did not match.');
-    return;
-  }
-
-  try {
-    const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/student/depromote-all`,
-      {
-        confirmation: 'DEPROMOTE ALL STUDENTS',
-      },
-      {
-        withCredentials: true,
-      }
-    );
-
-    if (response.data.success) {
-      const depromotion = response.data.data?.depromotion || {};
-
-      alert(
-        `Students depromoted successfully!\n\n` +
-        `2 → 1: ${depromotion.semester2To1 || 0}\n` +
-        `3 → 2: ${depromotion.semester3To2 || 0}\n` +
-        `4 → 3: ${depromotion.semester4To3 || 0}\n` +
-        `5 → 4: ${depromotion.semester5To4 || 0}\n` +
-        `6 → 5: ${depromotion.semester6To5 || 0}\n` +
-        `7 → 6: ${depromotion.semester7To6 || 0}\n` +
-        `8 → 7: ${depromotion.semester8To7 || 0}\n` +
-        `Graduated → 8: ${depromotion.graduatedTo8 || 0}`
-      );
-
-      // Refresh student list
-      await fetchStudents();
-    }
-  } catch (error) {
-    if (handleUnauthorized(error)) return;
-
-    console.error('Error depromoting students:', error);
-
-    alert(
-      error.response?.data?.message ||
-      'Failed to depromote students.'
-    );
-  }
-};
-
   const fetchStudents = async () => {
     try {
       setLoading(true);
@@ -256,11 +106,11 @@ const handleDepromoteAll = async () => {
 
   const clearFilters = () => {
     setSearchText('');
-    setSelDepartment('');
+    setSelDepartment('AI&DS');
     setSelAdmissionType('');
-    setSelAdmissionStatus('');
-    setSelStudentStatus('');
-    setSelYear('');
+    setSelAdmissionStatus('Admitted');
+    setSelStudentStatus('Active');
+    setSelYear('4');
   };
 
   const handlePageChange = (newPage) => {
@@ -272,43 +122,15 @@ const handleDepromoteAll = async () => {
   return (
     <div className={styles.container}>
       {/* Header */}
-      {/* Header */}
-<div className={styles.header}>
-  <div>
-    <h1>Student Management</h1>
-    <p>Manage and view all student records.</p>
-  </div>
-
-  <div className={styles.headerActions}>
-
-    <button
-      className={styles.depromoteBtn}
-      onClick={handleDepromoteAll}
-      title="Move all students to previous semester"
-    >
-      <ArrowDown size={18} />
-      Depromote All
-    </button>
-
-    <button
-      className={styles.promoteBtn}
-      onClick={handlePromoteAll}
-      title="Promote all students to next semester"
-    >
-      <ArrowUp size={18} />
-      Promote All
-    </button>
-
-    <button
-      className={styles.addBtn}
-      onClick={() => router.push('/admin/students/add')}
-    >
-      <Plus size={18} />
-      Add Student
-    </button>
-
-  </div>
-</div>
+      <div className={styles.header}>
+        <div>
+          <h1>Student Management</h1>
+          <p>Manage and view all student records.</p>
+        </div>
+        <button className={styles.addBtn} onClick={() => router.push('/admin/students/add')}>
+          <Plus size={18} /> Add Student
+        </button>
+      </div>
 
       {/* Statistics */}
       <div className={styles.statsGrid}>
@@ -468,10 +290,10 @@ const handleDepromoteAll = async () => {
                     </td>
                     <td className={styles.tableData}>
                       <div className={styles.actionGroup}>
-                        <button className={styles.viewBtn} onClick={() => router.push(`/admin/students/view/${student.id}`)}>
+                        <button className={styles.viewBtn} onClick={() => router.push(`/hod/students/view/${student.id}`)}>
                           <Eye size={14} /> View
                         </button>
-                        <button className={styles.editBtn} onClick={() => router.push(`/admin/students/edit/${student.id}`)}>
+                        <button className={styles.editBtn} onClick={() => router.push(`/hod/students/edit/${student.id}`)}>
                           <Pencil size={14} /> Edit
                         </button>
                       </div>

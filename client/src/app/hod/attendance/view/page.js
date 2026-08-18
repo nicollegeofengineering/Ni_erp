@@ -1,0 +1,256 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import Link from 'next/link';
+import styles from './AttendanceList.module.css';
+
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+const api = axios.create({ baseURL: BASE_URL, withCredentials: true });
+
+// Helper to format date
+const formatDate = (date) => {
+  const d = new Date(date);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+export default function AttendanceListPage() {
+  const router = useRouter();
+
+  // State for attendance list and pagination
+  const [attendance, setAttendance] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // State for filters
+  const [filters, setFilters] = useState({
+    dateFrom: '',
+    dateTo: '',
+    department: '',
+    year: '',
+    semester: '',
+  });
+
+  // State for departments dropdown
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+
+  // Unauthorized handler
+  const handleUnauthorized = (error) => {
+    if (error.response?.data?.islogout === true) {
+      router.push('/');
+      return true;
+    }
+    return false;
+  };
+
+  // ---------- Fetch departments on mount ----------
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const res = await api.get('/api/admin/department/all');
+        if (res.data.success) {
+          setDepartments(res.data.data);
+        }
+      } catch (err) {
+        if (handleUnauthorized(err)) return;
+        console.error('Failed to fetch departments:', err);
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    };
+    fetchDepartments();
+  }, []);
+
+  // ---------- Fetch attendance records ----------
+  const fetchAttendance = async (page = 1) => {
+    if(!filters.dateFrom){
+      setError("Select dates to fetch Records.")
+      return
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const params = { ...filters, page, limit: pagination.limit };
+      // Remove empty filters
+      Object.keys(params).forEach(key => {
+        if (params[key] === '') delete params[key];
+      });
+      const res = await api.get('/api/staff/attendance', { params });
+      if (res.data.success) {
+        setAttendance(res.data.data.attendance);
+        setPagination(res.data.data.pagination);
+      }
+    } catch (err) {
+      if (handleUnauthorized(err)) return;
+      setError('Failed to load attendance records.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load records on initial mount (after departments loaded)
+  useEffect(() => {
+    fetchAttendance();
+  }, []); // empty dependency – runs once
+
+  // ---------- Filter handlers ----------
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const applyFilters = () => {
+    fetchAttendance(1);
+  };
+
+  const clearFilters = () => {
+    setFilters({ dateFrom: '', dateTo: '', department: '', year: '', semester: '' });
+    // Fetch after state update (use timeout to allow state to settle)
+    setTimeout(() => fetchAttendance(1), 0);
+  };
+
+  // ---------- Render ----------
+  return (
+    <div className={styles.container}>
+      <div className={styles.ctop}>
+        <h1>Attendance Records</h1>
+        <Link href="/admin/attendance">
+          <button className={styles.viewBtn}>Back</button>
+        </Link>
+      </div>
+
+      <div className={styles.filters}>
+        <p>From:</p>
+        <input
+          type="date"
+          name="dateFrom"
+          value={filters.dateFrom}
+          onChange={handleFilterChange}
+          placeholder="From"
+        />
+        <p>To:</p>
+        <input
+          type="date"
+          name="dateTo"
+          value={filters.dateTo}
+          onChange={handleFilterChange}
+          placeholder="To"
+        />
+
+        <select
+          name="department"
+          value={filters.department}
+          onChange={handleFilterChange}
+          className={styles.filterSelect}
+          disabled={departmentsLoading}
+        >
+          <option value="">All Departments</option>
+          {departments.map((dept) => (
+            <option key={dept._id} value={dept.code}>
+              {dept.code} 
+            </option>
+          ))}
+        </select>
+
+        <select
+          name="year"
+          value={filters.year}
+          onChange={handleFilterChange}
+          className={styles.filterSelect}
+        >
+          <option value="">All Years</option>
+          {[1, 2, 3, 4].map((y) => (
+            <option key={y} value={y}>
+              Year {y}
+            </option>
+          ))}
+        </select>
+
+        <select
+          name="semester"
+          value={filters.semester}
+          onChange={handleFilterChange}
+          className={styles.filterSelect}
+        >
+          <option value="">All Semesters</option>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+            <option key={s} value={s}>
+              Sem {s}
+            </option>
+          ))}
+        </select>
+
+        <button onClick={applyFilters} className={styles.applyBtn}>Apply</button>
+        <button onClick={clearFilters} className={styles.clearBtn}>Clear</button>
+      </div>
+
+      {loading && <p>Loading...</p>}
+      {error && <p className={styles.error}>{error}</p>}
+
+      {!loading && attendance.length === 0 && <p>No attendance records found.</p>}
+
+      {attendance.length > 0 && (
+        <>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Dept</th>
+                <th>Year</th>
+                <th>Sem</th>
+                <th>Period</th>
+                <th>Subject</th>
+                <th>Present</th>
+                <th>Absent</th>
+                <th>Total</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {attendance.map((rec) => (
+                <tr key={rec._id}>
+                  <td>{formatDate(rec.date)}</td>
+                  <td>{rec.department}</td>
+                  <td>{rec.year}</td>
+                  <td>{rec.semester}</td>
+                  <td>P{rec.period}</td>
+                  <td>{rec.subject?.subjectCode || 'N/A'}</td>
+                  <td>{rec.presentCount}</td>
+                  <td>{rec.absentCount}</td>
+                  <td>{rec.totalStudents}</td>
+                  <td>
+                    <Link href={`/admin/attendance/${rec._id}`}>
+                      <button className={styles.viewBtn}>Edit</button>
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className={styles.pagination}>
+            <button
+              onClick={() => fetchAttendance(pagination.page - 1)}
+              disabled={pagination.page <= 1}
+            >
+              Previous
+            </button>
+            <span>
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => fetchAttendance(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

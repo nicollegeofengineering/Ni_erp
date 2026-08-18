@@ -452,6 +452,28 @@ export default function TimetablePage() {
 
   const closePopup = () => setPopup(null);
 
+  // ---------- POPUP SELECTION HANDLERS ----------
+  const handleSelectSubject = (subject) => {
+    if (!popup) return;
+    const { dayNum, branch, periodNum, entryKey } = popup;
+    closePopup();
+    attemptUpdate(entryKey, dayNum, branch, periodNum, subject, undefined, undefined);
+  };
+
+  const handleSelectStaff = (staff) => {
+    if (!popup) return;
+    const { dayNum, branch, periodNum, entryKey } = popup;
+    closePopup();
+    attemptUpdate(entryKey, dayNum, branch, periodNum, undefined, staff, undefined);
+  };
+
+  const handleSelectHall = (hall) => {
+    if (!popup) return;
+    const { dayNum, branch, periodNum, entryKey } = popup;
+    closePopup();
+    attemptUpdate(entryKey, dayNum, branch, periodNum, undefined, undefined, hall);
+  };
+
   // ... (popup handlers unchanged, they call attemptUpdate which already checks isEditable)
 
   // ---------- FILTER FUNCTIONS (unchanged) ----------

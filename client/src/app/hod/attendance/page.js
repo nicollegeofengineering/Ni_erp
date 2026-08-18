@@ -230,7 +230,7 @@ export default function AttendancePage() {
     <div className={styles.container}>
       <div className={styles.ctop}>
         <h1>Add Attendance</h1>
-        <Link href="/admin/attendance/view">
+        <Link href="/hod/attendance/view">
           <button className={styles.viewBtn}>View Attendances</button>
         </Link>
       </div>
