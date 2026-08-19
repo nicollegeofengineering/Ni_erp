@@ -14,6 +14,8 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require("google-auth-library");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+const authMiddleware = require("../../middleware/verifyToken");
+
 const { loginLimiter, forgotPasswordLimiter, resetPasswordLimiter } = require('../../middleware/rateLimiter');
 
 
@@ -549,5 +551,15 @@ router.post("/refresh-token", async (req, res) => {
         return res.status(401).json({ message: "Invalid token" });
     }
 });
+
+router.get("/verify-me",authMiddleware ,async(req,res)=>{
+    
+    if(!req.user.role){
+        return res.status(401).json({message:"No user role found",isLogout:true})
+    }
+    const Urole=req.user.role
+
+    return res.status(200).json({role:Urole})
+})
 
 module.exports = router;
