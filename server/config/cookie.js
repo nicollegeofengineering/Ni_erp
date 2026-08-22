@@ -1,12 +1,11 @@
 const isProd = process.env.NODE_ENV === "production";
 
-console.log("Cookie environment:", isProd ? "PRODUCTION" : "DEVELOPMENT");
-
 const accessCookieOptions = {
   httpOnly: true,
   secure: true,
   sameSite: "none",
   path: "/",
+  domain: isProd ? ".manushn.in" : undefined,   // add this line
   maxAge: 20 * 60 * 1000,
 };
 
@@ -15,6 +14,7 @@ const refreshCookieOptions = {
   secure: true,
   sameSite: "none",
   path: "/",
+  domain: isProd ? ".manushn.in" : undefined,   //  add this line
   maxAge: 8 * 60 * 60 * 1000,
 };
 
