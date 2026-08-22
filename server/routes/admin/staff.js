@@ -412,7 +412,7 @@ router.get('/all', async (req, res) => {
 // ============================================================
 router.get('/:id/photo', async (req, res) => {
   const role = req.user?.role;
-  if (role !== 'Admin' && role !== 'Hod') {
+  if (role !== 'Admin' && role !== 'Hod'&& role !=='Staff') {
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
 

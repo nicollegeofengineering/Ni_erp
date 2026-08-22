@@ -1,0 +1,63 @@
+.container {
+  padding: 40px;
+  background: #eff6ff;
+  min-height: 100vh;
+}
+.header h1 {
+  color: #1e3a8a;
+}
+.searchBox {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.searchBox input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+.searchBox button {
+  padding: 12px 24px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.error {
+  color: #b91c1c;
+  background: #fef2f2;
+  padding: 12px;
+  border-radius: 8px;
+}
+.marksContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.semesterCard {
+  background: white;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 20px;
+}
+.semesterCard h2 {
+  color: #1e3a8a;
+}
+.examSection {
+  margin-top: 16px;
+}
+.marksTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+.marksTable th {
+  background: #f1f5f9;
+  padding: 8px 12px;
+  text-align: left;
+}
+.marksTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}

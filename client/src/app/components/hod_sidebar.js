@@ -50,9 +50,13 @@ const NAV_ITEMS = [
     ],
   },
   {
-    href: "/hod/attendance",
     label: "Attendance",
     icon: CalendarCheck,
+    children: [
+      { href: "/hod/attendance", label: "Add Attendance" },
+      { href: "/hod/attendance/view", label: "View Attendance" },
+      { href: "/hod/attendance/report", label: "Attendance Report" },
+    ],
   },
   {
     href: "/hod/hall",

@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const StaffSchema = new mongoose.Schema({
   staff_id: { type: String, required: true, unique: true, trim: true },
   prefix: { type: String, trim: true },
-  photo_url: { type: String, default: null },          // legacy, keep for now
-  photo_file_id: { type: String, default: null },      // ✅ Google Drive file ID
+  photo_url: { type: String, default: null },         
+  photo_file_id: { type: String, default: null },      
   first_name: { type: String, required: true, trim: true },
   last_name: { type: String, required: true, trim: true },
   staff_code: { type: String, required: true, trim: true },
