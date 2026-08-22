@@ -22,13 +22,9 @@ const refreshCookieOptions = {
 
 // Use __Host- cookies ONLY in production.
 // __Host- cookies require Secure + HTTPS and cannot have Domain.
-const ACCESS_COOKIE = isProd
-  ? "__Host-ni_erp_token"
-  : "ni_erp_token";
+const ACCESS_COOKIE = "ni_erp_token"
 
-const REFRESH_COOKIE = isProd
-  ? "__Host-ni_erp_refresh"
-  : "ni_erp_refresh";
+const REFRESH_COOKIE = "ni_erp_refresh"
 
 module.exports = {
   isProd,
