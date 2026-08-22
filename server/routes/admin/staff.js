@@ -237,7 +237,8 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       password: defaultPassword,
       name: `${staffDoc.prefix || ''} ${staffDoc.first_name} ${staffDoc.last_name}`.trim(),
       role: userRole,
-      profile_image: buildPhotoUrl(staffDoc.staff_id, staffDoc.photo_file_id, staffDoc.photo_version), // ✅ versioned URL
+      profile_image: buildPhotoUrl(staffDoc.staff_id, staffDoc.photo_file_id, staffDoc.photo_version),
+      isActive:true 
     });
     await newUser.save();
 
@@ -522,6 +523,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Add this near the top of the file, with your other requires,
+// if it isn't already there:
+// const RefreshSession = require('../../models/RefreshSession');
+
 // ============================================================
 // 6. PUT /:id  (update staff – with optional photo)
 // ============================================================
@@ -730,8 +735,11 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     console.log('Staff updated successfully:', updatedStaff.staff_id);
     console.log('MongoDB photo_file_id:', updatedStaff.photo_file_id, 'version:', updatedStaff.photo_version);
 
-    // 7. Update User
-    await User.findOneAndUpdate(
+    // 7. Update User (deactivate if staff has resigned/retired)
+    const deactivatingStatuses = ['Resigned', 'Retired'];
+    const shouldDeactivate = deactivatingStatuses.includes(updateFields.staff_status);
+
+    const updatedUser = await User.findOneAndUpdate(
       { username: id },
       {
         $set: {
@@ -739,10 +747,27 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
           role: updateFields.role_type,
           name: `${updateFields.prefix} ${updateFields.first_name} ${updateFields.last_name}`.trim(),
           profile_image: buildPhotoUrl(id, updatedStaff.photo_file_id, updatedStaff.photo_version), // ✅ versioned URL
+          isActive: !shouldDeactivate,
         },
       },
-      { runValidators: true }
+      { runValidators: true, new: true }
     );
+
+    // 7b. If staff was just deactivated, revoke their active sessions so
+    // they can't keep using the ERP with a still-valid refresh token.
+    if (shouldDeactivate && updatedUser) {
+      try {
+        await RefreshSession.updateMany(
+          { userId: updatedUser._id, revokedAt: null },
+          { $set: { revokedAt: new Date() } }
+        );
+        console.log('Revoked active sessions for deactivated user:', updatedUser.username);
+      } catch (revokeError) {
+        // Don't fail the staff update if session revocation has an issue —
+        // log it so it can be investigated separately.
+        console.error('Failed to revoke sessions for deactivated user:', revokeError);
+      }
+    }
 
     // 8. Delete old photo from Drive after DB update succeeds
     if (uploadedNewPhoto && existingStaff.photo_file_id && existingStaff.photo_file_id !== newPhotoFileId) {
@@ -763,6 +788,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
         photo_file_id: updatedStaff.photo_file_id || null,
         photo_version: updatedStaff.photo_version || 0,
         profile_image: buildPhotoUrl(id, updatedStaff.photo_file_id, updatedStaff.photo_version) || '/user.png', // ✅ versioned URL
+        isActive: updatedUser?.isActive ?? null,
       },
     });
   } catch (error) {

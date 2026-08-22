@@ -282,7 +282,7 @@ export default function AddStudent() {
           <h1>Student Onboarding Profile</h1>
         </div>
         <div className={styles.actions}>
-          <button className={styles.actionBtn} type="button" onClick={() => router.push("/admin/students")}>
+          <button className={styles.actionBtn} type="button" onClick={() => router.push("/hod/students")}>
             Cancel
           </button>
           <button className={styles.actionBtn} type="button" onClick={handleSubmit}>

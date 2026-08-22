@@ -38,7 +38,12 @@ const UserSchema = new mongoose.Schema(
         profile_image: {
             type: String,
             default: null
-        }
+        },
+        isActive: {
+  type: Boolean,
+  default: true,
+  index: true,
+}
     },
     {
         timestamps: true

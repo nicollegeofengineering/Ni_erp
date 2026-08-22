@@ -42,7 +42,8 @@ const StaffSchema = new mongoose.Schema({
     enum: ['A+','A-','B+','B-','AB+','AB-','O+','O-','A1+','A1-','A2+','A2-','A1B+','A1B-','A2B+','A2B-'],
     default: null
   },
-  marital_status: { type: String, enum: ['Single', 'Married', 'Divorced', 'Widowed'], default: null }
+  marital_status: { type: String, enum: ['Single', 'Married', 'Divorced', 'Widowed'], default: null },
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Staff', StaffSchema);

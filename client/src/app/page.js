@@ -181,7 +181,7 @@ export default function Home() {
       }
     } catch (err) {
       console.error("Google login error:", err);
-      setError(err.response?.data?.emessage || "Google login failed");
+      setError(err.response?.data?.message || "Google login failed");
       setErrorTimeout(5);
     } finally {
       setLoading(false);
