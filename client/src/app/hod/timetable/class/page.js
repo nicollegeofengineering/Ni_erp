@@ -172,8 +172,8 @@ export default function ViewTimetablePage() {
   const getMostFrequentHall = (entries) => {
     const hallCounts = {};
     entries.forEach((entry) => {
-      if (entry.hall && entry.hall.hallName) {
-        const name = entry.hall.hallName;
+      if (entry.hall && entry.hall.hallCode) {
+        const name = entry.hall.hallCode;
         hallCounts[name] = (hallCounts[name] || 0) + 1;
       }
     });

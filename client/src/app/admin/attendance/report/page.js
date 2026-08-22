@@ -45,9 +45,15 @@ export default function SubjectReportPage() {
       try {
         const res = await api.get('/api/staff/attendance/subjects');
         if (res.data.success) {
-          setSubjects(res.data.data);
-          if (res.data.data.length > 0) {
-            setSelectedSubject(res.data.data[0]._id);
+          const nextSubjects = Array.isArray(res.data.data) ? res.data.data : [];
+          setSubjects(nextSubjects);
+
+          if (nextSubjects.length > 0) {
+            const firstSubject = nextSubjects[0];
+            const firstSubjectId = (firstSubject?._id || firstSubject?.id || '').toString();
+            setSelectedSubject(firstSubjectId);
+          } else {
+            setSelectedSubject('');
           }
         }
       } catch (err) {
@@ -214,11 +220,17 @@ export default function SubjectReportPage() {
           ) : subjects.length === 0 ? (
             <option value="">No subjects available</option>
           ) : (
-            subjects.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.subjectCode} – {s.subjectName}
-              </option>
-            ))
+            subjects.map((s) => {
+              const subjectId = (s._id || s.id || '').toString();
+              const subjectCode = s.subjectCode || s.code || 'N/A';
+              const subjectName = s.subjectName || s.name || 'Unnamed subject';
+
+              return (
+                <option key={subjectId} value={subjectId}>
+                  {subjectCode} – {subjectName}
+                </option>
+              );
+            })
           )}
         </select>
 

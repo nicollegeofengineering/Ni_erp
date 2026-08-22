@@ -425,20 +425,79 @@ tr.absent .statusBadge {
   font-size: 0.9rem;
 }
 
+/* AttendancePage.module.css – add this at the bottom */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.filters select {
+  flex: 1 1 150px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 0.9rem;
+  color: var(--ink-900);
+  transition: border-color 0.2s var(--ease);
+}
+
+.filters select:focus {
+  outline: none;
+  border-color: var(--blue-400);
+  box-shadow: 0 0 0 3px var(--blue-100);
+}
 /* ==========================================================================
    Mobile responsive
    ========================================================================== */
 @media (max-width: 640px) {
   .container {
     margin: 0;
-    padding: 20px 16px 32px;
+    padding: 16px 12px 28px;
     border-radius: 0;
+  }
+
+  .ctop {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .container h1 {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+
+  .viewBtn {
+    width: 100%;
+    text-align: center;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    box-sizing: border-box;
   }
 
   .field {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+
+  .filters select {
+    flex: none;      
+    width: 100%;
+    height: auto;
   }
 
   .periodButtons {
@@ -450,18 +509,50 @@ tr.absent .statusBadge {
     font-size: 0.82rem;
   }
 
-  .studentTable th,
-  .studentTable td {
-    padding: 10px 10px;
-    font-size: 0.85rem;
+  /* Make the table scroll horizontally instead of hiding columns */
+  .studentTable {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .studentTable th:nth-child(1),
-  .studentTable td:nth-child(1) {
-    display: none; /* hide roll no on very small screens, name + status suffice */
+  .studentTable thead,
+  .studentTable tbody,
+  .studentTable tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .studentTable th,
+  .studentTable td {
+    padding: 10px 8px;
+    font-size: 0.82rem;
+  }
+
+  /* Checkbox column: keep visible, just narrower + centered */
+  .checkboxHeader,
+  .studentTable td:first-child {
+    width: 34px;
+    min-width: 34px;
+    text-align: center;
+  }
+
+  .studentTable td input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Roll No can shrink instead of disappearing */
+  .studentTable th:nth-child(2),
+  .studentTable td:nth-child(2) {
+    width: 60px;
   }
 
   .submitBtn {
     width: 100%;
+    padding: 12px 20px;
+    font-size: 0.9rem;
   }
 }

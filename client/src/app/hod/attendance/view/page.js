@@ -118,7 +118,7 @@ export default function AttendanceListPage() {
     <div className={styles.container}>
       <div className={styles.ctop}>
         <h1>Attendance Records</h1>
-        <Link href="/admin/attendance">
+        <Link href="/hod/attendance">
           <button className={styles.viewBtn}>Back</button>
         </Link>
       </div>

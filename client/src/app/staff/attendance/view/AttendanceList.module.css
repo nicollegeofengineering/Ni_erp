@@ -349,13 +349,44 @@
 @media (max-width: 640px) {
   .container {
     margin: 0;
-    padding: 20px 16px 32px;
+    padding: 16px 12px 28px;
     border-radius: 0;
+  }
+
+  .ctop {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .container h1 {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+
+  .ctop .viewBtn {
+    width: 100%;
+    text-align: center;
   }
 
   .filters {
     flex-direction: column;
     align-items: stretch;
+    padding: 14px 16px;
+  }
+
+  .filters p {
+    margin: 0 0 -4px;
+    font-size: 0.85rem;
+    color: var(--ink-600);
+    font-weight: 600;
+  }
+
+  .filters input,
+  .filters select {
+    flex: none;
+    width: 100%;
   }
 
   .filters input[type='number'] {
@@ -366,8 +397,21 @@
     width: 100%;
   }
 
+  /* horizontal scroll for the table */
+  .tableWrap {
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-sm);
+  }
+
+  .table th,
+  .table td {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
   .pagination {
     gap: 10px;
+    flex-wrap: wrap;
   }
 
   .pagination span {
@@ -375,5 +419,9 @@
     width: 100%;
     text-align: center;
     margin-bottom: 6px;
+  }
+
+  .pagination button {
+    flex: 1;
   }
 }

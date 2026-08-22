@@ -187,7 +187,7 @@ export default function AdminSidebar() {
         aria-label="Admin navigation"
         className={`${style.sidebar} ${open ? style.open : ""}`}
       >
-        <div className={style.brand}>Admin Panel</div>
+        <div className={style.brand}>Staff Panel</div>
 
         <ul className={style.navList}>
           {NAV_ITEMS.map((item, index) => {

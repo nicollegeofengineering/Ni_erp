@@ -81,4 +81,8 @@
     font-size: 12px;
     display: none;
   }
+  .logoImage {
+    width: 180px;
+    height: 51px;
+}
 }

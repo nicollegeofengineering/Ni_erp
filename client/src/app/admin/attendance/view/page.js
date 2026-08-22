@@ -195,6 +195,7 @@ export default function AttendanceListPage() {
 
       {attendance.length > 0 && (
         <>
+        <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -231,7 +232,7 @@ export default function AttendanceListPage() {
               ))}
             </tbody>
           </table>
-
+          </div>
           <div className={styles.pagination}>
             <button
               onClick={() => fetchAttendance(pagination.page - 1)}

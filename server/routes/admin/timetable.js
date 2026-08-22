@@ -19,10 +19,9 @@ const fetchTimetableWithPopulate = async (filter) => {
   const entries = await Timetable.find(filter)
     .populate("subject", "subjectName subjectCode Category")
     .populate("staff", "staff_id prefix first_name last_name staff_code")
-    .populate("hall", "hallName capacity")
+    .populate("hall", "hallName hallCode capacity")   // ✅ includes hallCode
     .lean();
 
-  // Add computed staffName to each entry
   return entries.map((entry) => ({
     ...entry,
     staffName: entry.staff ? getStaffFullName(entry.staff) : null,
@@ -33,7 +32,7 @@ const fetchTimetableWithPopulate = async (filter) => {
 router.get("/all", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin'&&role !=='Hod') {
+    if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -74,7 +73,7 @@ router.get("/all", async (req, res) => {
 router.put("/upsert", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin'&&role !=='Hod') {
+    if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -108,8 +107,8 @@ router.put("/upsert", async (req, res) => {
     const dayNum = parseInt(day);
     const periodNum = parseInt(period);
 
-    if (![1, 2].includes(semesterNum)) {
-      return res.status(400).json({ success: false, message: "semester must be 1 or 2" });
+    if (![1, 2, 3, 4, 5, 6, 7, 8].includes(semesterNum)) {
+      return res.status(400).json({ success: false, message: "semester must be 1-8" });
     }
     if (dayNum < 1 || dayNum > 7) {
       return res.status(400).json({ success: false, message: "day must be 1-7" });
@@ -237,9 +236,8 @@ router.put("/upsert", async (req, res) => {
     const updated = await Timetable.findOneAndUpdate(filter, updateData, options)
       .populate("subject", "subjectName subjectCode Category")
       .populate("staff", "staff_id prefix first_name last_name staff_code")
-      .populate("hall", "hallName capacity");
+      .populate("hall", "hallName hallCode capacity");   // ✅ includes hallCode
 
-    // Add computed staffName
     const updatedObj = updated.toObject();
     updatedObj.staffName = updatedObj.staff ? getStaffFullName(updatedObj.staff) : null;
 
@@ -261,7 +259,7 @@ router.put("/upsert", async (req, res) => {
 router.delete("/cell", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin'&&role !=='Hod') {
+    if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -309,7 +307,7 @@ router.delete("/cell", async (req, res) => {
 router.delete("/row", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin'&&role !=='Hod') {
+    if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -352,7 +350,7 @@ router.delete("/row", async (req, res) => {
 router.delete("/class", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin'&&role !=='Hod') {
+    if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -394,7 +392,7 @@ router.delete("/class", async (req, res) => {
 router.get("/subject-reference", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin'&&role !=='Hod') {
+    if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -428,7 +426,6 @@ router.get("/subject-reference", async (req, res) => {
       if (!entry.subject || !entry.staff) return;
       const key = `${entry.subject._id}|${entry.staff._id}`;
       if (!pairMap.has(key)) {
-        // Add staffName to the staff object
         const staffWithName = {
           ...entry.staff,
           staffName: getStaffFullName(entry.staff),
@@ -456,7 +453,7 @@ router.get("/subject-reference", async (req, res) => {
 router.get("/staffview", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin'&&role !=='Hod') {
+    if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -475,24 +472,19 @@ router.get("/staffview", async (req, res) => {
     }
 
     const filter = { academicYear };
-
-    if (staffId) {
-      filter.staff = staffId;
-    }
+    if (staffId) filter.staff = staffId;
 
     let entries = await Timetable.find(filter)
       .populate("subject", "subjectName subjectCode Category")
       .populate("staff", "staff_id prefix first_name last_name staff_code")
-      .populate("hall", "hallName")
+      .populate("hall", "hallName hallCode")   // ✅ includes hallCode
       .lean();
 
-    // Add staffName to each entry
     entries = entries.map((entry) => ({
       ...entry,
       staffName: entry.staff ? getStaffFullName(entry.staff) : null,
     }));
 
-    // If search query is provided, filter by staff name or staff_code
     if (search) {
       const q = search.toUpperCase();
       entries = entries.filter((entry) => {
@@ -517,7 +509,7 @@ router.get("/staffview", async (req, res) => {
 router.get("/hallview", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin'&&role !=='Hod') {
+    if (role !== 'Admin' && role !== 'Hod') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -536,24 +528,19 @@ router.get("/hallview", async (req, res) => {
     }
 
     const filter = { academicYear };
-
-    if (hallId) {
-      filter.hall = hallId;
-    }
+    if (hallId) filter.hall = hallId;
 
     let entries = await Timetable.find(filter)
       .populate("subject", "subjectName subjectCode Category")
       .populate("staff", "staff_id prefix first_name last_name staff_code")
-      .populate("hall", "hallName hallCode")
+      .populate("hall", "hallName hallCode")   // ✅ includes hallCode
       .lean();
 
-    // Add staffName to each entry for convenience
     entries = entries.map((entry) => ({
       ...entry,
       staffName: entry.staff ? getStaffFullName(entry.staff) : null,
     }));
 
-    // If search query is provided, filter by hall name or code
     if (search) {
       const q = search.toUpperCase();
       entries = entries.filter((entry) => {

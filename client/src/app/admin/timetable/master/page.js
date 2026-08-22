@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation"; // App Router
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import styles from "./timetable.module.css";
 import jsPDF from "jspdf";
@@ -54,7 +54,10 @@ export default function TimetablePage() {
     { label: "P7", period: 7, type: "period" },
   ];
 
-  const semesterNum = semesterType === "ODD" ? 1 : 2;
+  // ---------- HELPER: absolute semester ----------
+  const getAbsoluteSemester = (year) => {
+    return semesterType === "ODD" ? year * 2 - 1 : year * 2;
+  };
 
   // ---------- HELPERS ----------
   const getSubjectCode = (s) => s?.subjectCode || "";
@@ -67,8 +70,9 @@ export default function TimetablePage() {
     return `${prefix} ${first_name} ${last_name}`.trim().replace(/\s+/g, " ");
   };
   const getFacultyId = (s) => s?.staff_id || "";
-  const getHallCode = (h) => h?.hallName || h?.hallCode || "";
-  const getHallName = (h) => h?.hallCode || "";
+  // Use hallCode if available, otherwise hallName
+  const getHallCode = (h) => h?.hallCode || h?.hallName || "";
+  const getHallName = (h) => h?.hallCode || h?.hallName || "";
 
   const isLabSubject = (subject) => {
     const cat = getSubjectCategory(subject).toUpperCase();
@@ -159,7 +163,6 @@ export default function TimetablePage() {
         const res = await api.get("/admin/timetable/all", { params: { academicYear } });
         const data = res.data.data || [];
 
-        // Build hall map for resolution
         const hallMap = new Map();
         hallList.forEach((h) => {
           if (h._id) hallMap.set(h._id.toString(), h);
@@ -171,10 +174,13 @@ export default function TimetablePage() {
           const yearVal = item.year;
           const dayNum = item.day;
           const periodNum = item.period;
+          const sem = item.semester;
 
           if (dayNum < 1 || dayNum > 5) return;
 
-          // Resolve hall: if it's a string ID, get the full object
+          const expectedSem = getAbsoluteSemester(yearVal);
+          if (sem !== undefined && sem !== expectedSem) return;
+
           let hall = item.hall;
           if (hall) {
             if (typeof hall === "object" && hall._id) {
@@ -209,7 +215,7 @@ export default function TimetablePage() {
     };
 
     loadTimetable();
-  }, [academicYear, branches, hallList]);
+  }, [academicYear, branches, hallList, semesterType]);
 
   // ---------- SAVE ENTRY ----------
   const saveEntry = async (entryKey, dayNum, branch, periodNum, subject, staff, hall) => {
@@ -217,7 +223,7 @@ export default function TimetablePage() {
       academicYear,
       department: branch.departmentCode,
       year: branch.year,
-      semester: semesterNum,
+      semester: getAbsoluteSemester(branch.year),
       day: dayNum,
       period: periodNum,
       subject: subject?._id || null,
@@ -231,6 +237,7 @@ export default function TimetablePage() {
     }));
 
     try {
+      // ❌ REMOVED the early return: if(!hall) return;
       await api.put("/admin/timetable/upsert", payload);
       setEntries((prev) => ({
         ...prev,
@@ -297,7 +304,7 @@ export default function TimetablePage() {
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
           day: dayNum,
           period: periodNum,
         },
@@ -329,7 +336,7 @@ export default function TimetablePage() {
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
           day: dayNum,
         },
       });
@@ -353,7 +360,7 @@ export default function TimetablePage() {
   const handleDeleteClass = async (branch) => {
     const classKey = `${branch.departmentCode}__${branch.year}`;
     const confirmDelete = window.confirm(
-      `⚠️ Delete the FULL timetable for ${branch.label} (${semesterType} sem, ${academicYear})?`
+      `⚠️ Delete the FULL timetable for ${branch.label} (Semester ${getAbsoluteSemester(branch.year)}, ${academicYear})?`
     );
     if (!confirmDelete) return;
 
@@ -364,7 +371,7 @@ export default function TimetablePage() {
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
         },
       });
       setEntries((prev) => {
@@ -630,7 +637,6 @@ export default function TimetablePage() {
   // ---------- RENDER ----------
   return (
     <div className={styles.mcontainer}>
-      {/* Action Buttons Bar */}
       <div className={styles.hbutton}>
         <select
           value={academicYear}
@@ -667,14 +673,12 @@ export default function TimetablePage() {
           EXPORT PDF
         </button>
       </div>
-
+      <div className={styles.pdfScroll}>
       <div className={styles.container} ref={pdfContainerRef}>
-        {/* Header */}
         <div className={styles.header}>
           <img src="/nilogo.png" alt="College Logo" width="700" height="104.3" />
         </div>
 
-        {/* Title & Academic Year */}
         <div className={styles.headtop}>
           <h3>MASTER TIMETABLE</h3>
           <span> {"("}</span>
@@ -684,7 +688,6 @@ export default function TimetablePage() {
           <span>{")"}</span>
         </div>
 
-        {/* WEF */}
         <div className={styles.headbottom}>
           <div className={styles.wef}>
             <p>w.e.f:</p>
@@ -692,7 +695,6 @@ export default function TimetablePage() {
           </div>
         </div>
 
-        {/* ===== MASTER TIMETABLE ===== */}
         <div className={styles.mtWrapper}>
           <table className={styles.mtTable}>
             <thead>
@@ -783,7 +785,6 @@ export default function TimetablePage() {
                               }`}
                             >
                               <div className={styles.mtPeriodBox}>
-                                {/* Subject selector */}
                                 <span
                                   className={styles.mtSubjectCode}
                                   onClick={(e) =>
@@ -792,7 +793,6 @@ export default function TimetablePage() {
                                 >
                                   {subject ? getSubjectCode(subject) : "+"}
                                 </span>
-                                {/* Staff selector */}
                                 <span
                                   className={styles.mtStaffCode}
                                   onClick={(e) =>
@@ -801,7 +801,6 @@ export default function TimetablePage() {
                                 >
                                   {staff ? getStaffCode(staff) : "+"}
                                 </span>
-                                {/* Hall selector – now shows hall name */}
                                 <span
                                   className={styles.mtHallCode}
                                   onClick={(e) => openPopup(e, "hall", dayNum, branch, col.period, entryKey)}
@@ -838,8 +837,8 @@ export default function TimetablePage() {
             </tbody>
           </table>
         </div>
+       
 
-        {/* ===== SUBJECT REFERENCE ===== */}
         <div className={styles.srWrapper}>
           <table className={styles.srTable}>
             <thead>
@@ -875,14 +874,12 @@ export default function TimetablePage() {
           </table>
         </div>
 
-        {/* Signatures */}
         <div className={styles.sign}>
           <p>HOD</p>
           <p>PRINCIPAL</p>
         </div>
       </div>
-
-      {/* ===== POPUP ===== */}
+               </div>
       {popup && (
         <div className={styles.mtPopupOverlay} onClick={closePopup}>
           <div
@@ -959,7 +956,6 @@ export default function TimetablePage() {
                 )}
             </div>
 
-            {/* Clear slot option */}
             {(popup.type === "subject" || popup.type === "staff") &&
               (entries[popup.entryKey]?.subject || entries[popup.entryKey]?.staff) && (
                 <div

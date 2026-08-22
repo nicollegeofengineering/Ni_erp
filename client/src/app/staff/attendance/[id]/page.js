@@ -128,7 +128,7 @@ export default function AttendanceDetailPage() {
         setSuccess('Attendance deleted successfully!');
         closeDeleteModal();
         // Redirect back to list after a short delay
-        setTimeout(() => router.push('/hod/attendance'), 1500);
+        setTimeout(() => router.push('/staff/attendance'), 1500);
       }
     } catch (err) {
       if (handleUnauthorized(err)) return;
