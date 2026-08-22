@@ -127,7 +127,7 @@ export default function Students() {
           <h1>Student Management</h1>
           <p>Manage and view all student records.</p>
         </div>
-        <button className={styles.addBtn} onClick={() => router.push('/admin/students/add')}>
+        <button className={styles.addBtn} onClick={() => router.push('/hod/students/add')}>
           <Plus size={18} /> Add Student
         </button>
       </div>

@@ -75,6 +75,9 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    if(user.isActive===false){
+      return res.status(401).json({message:"Login access is Revoked for this account"})
+    }
     // 1. Create access token (20 min)
     const accessToken = jwt.sign(
       {
@@ -136,9 +139,13 @@ router.post('/verify_google', async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(201).json({
+      return res.status(401).json({
         message: 'Email not registered. Contact admin.',
       });
+    }
+
+    if(user.isActive===false){
+      return res.status(403).json({message:"Login access is Revoked for this account"})
     }
 
     // Create access token
@@ -257,6 +264,78 @@ router.get('/verify-me', authMiddleware, async (req, res) => {
   return res.status(200).json({ role: req.user.role });
 });
 
+// ---------- Verify User Department ----------
+router.get("/verify-dep", authMiddleware, async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({
+        message: "User ID not found in authentication token",
+        isLogout: true,
+      });
+    }
+
+    // Get authenticated user
+    const user = await User.findById(req.user.id).select(
+      "username role"
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found",
+        isLogout: true,
+      });
+    }
+
+    const role = String(user.role || "").trim().toLowerCase();
+
+    // Department lookup is required only for Staff and HOD
+    if (role !== "staff" && role !== "hod") {
+      return res.status(200).json({
+        dep: null,
+      });
+    }
+
+    if (!user.username) {
+      return res.status(404).json({
+        message: "Staff username not found",
+        dep: null,
+      });
+    }
+
+    // User.username corresponds to Staff.staff_id
+    const staff = await Staff.findOne({
+      staff_id: user.username,
+    }).select("department_code staff_id staff_status");
+
+    if (!staff) {
+      return res.status(404).json({
+        message: "Staff record not found",
+        dep: null,
+      });
+    }
+
+    // Optional: don't allow inactive/resigned/retired staff
+    if (staff.staff_status !== "Active") {
+      return res.status(403).json({
+        message: "Staff account is not active",
+        dep: null,
+      });
+    }
+
+    return res.status(200).json({
+      dep: staff.department_code || null,
+    });
+
+  } catch (error) {
+    console.error("Verify department error:", error);
+
+    return res.status(500).json({
+      message: "Failed to verify department",
+      dep: null,
+    });
+  }
+
+});
 // ---------- Forgot Password ----------
 router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
