@@ -28,8 +28,10 @@ const AttendanceRoute=require("./routes/staff/attendance");
 
 const hodstaff=require("./routes/hod/hodstaff")
 
-
 const markmanagement=require("./routes/mark/marks");
+
+const newsRoute=require("./routes/news");
+const adminDashboard=require("./routes/dashboard");
 
 const authMiddleware = require("./middleware/verifyToken");
 
@@ -67,6 +69,9 @@ app.use(
 
 // ---------------- Routes
 app.use("/auth", loginRoute);
+app.use("/api/news",newsRoute);
+app.use("/api/dashboard",adminDashboard);
+
 app.use("/api", authMiddleware, adminVerifyRoute);
 app.use("/api/admin/staff", authMiddleware, adminStaffRoute);
 app.use("/api/admin/hall", authMiddleware, adminHallRoute);

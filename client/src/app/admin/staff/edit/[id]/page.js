@@ -588,10 +588,15 @@ export default function EditStaff() {
                 <option value="CSE">Computer Science</option>
                 <option value="AI&DS">AI & DS</option>
                 <option value="IT">Information Technology</option>
-                <option value="ECE">Electronics & Communication</option>
-                <option value="EEE">Electrical & Electronics</option>
+                <option value="ECE">ECE</option>
+                <option value="EEE">EEE</option>
                 <option value="MECH">Mechanical</option>
                 <option value="CIVIL">Civil</option>
+                <option value="CHEMISTRY">Chemistry</option>
+                <option value="PHYSICS">Physics</option>
+                <option value="MATHEMATICS">Mathematics</option>
+                <option value="ENGLISH">English</option>
+                <option value="TAMIL">Tamil</option>
               </select>
             </div>
 

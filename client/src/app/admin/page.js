@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import {
   GraduationCap,
   Users,
@@ -19,118 +20,162 @@ import {
   ClipboardList,
 } from "lucide-react";
 import styles from "./css/dashboard.module.css";
-//--------------------------------------------------------------------------------------------------
+
+const handleUnauthorized = (error, router) => {
+  if (error.response?.data?.islogout === true) {
+    router.push("/");
+    return true;
+  }
+  return false;
+};
 
 export default function Admin() {
   const router = useRouter();
 
-  const [students] = useState(1200);
-  const [staff] = useState(85);
-  const [pendingFees] = useState(250000);
-  const [attendance] = useState(92);
+  // --- Stats state ---
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    activeStaff: 0,
+    pendingFees: 0,
+    attendancePercentage: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  const [announcements, setAnnouncements] = useState([
-    "Semester Exam starts on June 25",
-    "AI & DS Symposium on July 10",
-    "Placement Drive next week",
-  ]);
+  // --- News state ---
+  const [announcements, setAnnouncements] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [upcomingEvents, setUpcomingEvents] = useState([
-    "Internal Exam - June 28",
-    "Sports Day - July 05",
-    "Placement Drive - July 12",
-  ]);
-
+  // --- Modal state ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [editText, setEditText] = useState("");
-  const [editType, setEditType] = useState("");
-  const [editIndex, setEditIndex] = useState(null);
+  const [editItem, setEditItem] = useState(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    content: "",
+    category: "announcement",
+    status: "published",
+  });
 
-//--------------------------------------------------------------------------------------------------
-
-  // Close whichever modal is open on Escape
-  useEffect(() => {
-    if (!isModalOpen && !isAdding) return;
-    const handleKey = (e) => {
-      if (e.key === "Escape") {
-        setIsModalOpen(false);
-        setIsAdding(false);
+  // Fetch dashboard stats
+  const fetchStats = async () => {
+    try {
+      setStatsLoading(true);
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/dashboard/stats`,
+        { withCredentials: true }
+      );
+      if (response.data.success) {
+        setStats(response.data.data);
       }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [isModalOpen, isAdding]);
+    } catch (error) {
+      if (handleUnauthorized(error, router)) return;
+      console.error("Error fetching stats:", error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
-//--------------------------------------------------------------------------------------------------
+  // Fetch news (announcements & events)
+  const fetchNews = async () => {
+    try {
+      setLoading(true);
+      const [annRes, evtRes] = await Promise.all([
+        axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/news?category=announcement`, {
+          withCredentials: true,
+        }),
+        axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/news?category=event`, {
+          withCredentials: true,
+        }),
+      ]);
+      setAnnouncements(annRes.data);
+      setEvents(evtRes.data);
+    } catch (error) {
+      if (handleUnauthorized(error, router)) return;
+      console.error("Error fetching news:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const typeLabel = editType === "announcement" ? "Announcement" : "Event";
+  useEffect(() => {
+    fetchStats();
+    fetchNews();
+  }, []);
 
-  const openModal = (type, index, value) => {
-    setEditType(type);
-    setEditIndex(index);
-    setEditText(value);
+  // --- Modal handlers (unchanged) ---
+  const openAddModal = (category) => {
+    setFormData({ title: "", content: "", category, status: "published" });
+    setEditItem(null);
+    setIsAdding(true);
+  };
+
+  const openEditModal = (item) => {
+    setFormData({
+      title: item.title,
+      content: item.content || "",
+      category: item.category,
+      status: item.status,
+    });
+    setEditItem(item);
     setIsModalOpen(true);
   };
 
-  const openAddModal = (type) => {
-    setEditType(type);
-    setEditText("");
-    setIsAdding(true);
-  };
-//--------------------------------------------------------------------------------------------------
-
-
-  const updateItem = () => {
-    const value = editText.trim();
-    if (!value) return;
-
-    if (editType === "announcement") {
-      const updated = [...announcements];
-      updated[editIndex] = value;
-      setAnnouncements(updated);
-    }
-
-    if (editType === "event") {
-      const updated = [...upcomingEvents];
-      updated[editIndex] = value;
-      setUpcomingEvents(updated);
-    }
-
+  const closeModal = () => {
     setIsModalOpen(false);
-  };
-//--------------------------------------------------------------------------------------------------
-
-
-  const addNewItem = () => {
-    const value = editText.trim();
-    if (!value) return;
-
-    if (editType === "announcement") {
-      setAnnouncements([...announcements, value]);
-    }
-
-    if (editType === "event") {
-      setUpcomingEvents([...upcomingEvents, value]);
-    }
-
     setIsAdding(false);
+    setEditItem(null);
   };
-//--------------------------------------------------------------------------------------------------
 
-  const deleteItem = () => {
-    if (editType === "announcement") {
-      setAnnouncements(announcements.filter((_, i) => i !== editIndex));
-    }
-
-    if (editType === "event") {
-      setUpcomingEvents(upcomingEvents.filter((_, i) => i !== editIndex));
-    }
-
-    setIsModalOpen(false);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
-//--------------------------------------------------------------------------------------------------
 
+  const saveNews = async () => {
+    const { title, content, category, status } = formData;
+    if (!title.trim()) {
+      alert("Title is required");
+      return;
+    }
+    try {
+      if (editItem) {
+        await axios.put(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/news/${editItem._id}`,
+          { title, content, category, status },
+          { withCredentials: true }
+        );
+      } else {
+        await axios.post(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/news`,
+          { title, content, category, status },
+          { withCredentials: true }
+        );
+      }
+      closeModal();
+      fetchNews();
+    } catch (error) {
+      if (handleUnauthorized(error, router)) return;
+      console.error("Error saving news:", error);
+      alert("Failed to save. Please try again.");
+    }
+  };
+
+  const deleteNews = async (id) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+    try {
+      await axios.delete(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/news/${id}`, {
+        withCredentials: true,
+      });
+      fetchNews();
+    } catch (error) {
+      if (handleUnauthorized(error, router)) return;
+      console.error("Error deleting news:", error);
+      alert("Failed to delete.");
+    }
+  };
+
+  // --- Render ---
   return (
     <div className={styles.dashboard}>
       <div className={styles.titleRow}>
@@ -144,130 +189,99 @@ export default function Admin() {
         </p>
       </div>
 
+      {/* Stats Cards */}
       <div className={styles.cards}>
         <div className={styles.card}>
           <div className={styles.cardTop}>
-            <span className={styles.cardIcon}>
-              <GraduationCap size={18} />
-            </span>
+            <span className={styles.cardIcon}><GraduationCap size={18} /></span>
             <h3>Total Students</h3>
           </div>
-          <p>{students.toLocaleString("en-IN")}</p>
+          <p>{statsLoading ? "..." : stats.totalStudents.toLocaleString("en-IN")}</p>
           <p className={styles.cardMeta}>Active enrollment</p>
         </div>
 
         <div className={styles.card}>
           <div className={styles.cardTop}>
-            <span className={styles.cardIcon}>
-              <Users size={18} />
-            </span>
+            <span className={styles.cardIcon}><Users size={18} /></span>
             <h3>Total Staff</h3>
           </div>
-          <p>{staff.toLocaleString("en-IN")}</p>
+          <p>{statsLoading ? "..." : stats.activeStaff.toLocaleString("en-IN")}</p>
           <p className={styles.cardMeta}>Faculty & admin</p>
         </div>
 
-        <div className={styles.card}>
-          <div className={styles.cardTop}>
-            <span className={styles.cardIcon}>
-              <IndianRupee size={18} />
-            </span>
-            <h3>Pending Fees</h3>
-          </div>
-          <p>₹{pendingFees.toLocaleString("en-IN")}</p>
-          <p className={styles.cardMeta}>Due this term</p>
-        </div>
+        
 
         <div className={styles.card}>
           <div className={styles.cardTop}>
-            <span className={styles.cardIcon}>
-              <CheckCircle2 size={18} />
-            </span>
+            <span className={styles.cardIcon}><CheckCircle2 size={18} /></span>
             <h3>Attendance</h3>
           </div>
-          <p>{attendance}%</p>
+          <p>{statsLoading ? "..." : `${stats.attendancePercentage}%`}</p>
           <div className={styles.progressTrack}>
             <div
               className={styles.progressFill}
-              style={{ width: `${attendance}%` }}
+              style={{ width: `${stats.attendancePercentage}%` }}
             />
           </div>
         </div>
       </div>
 
+      {/* Announcements & Events – same as before */}
       <div className={styles.contentGrid}>
-        {/* Announcements */}
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
-            <h2>
-              <Megaphone size={18} />
-              Announcements
-            </h2>
-            <button
-              className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
-              onClick={() => openAddModal("announcement")}
-            >
-              <Plus size={14} />
-              Add
+            <h2><Megaphone size={18} /> Announcements</h2>
+            <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={() => openAddModal("announcement")}>
+              <Plus size={14} /> Add
             </button>
           </div>
-
-          {announcements.length === 0 ? (
-            <div className={styles.emptyState}>
-              <Megaphone />
-              <p>No announcements yet. Tap Add to create one.</p>
-            </div>
+          {loading ? (
+            <div className={styles.emptyState}>Loading...</div>
+          ) : announcements.length === 0 ? (
+            <div className={styles.emptyState}><Megaphone /><p>No announcements yet.</p></div>
           ) : (
             <ul>
-              {announcements.map((item, index) => (
-                <li key={index} className={styles.listItem}>
-                  <span>{item}</span>
-                  <button
-                    className={styles.iconBtn}
-                    aria-label={`Edit announcement: ${item}`}
-                    onClick={() => openModal("announcement", index, item)}
-                  >
-                    <Pencil size={14} />
-                  </button>
+              {announcements.map((item) => (
+                <li key={item._id} className={styles.listItem}>
+                  <span>{item.title}</span>
+                  <div>
+                    <button className={styles.iconBtn} onClick={() => openEditModal(item)}>
+                      <Pencil size={14} />
+                    </button>
+                    <button className={styles.iconBtn} onClick={() => deleteNews(item._id)} style={{ marginLeft: "6px" }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {/* Upcoming Events */}
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
-            <h2>
-              <CalendarDays size={18} />
-              Upcoming Events
-            </h2>
-            <button
-              className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
-              onClick={() => openAddModal("event")}
-            >
-              <Plus size={14} />
-              Add
+            <h2><CalendarDays size={18} /> Upcoming Events</h2>
+            <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={() => openAddModal("event")}>
+              <Plus size={14} /> Add
             </button>
           </div>
-
-          {upcomingEvents.length === 0 ? (
-            <div className={styles.emptyState}>
-              <CalendarDays />
-              <p>No events scheduled. Tap Add to create one.</p>
-            </div>
+          {loading ? (
+            <div className={styles.emptyState}>Loading...</div>
+          ) : events.length === 0 ? (
+            <div className={styles.emptyState}><CalendarDays /><p>No events scheduled.</p></div>
           ) : (
             <ul>
-              {upcomingEvents.map((item, index) => (
-                <li key={index} className={styles.listItem}>
-                  <span>{item}</span>
-                  <button
-                    className={styles.iconBtn}
-                    aria-label={`Edit event: ${item}`}
-                    onClick={() => openModal("event", index, item)}
-                  >
-                    <Pencil size={14} />
-                  </button>
+              {events.map((item) => (
+                <li key={item._id} className={styles.listItem}>
+                  <span>{item.title}</span>
+                  <div>
+                    <button className={styles.iconBtn} onClick={() => openEditModal(item)}>
+                      <Pencil size={14} />
+                    </button>
+                    <button className={styles.iconBtn} onClick={() => deleteNews(item._id)} style={{ marginLeft: "6px" }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -275,111 +289,93 @@ export default function Admin() {
         </div>
       </div>
 
+      {/* Quick Actions – unchanged */}
       <div className={styles.quickActions}>
         <h2>Quick Actions</h2>
         <div className={styles.actionButtons}>
-          <button
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={() => router.push("/admin/students")}
-          >
-            <UserPlus size={16} />
-            Add Student
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => router.push("/admin/students")}>
+            <UserPlus size={16} /> Add Student
           </button>
-          <button
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={() => router.push("/admin/staff")}
-          >
-            <UserCog size={16} />
-            Add Staff
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => router.push("/admin/staff")}>
+            <UserCog size={16} /> Add Staff
           </button>
-          <button
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={() => router.push("/admin/fees")}
-          >
-            <Wallet size={16} />
-            Collect Fees
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => router.push("/admin/fees")}>
+            <Wallet size={16} /> Collect Fees
           </button>
-          <button
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={() => router.push("/admin/marks")}
-          >
-            <ClipboardList size={16} />
-            Add Marks
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => router.push("/admin/marks")}>
+            <ClipboardList size={16} /> Add Marks
           </button>
         </div>
       </div>
 
-      {/* Edit modal */}
-      {isModalOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
+      {/* Modal – unchanged */}
+      {(isModalOpen || isAdding) && (
+        <div className={styles.modalOverlay} onClick={closeModal}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h2>Edit {typeLabel}</h2>
-              <button
-                className={styles.iconBtn}
-                aria-label="Close"
-                onClick={() => setIsModalOpen(false)}
-              >
+              <h2>{editItem ? "Edit" : "Add"} {formData.category === "announcement" ? "Announcement" : "Event"}</h2>
+              <button className={styles.iconBtn} onClick={closeModal}>
                 <X size={16} />
               </button>
             </div>
 
-            <textarea
-              autoFocus
-              aria-label={`Edit ${typeLabel} text`}
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-            />
-
-            <div className={styles.modalBtns}>
-              <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={updateItem}>
-                Update
-              </button>
-              <button className={`${styles.btn} ${styles.btnDanger}`} onClick={deleteItem}>
-                <Trash2 size={14} />
-                Delete
-              </button>
-              <button
-                className={`${styles.btn} ${styles.btnGhost}`}
-                onClick={() => setIsModalOpen(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add modal */}
-      {isAdding && (
-        <div className={styles.modalOverlay} onClick={() => setIsAdding(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>Add {typeLabel}</h2>
-              <button
-                className={styles.iconBtn}
-                aria-label="Close"
-                onClick={() => setIsAdding(false)}
-              >
-                <X size={16} />
-              </button>
+            <div style={{ marginTop: "12px" }}>
+              <label style={{ display: "block", fontWeight: 600, fontSize: "13px", marginBottom: "4px" }}>
+                Title *
+              </label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                style={{ width: "95%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                placeholder="Enter title"
+              />
             </div>
 
-            <textarea
-              autoFocus
-              aria-label={`New ${typeLabel} text`}
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-            />
+            <div style={{ marginTop: "12px" }}>
+              <label style={{ display: "block", fontWeight: 600, fontSize: "13px", marginBottom: "4px" }}>Content</label>
+              <textarea
+                name="content"
+                value={formData.content}
+                onChange={handleChange}
+                style={{ width: "95%", minHeight: "80px", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)", resize: "vertical" }}
+                placeholder="Optional description"
+              />
+            </div>
+
+            <div style={{ marginTop: "12px", display: "flex", gap: "12px" }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: "block", fontWeight: 600, fontSize: "13px", marginBottom: "4px" }}>Category</label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                >
+                  <option value="announcement">Announcement</option>
+                  <option value="event">Event</option>
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: "block", fontWeight: 600, fontSize: "13px", marginBottom: "4px" }}>Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                >
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </div>
+            </div>
 
             <div className={styles.modalBtns}>
-              <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={addNewItem}>
-                Add
+              <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={saveNews}>
+                {editItem ? "Update" : "Add"}
               </button>
-              <button
-                className={`${styles.btn} ${styles.btnGhost}`}
-                onClick={() => setIsAdding(false)}
-              >
+              <button className={`${styles.btn} ${styles.btnGhost}`} onClick={closeModal}>
                 Cancel
               </button>
             </div>

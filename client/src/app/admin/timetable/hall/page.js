@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import axios from "axios";;
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import axios from "axios";
 import styles from "./hall-timetable.module.css";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
-export default function HallTimetablePage() {
- const api = axios.create({
+// ---------- Axios instance (outside component) ----------
+const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
   withCredentials: true,
 });
+
+export default function HallTimetablePage() {
   const [academicYear, setAcademicYear] = useState("2026-2027");
   const [semesterType, setSemesterType] = useState("ODD");
   const [wef, setWef] = useState("");
@@ -41,7 +43,7 @@ export default function HallTimetablePage() {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const dayMap = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5 };
 
-  // ---------- HELPER: format staff full name ----------
+  // ---------- HELPERS ----------
   const getStaffFullName = (staff) => {
     if (!staff) return "";
     const { prefix = "", first_name = "", last_name = "" } = staff;
@@ -52,10 +54,10 @@ export default function HallTimetablePage() {
   useEffect(() => {
     const currentYear = new Date().getFullYear();
     setAcademicYear(`${currentYear}-${currentYear + 1}`);
+    setWef(new Date().toISOString().split("T")[0]);
 
     const fetchHalls = async () => {
       try {
-        // ✅ Use /admin/hall/all
         const res = await api.get("/admin/hall/all", { params: { limit: 1000 } });
         setHallList(res.data.data || []);
       } catch (err) {
@@ -63,22 +65,21 @@ export default function HallTimetablePage() {
       }
     };
     fetchHalls();
-
-    setWef(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // ---------- FETCH HALL TIMETABLE ----------
-  const fetchHallTimetable = async (hallId = null, search = "") => {
+  // ---------- FETCH HALL TIMETABLE (with semesterType) ----------
+  const fetchHallTimetable = useCallback(async (hallId) => {
+    if (!hallId) {
+      setHallTimetableData([]);
+      return;
+    }
     setLoading(true);
     try {
-      const params = { academicYear };
-      if (hallId) {
-        params.hallId = hallId;
-      } else if (search) {
-        params.search = search;
-      }
-
-      // ✅ Use /admin/timetable/hallview
+      const params = {
+        academicYear,
+        hallId,
+        semesterType,   // ✅ now included
+      };
       const res = await api.get("/admin/timetable/hallview", { params });
       setHallTimetableData(res.data.data || []);
     } catch (err) {
@@ -87,18 +88,18 @@ export default function HallTimetablePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [academicYear, semesterType]); // ✅ dependencies added
 
+  // ---------- EFFECT: fetch when any filter changes ----------
   useEffect(() => {
-    if (!academicYear) return;
     if (selectedHall) {
       fetchHallTimetable(selectedHall._id);
     } else {
       setHallTimetableData([]);
     }
-  }, [academicYear, selectedHall]);
+  }, [academicYear, semesterType, selectedHall, fetchHallTimetable]);
 
-  // ---------- FILTERED HALL LIST FOR DROPDOWN ----------
+  // ---------- FILTERED HALL LIST ----------
   const filteredHalls = useMemo(() => {
     if (!searchQuery) return hallList;
     const q = searchQuery.toUpperCase();
@@ -118,7 +119,6 @@ export default function HallTimetablePage() {
       const key = `${entry.day}__${entry.period}`;
       if (!matrix[key]) matrix[key] = [];
 
-      // Use backend-computed staffName if available, else build it
       const staffName = entry.staffName || getStaffFullName(entry.staff);
       const staffCode = entry.staff?.staff_code || "";
 
@@ -129,8 +129,8 @@ export default function HallTimetablePage() {
         subjectCode: entry.subject.subjectCode,
         subjectName: entry.subject.subjectName,
         staffId: entry.staff?._id || '',
-        staffName: staffName,
-        staffCode: staffCode,
+        staffName,
+        staffCode,
       });
     });
 
@@ -161,7 +161,7 @@ export default function HallTimetablePage() {
     return groupedMatrix;
   }, [hallTimetableData]);
 
-  // ---------- UNIQUE SUBJECTS + STAFF NAMES TAUGHT IN THIS HALL ----------
+  // ---------- UNIQUE SUBJECTS ----------
   const hallSubjects = useMemo(() => {
     if (!hallTimetableData.length) return [];
     const map = new Map();
@@ -178,7 +178,6 @@ export default function HallTimetablePage() {
           staffNames: new Set(),
         });
       }
-      // Use backend-computed staffName if available
       const staffName = entry.staffName || getStaffFullName(entry.staff);
       if (staffName) map.get(id).staffNames.add(staffName);
     });
@@ -189,8 +188,17 @@ export default function HallTimetablePage() {
     }));
   }, [hallTimetableData]);
 
+  // ---------- CLEAR SELECTION ----------
+  const handleClear = () => {
+    setSelectedHall(null);
+    setSearchQuery("");
+    setShowDropdown(false);
+    setHallTimetableData([]);
+  };
+
   // ---------- PDF EXPORT (unchanged) ----------
   const trimCanvasBottom = (canvas) => {
+    
     const ctx = canvas.getContext("2d");
     const { width, height } = canvas;
     const imageData = ctx.getImageData(0, 0, width, height).data;
@@ -224,9 +232,11 @@ export default function HallTimetablePage() {
     trimmedCanvas.height = trimmedHeight;
     trimmedCanvas.getContext("2d").drawImage(canvas, 0, 0);
     return trimmedCanvas;
+    
   };
 
   const handleDownloadPdf = async () => {
+    setLoading(true);
     const element = pdfContainerRef.current;
     if (!element) return;
 
@@ -310,6 +320,7 @@ export default function HallTimetablePage() {
     } finally {
       element.style.overflow = originalOverflow;
       element.style.maxHeight = originalMaxHeight;
+      setLoading(false)
     }
   };
 
@@ -375,23 +386,16 @@ export default function HallTimetablePage() {
           )}
         </div>
 
-        <button
-          className={styles.clearbtn}
-          onClick={() => {
-            setSelectedHall(null);
-            setSearchQuery("");
-            setShowDropdown(false);
-          }}
-        >
+        <button className={styles.clearbtn} onClick={handleClear}>
           Clear
         </button>
 
         <button
           onClick={handleDownloadPdf}
           className={styles.pdfButton}
-          disabled={!selectedHall}
+          disabled={!selectedHall||loading}
         >
-          DOWNLOAD PDF
+         {loading?'PROCESSING...': 'DOWNLOAD PDF'}
         </button>
       </div>
 
@@ -408,7 +412,14 @@ export default function HallTimetablePage() {
         </div>
 
         <div className={styles.wefRow}>
-          <p>w.e.f: <input type="date" value={wef} readOnly /></p>
+          <p>
+            w.e.f:{" "}
+            <input
+              type="date"
+              value={wef}
+              onChange={e => setWef(e.target.value)}
+            />
+          </p>
         </div>
 
         {selectedHall && (

@@ -6,7 +6,7 @@ const accessCookieOptions = {
   sameSite: "none",
   path: "/",
   domain: isProd ? ".manushn.in" : undefined,   // add this line
-  maxAge: 20 * 60 * 1000,
+  maxAge: 40 * 60 * 1000,
 };
 
 const refreshCookieOptions = {

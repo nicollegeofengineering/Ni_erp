@@ -17,7 +17,7 @@ export default function ViewTimetablePage() {
 
   const [departments, setDepartments] = useState([]);
   const [selectedDept, setSelectedDept] = useState("");
-  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("1");
   const [timetableData, setTimetableData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -74,30 +74,44 @@ export default function ViewTimetablePage() {
 
   // ---------- FETCH TIMETABLE (updated endpoint) ----------
   const fetchTimetable = useCallback(async () => {
-    if (!selectedDept) return;
-    setLoading(true);
-    setError("");
-    try {
-      const params = { academicYear, department: selectedDept };
-      if (selectedYear !== "All") {
-        params.year = parseInt(selectedYear);
-      }
-      // ✅ Using /admin/timetable/all
-      const res = await api.get("/admin/timetable/all", { params });
-      setTimetableData(res.data.data || []);
-    } catch (err) {
-      setError("Failed to load timetable");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [academicYear, selectedDept, selectedYear]);
+  if (!selectedDept) return;
 
-  useEffect(() => {
-    if (selectedDept) {
-      fetchTimetable();
+  setLoading(true);
+  setError("");
+
+  try {
+    const params = {
+      academicYear,
+      department: selectedDept,
+      semesterType,
+    };
+
+    if (selectedYear !== "All") {
+      params.year = parseInt(selectedYear, 10);
     }
-  }, [fetchTimetable, selectedDept]);
+
+    console.log("Sending timetable params:", params);
+
+    const res = await api.get("/admin/timetable/all", {
+      params,
+    });
+
+    setTimetableData(res.data.data || []);
+  } catch (err) {
+    setError("Failed to load timetable");
+    console.error("Timetable fetch error:", err);
+  } finally {
+    setLoading(false);
+  }
+}, [academicYear, selectedDept, selectedYear, semesterType]);
+
+
+useEffect(() => {
+  if (selectedDept) {
+    fetchTimetable();
+  }
+}, [fetchTimetable]);
+
 
   // ---------- GROUP BY YEAR ----------
   const groupedByYear = useMemo(() => {
@@ -190,6 +204,7 @@ export default function ViewTimetablePage() {
 
   // ---------- EXPORT PDF (unchanged) ----------
   const handleExportPDF = async () => {
+    setLoading(true);
     const element = viewRef.current;
     if (!element) return;
     const printEl = element.cloneNode(true);
@@ -226,6 +241,7 @@ export default function ViewTimetablePage() {
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
     }
     pdf.save("NI_Timetable.pdf");
+    setLoading(false);
   };
 
   // ---------- RENDER ----------
@@ -295,8 +311,8 @@ export default function ViewTimetablePage() {
             <button onClick={fetchTimetable} className={styles.viewBtn}>
               View
             </button>
-            <button onClick={handleExportPDF} className={styles.pdfBtn}>
-              Export PDF
+            <button onClick={handleExportPDF} className={styles.pdfBtn} disabled={loading}>
+             {loading?"EXPORTING..":"EXPORT PDF"}
             </button>
           </div>
 

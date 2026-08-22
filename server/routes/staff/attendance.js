@@ -164,6 +164,7 @@ router.get('/check', async (req, res) => {
       year: parseInt(year),
       period: parseInt(period),
       day: timetableDay,
+      
     })
       .populate('students.student_id', 'roll_no first_name last_name')
       .lean();
@@ -434,6 +435,7 @@ router.post('/', async (req, res) => {
       academicYear: timetable.academicYear,
       department: timetable.department,
       year: timetable.year,
+      semester:timetable.semester,
       period: timetable.period,
     });
     if (existing) {
@@ -450,7 +452,7 @@ router.post('/', async (req, res) => {
       department: timetable.department,
       year: timetable.year,
       semester: majoritySemester,
-      period: timetable.period,
+      period: period,
       timetable: timetable._id,
       staff: staff._id,
       subject: timetable.subject?._id || null,
@@ -582,6 +584,7 @@ router.get('/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid ID' });
     }
 
+    // 1. Fetch attendance with populated references
     const attendance = await Attendance.findById(attendanceId)
       .populate('staff', 'staff_id first_name last_name')
       .populate('subject', 'subjectName subjectCode')
@@ -592,6 +595,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Attendance record not found' });
     }
 
+    // 2. Authorization checks
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     const staff = await Staff.findOne({ staff_id: user.username }).lean();
@@ -604,6 +608,33 @@ router.get('/:id', async (req, res) => {
     }
     if (role === 'Hod' && staff.department && attendance.department !== staff.department) {
       return res.status(403).json({ success: false, message: 'You can only view your department\'s attendance' });
+    }
+
+    // 3. Enrich students with roll_no and full name
+    if (attendance.students && attendance.students.length > 0) {
+      const studentIds = attendance.students.map(s => s.student_id);
+
+      // Fetch student details from Student model
+      const studentsData = await Student.find(
+        { student_id: { $in: studentIds } },
+        { student_id: 1, roll_no: 1, first_name: 1, last_name: 1, _id: 0 }
+      ).lean();
+
+      // Build lookup map
+      const studentMap = {};
+      studentsData.forEach(stu => {
+        studentMap[stu.student_id] = {
+          roll_no: stu.roll_no || '',
+          name: `${stu.first_name} ${stu.last_name}`.trim() || stu.student_id,
+        };
+      });
+
+      // Merge into attendance students
+      attendance.students = attendance.students.map(s => ({
+        ...s,
+        roll_no: studentMap[s.student_id]?.roll_no || '',
+        name: studentMap[s.student_id]?.name || s.student_id,
+      }));
     }
 
     return res.status(200).json({ success: true, data: attendance });

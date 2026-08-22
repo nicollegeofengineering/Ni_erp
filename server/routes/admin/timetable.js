@@ -32,17 +32,25 @@ const fetchTimetableWithPopulate = async (filter) => {
 router.get("/all", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin' && role !== 'Hod') {
+
+    if (role !== "Admin" && role !== "Hod") {
       return res.status(403).json({
         success: false,
-        message: 'Access denied',
-        islogout: true
+        message: "Access denied",
+        islogout: true,
       });
     }
+
     await connectDB();
 
-    const { academicYear, department, year } = req.query;
+    const {
+      academicYear,
+      department,
+      year,
+      semesterType,
+    } = req.query;
 
+    // Validate academic year
     if (!academicYear) {
       return res.status(400).json({
         success: false,
@@ -50,24 +58,139 @@ router.get("/all", async (req, res) => {
       });
     }
 
-    const filter = { academicYear };
-    if (department) filter.department = department.toUpperCase();
-    if (year) filter.year = parseInt(year);
+    // Validate semester type
+    if (!semesterType) {
+      return res.status(400).json({
+        success: false,
+        message: "Semester Type is required",
+      });
+    }
+
+    const normalizedSemesterType = String(semesterType)
+      .trim()
+      .toUpperCase();
+
+    if (!["ODD", "EVEN"].includes(normalizedSemesterType)) {
+      return res.status(400).json({
+        success: false,
+        message: "semesterType must be ODD or EVEN",
+      });
+    }
+
+    // Build filter
+    const filter = {
+      academicYear,
+    };
+
+    // Department
+    if (department) {
+      filter.department = String(department).trim().toUpperCase();
+    }
+
+    // Year is required because semester is calculated from year
+    if (!year) {
+      return res.status(400).json({
+        success: false,
+        message: "year is required",
+      });
+    }
+
+    const numericYear = Number(year);
+
+    if (!Number.isInteger(numericYear) || numericYear < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "year must be a valid number",
+      });
+    }
+
+    filter.year = numericYear;
+
+    // Calculate semester
+    const semester =
+      normalizedSemesterType === "ODD"
+        ? numericYear * 2 - 1
+        : numericYear * 2;
+
+    filter.semester = semester;
+
+    console.log("Timetable filter:", filter);
 
     const data = await fetchTimetableWithPopulate(filter);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data,
     });
+
   } catch (err) {
     console.error("Error fetching timetable:", err);
-    res.status(500).json({
+
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
   }
 });
+
+
+// ---------- GET /api/timetable/master-all ----------
+router.get("/master-all", async (req, res) => {
+  try {
+    const role = req.user?.role;
+    if (role !== "Admin" && role !== "Hod") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+        islogout: true,
+      });
+    }
+
+    await connectDB();
+
+    const { academicYear, semesterType } = req.query;
+
+    // Validate academic year
+    if (!academicYear) {
+      return res.status(400).json({
+        success: false,
+        message: "academicYear is required",
+      });
+    }
+
+    // Validate semester type
+    if (!semesterType) {
+      return res.status(400).json({
+        success: false,
+        message: "semesterType is required (ODD or EVEN)",
+      });
+    }
+
+    // Build filter with academicYear and semester parity
+    const filter = { academicYear };
+
+    // Add $expr to match semester parity
+    const parity = semesterType.toUpperCase() === "ODD" ? 1 : 0;
+    filter.$expr = { $eq: [{ $mod: ["$semester", 2] }, parity] };
+
+    console.log("Master timetable filter:", filter);
+
+    // Fetch with population (using existing helper)
+    const data = await fetchTimetableWithPopulate(filter);
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    console.error("Error fetching master timetable:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
 
 // ---------- PUT /api/timetable/upsert ----------
 router.put("/upsert", async (req, res) => {
@@ -462,7 +585,7 @@ router.get("/staffview", async (req, res) => {
     }
     await connectDB();
 
-    const { academicYear, staffId, search } = req.query;
+    const { academicYear, staffId, search, semesterType } = req.query;
 
     if (!academicYear) {
       return res.status(400).json({
@@ -474,10 +597,16 @@ router.get("/staffview", async (req, res) => {
     const filter = { academicYear };
     if (staffId) filter.staff = staffId;
 
+    // ---- Filter by semester type (ODD/EVEN) ----
+    if (semesterType) {
+      const parity = semesterType.toUpperCase() === 'ODD' ? 1 : 0; // ODD → 1, EVEN → 0
+      filter.$expr = { $eq: [{ $mod: ['$semester', 2] }, parity] };
+    }
+
     let entries = await Timetable.find(filter)
       .populate("subject", "subjectName subjectCode Category")
       .populate("staff", "staff_id prefix first_name last_name staff_code")
-      .populate("hall", "hallName hallCode")   // ✅ includes hallCode
+      .populate("hall", "hallName hallCode")
       .lean();
 
     entries = entries.map((entry) => ({
@@ -504,7 +633,6 @@ router.get("/staffview", async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 // ---------- GET /api/timetable/hallview ----------
 router.get("/hallview", async (req, res) => {
   try {
@@ -518,7 +646,7 @@ router.get("/hallview", async (req, res) => {
     }
     await connectDB();
 
-    const { academicYear, hallId, search } = req.query;
+    const { academicYear, hallId, search, semesterType } = req.query;
 
     if (!academicYear) {
       return res.status(400).json({
@@ -530,10 +658,16 @@ router.get("/hallview", async (req, res) => {
     const filter = { academicYear };
     if (hallId) filter.hall = hallId;
 
+    // ---- Filter by semester type (ODD/EVEN) ----
+    if (semesterType) {
+      const parity = semesterType.toUpperCase() === 'ODD' ? 1 : 0; // ODD → 1, EVEN → 0
+      filter.$expr = { $eq: [{ $mod: ['$semester', 2] }, parity] };
+    }
+
     let entries = await Timetable.find(filter)
       .populate("subject", "subjectName subjectCode Category")
       .populate("staff", "staff_id prefix first_name last_name staff_code")
-      .populate("hall", "hallName hallCode")   // ✅ includes hallCode
+      .populate("hall", "hallName hallCode")
       .lean();
 
     entries = entries.map((entry) => ({

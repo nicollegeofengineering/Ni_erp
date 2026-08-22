@@ -96,47 +96,42 @@ export default function TimetablePage() {
 
   // ---------- AUTO SET ACADEMIC YEAR ----------
   useEffect(() => {
-    const currentYear = new Date().getFullYear();
-    setAcademicYear(`${currentYear}-${currentYear + 1}`);
-  }, []);
+      const today = new Date();
+      setWef(today.toISOString().split("T")[0]);
+      const currentYear = new Date().getFullYear();
+      setAcademicYear(`${currentYear}-${currentYear + 1}`);
+    }, []);
 
   // ---------- FETCH MASTER DATA ----------
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [staffRes, hallRes, subRes] = await Promise.all([
-          api.get("/admin/staff/all", { params: { limit: 1000 } }),
-          api.get("/admin/hall/all", { params: { limit: 1000 } }),
-          api.get("/admin/subject/all", { params: { limit: 1000 } }),
-        ]);
+  const fetchAll = async () => {
+    try {
+      const [staffRes, hallRes, subRes, deptRes] = await Promise.all([
+        api.get("/admin/staff/all", { params: { limit: 1000 } }),
+        api.get("/admin/hall/all", { params: { limit: 1000 } }),
+        api.get("/admin/subject/all", { params: { limit: 1000 } }),
+        api.get("/admin/department/all"),   // 👈 new call
+      ]);
 
-        const staffData = staffRes.data.data || [];
-        const uniqueDepts = new Map();
-        staffData.forEach((staff) => {
-          const code = staff.department_code;
-          if (code && !uniqueDepts.has(code)) {
-            uniqueDepts.set(code, {
-              departmentCode: code,
-              _id: code,
-            });
-          }
-        });
-        const depts = Array.from(uniqueDepts.values());
+      // Build department list from deptRes
+      const deptData = deptRes.data.data || [];
+      setDepartments(deptData.map(d => ({
+        departmentCode: d.code,
+        _id: d._id,
+        name: d.name,
+      })));
 
-        setDepartments(depts);
-        setSubjects(subRes.data.data || []);
-        setStaffList(staffData);
-        setHallList(hallRes.data.data || []);
-      } catch (err) {
-        if (handleUnauthorized(err)) return;
-        console.error("Failed to fetch master data:", err);
-      }
-    };
-    fetchAll();
-
-    const today = new Date();
-    setWef(today.toISOString().split("T")[0]);
-  }, []);
+      // ... other states
+      setSubjects(subRes.data.data || []);
+      setStaffList(staffRes.data.data || []);
+      setHallList(hallRes.data.data || []);
+    } catch (err) {
+      if (handleUnauthorized(err)) return;
+      console.error("Failed to fetch master data:", err);
+    }
+  };
+  fetchAll();
+}, []);
 
   // ---------- BUILD BRANCHES ----------
   const branches = useMemo(() => {
@@ -160,7 +155,7 @@ export default function TimetablePage() {
     const loadTimetable = async () => {
       setLoading(true);
       try {
-        const res = await api.get("/admin/timetable/all", { params: { academicYear } });
+        const res = await api.get("/admin/timetable/master-all", { params: { academicYear ,semesterType} });
         const data = res.data.data || [];
 
         const hallMap = new Map();
@@ -237,6 +232,7 @@ export default function TimetablePage() {
     }));
 
     try {
+      if(!hall) return
       // ❌ REMOVED the early return: if(!hall) return;
       await api.put("/admin/timetable/upsert", payload);
       setEntries((prev) => ({
@@ -537,6 +533,7 @@ export default function TimetablePage() {
 
   // ---------- PDF EXPORT ----------
   const handleDownloadPdf = async () => {
+    setLoading(true);
     const element = pdfContainerRef.current;
     if (!element) {
       alert("No content to export");
@@ -631,6 +628,7 @@ export default function TimetablePage() {
       });
       deleteIcons.forEach((icon) => { icon.style.display = ""; });
       rowClearIcons.forEach((icon) => { icon.style.display = ""; });
+      setLoading(false);
     }
   };
 
@@ -669,8 +667,8 @@ export default function TimetablePage() {
           <option value="EVEN">EVEN</option>
         </select>
 
-        <button onClick={handleDownloadPdf} className={styles.pbutton}>
-          EXPORT PDF
+        <button onClick={handleDownloadPdf} className={styles.pbutton} disabled={loading}>
+          {loading ? "EXPORTING..." : "EXPORT PDF"}
         </button>
       </div>
       <div className={styles.pdfScroll}>

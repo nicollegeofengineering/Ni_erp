@@ -474,6 +474,12 @@ export default function AddStaff() {
                 <option value="EEE">EEE</option>
                 <option value="MECH">Mechanical</option>
                 <option value="CIVIL">Civil</option>
+                <option value="CHEMISTRY">Chemistry</option>
+                <option value="PHYSICS">Physics</option>
+                <option value="MATHEMATICS">Mathematics</option>
+                <option value="ENGLISH">English</option>
+                <option value="TAMIL">Tamil</option>
+                
               </select>
             </div>
 

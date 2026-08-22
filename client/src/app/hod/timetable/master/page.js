@@ -114,39 +114,36 @@ export default function TimetablePage() {
     fetchHodDepartment();
   }, []);
 
-  // ---------- AUTO SET ACADEMIC YEAR ----------
-  useEffect(() => {
-    const currentYear = new Date().getFullYear();
-    setAcademicYear(`${currentYear}-${currentYear + 1}`);
-  }, []);
-
-  // ---------- FETCH MASTER DATA ----------
-  useEffect(() => {
+    // ---------- AUTO SET ACADEMIC YEAR ----------
+    useEffect(() => {
+        const today = new Date();
+        setWef(today.toISOString().split("T")[0]);
+        const currentYear = new Date().getFullYear();
+        setAcademicYear(`${currentYear}-${currentYear + 1}`);
+      }, []);
+  
+    // ---------- FETCH MASTER DATA ----------
+    useEffect(() => {
     const fetchAll = async () => {
       try {
-        // HOD can also fetch these master lists (permissions may be adjusted later)
-        const [staffRes, hallRes, subRes] = await Promise.all([
+        const [staffRes, hallRes, subRes, deptRes] = await Promise.all([
           api.get("/admin/staff/all", { params: { limit: 1000 } }),
           api.get("/admin/hall/all", { params: { limit: 1000 } }),
           api.get("/admin/subject/all", { params: { limit: 1000 } }),
+          api.get("/admin/department/all"),   // 👈 new call
         ]);
-
-        const staffData = staffRes.data.data || [];
-        const uniqueDepts = new Map();
-        staffData.forEach((staff) => {
-          const code = staff.department_code;
-          if (code && !uniqueDepts.has(code)) {
-            uniqueDepts.set(code, {
-              departmentCode: code,
-              _id: code,
-            });
-          }
-        });
-        const depts = Array.from(uniqueDepts.values());
-
-        setDepartments(depts);
+  
+        // Build department list from deptRes
+        const deptData = deptRes.data.data || [];
+        setDepartments(deptData.map(d => ({
+          departmentCode: d.code,
+          _id: d._id,
+          name: d.name,
+        })));
+  
+        // ... other states
         setSubjects(subRes.data.data || []);
-        setStaffList(staffData);
+        setStaffList(staffRes.data.data || []);
         setHallList(hallRes.data.data || []);
       } catch (err) {
         if (handleUnauthorized(err)) return;
@@ -154,9 +151,6 @@ export default function TimetablePage() {
       }
     };
     fetchAll();
-
-    const today = new Date();
-    setWef(today.toISOString().split("T")[0]);
   }, []);
 
   // ---------- BUILD BRANCHES ----------
