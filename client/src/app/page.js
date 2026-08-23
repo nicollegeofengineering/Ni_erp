@@ -6,6 +6,19 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import { GoogleLogin } from "@react-oauth/google";
 
+const normalizeRole = (role) => String(role || "").trim();
+
+const getRedirectPathForRole = (role) => {
+  const normalizedRole = normalizeRole(role).toLowerCase();
+
+  if (normalizedRole === "admin") return "/admin";
+  if (normalizedRole === "student") return "/student";
+  if (normalizedRole === "staff") return "/staff";
+  if (normalizedRole === "hod" || normalizedRole === "hods") return "/hod";
+
+  return null;
+};
+
 export default function Home() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,12 +49,10 @@ export default function Home() {
           }
 
           // Redirect based on role
-          const role = user.role;
-          if (role === "Admin") router.push("/admin");
-          else if (role === "Student") router.push("/student");
-          else if (role === "Staff") router.push("/staff");
-          else if (role === "Hod") router.push("/hod");
-          else {
+          const redirectPath = getRedirectPathForRole(user.role);
+          if (redirectPath) {
+            router.push(redirectPath);
+          } else {
             setLoadingAuth(false);
           }
         } else {
@@ -112,15 +123,9 @@ export default function Home() {
         }
 
         // Redirect based on role
-        const role = data.role;
-        if (role === "Admin") {
-          router.push("/admin");
-        } else if (role === "Student") {
-          router.push("/student");
-        } else if (role === "Staff") {
-          router.push("/staff");
-        } else if (role === "Hod") {
-          router.push("/hod");
+        const redirectPath = getRedirectPathForRole(data.role);
+        if (redirectPath) {
+          router.push(redirectPath);
         } else {
           setError("Unknown user role");
           setErrorTimeout(5);
@@ -166,19 +171,17 @@ export default function Home() {
         sessionStorage.setItem("isLoggedIn", "true");
         sessionStorage.setItem("role", data.role);
         sessionStorage.setItem("userName", data.name);
-        const role = data.role;
-        if (role === "Admin") router.push("/admin");
-        else if (role === "Student") router.push("/student");
-        else if (role === "Staff") router.push("/staff");
-        else if (role === "Hod") router.push("/hod");
-        else {
+        const redirectPath = getRedirectPathForRole(data.role);
+        if (redirectPath) {
+          router.push(redirectPath);
+        } else {
           setError("Unknown user role");
           setErrorTimeout(5);
         }
       }
     } catch (err) {
       console.error("Google login error:", err);
-      setError(err.response?.data?.emessage || "Google login failed");
+      setError(err.response?.data?.message || "Google login failed");
       setErrorTimeout(5);
     } finally {
       setLoading(false);

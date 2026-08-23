@@ -14,28 +14,6 @@ function getInitials(first, last) {
   return `${first?.[0] || ""}${last?.[0] || ""}`.toUpperCase();
 }
 
-// Helper to mask Aadhar and PAN numbers
-const maskSensitiveValue = (value, fieldKey) => {
-  if (!value) return value;
-  if (fieldKey === 'aadhar') {
-    // Aadhar: 12 digits, show last 4, mask rest
-    const digits = value.replace(/\D/g, '');
-    if (digits.length === 12) {
-      return '●●●●-●●●●-' + digits.slice(-4);
-    }
-    // fallback: just show last 4
-    return '●'.repeat(Math.max(0, value.length - 4)) + value.slice(-4);
-  }
-  if (fieldKey === 'pan') {
-    // PAN: 10 characters, show last 4, mask rest
-    if (value.length === 10) {
-      return '●●●●●●' + value.slice(-4);
-    }
-    return '●'.repeat(Math.max(0, value.length - 4)) + value.slice(-4);
-  }
-  return value;
-};
-
 export default function ViewStaff() {
   const router = useRouter();
   const params = useParams();
@@ -49,6 +27,7 @@ export default function ViewStaff() {
 
   const handleUnauthorized = (error) => {
     if (error.response?.data?.islogout === true) {
+      // Redirect to login; the cookie will be cleared by the backend logout endpoint
       router.push("/");
       return true;
     }
@@ -77,7 +56,7 @@ export default function ViewStaff() {
           setError(response.data.message || 'Failed to fetch staff details');
         }
       } catch (err) {
-        if (handleUnauthorized(err)) return;
+      if (handleUnauthorized(err)) return;
         console.error('Error fetching staff details:', err);
         setError(
           err.response?.data?.message || 
@@ -103,31 +82,24 @@ export default function ViewStaff() {
     }
   };
 
-  // Modified DataField to mask sensitive values
-  const DataField = ({ label, value, fullWidth = false, copyable = false, fieldKey }) => {
-    const displayValue = (fieldKey === 'aadhar' || fieldKey === 'pan') && value
-      ? maskSensitiveValue(value, fieldKey)
-      : value || "—";
-
-    return (
-      <div className={`${styles.dataGroup} ${fullWidth ? styles.fullWidth : ""}`}>
-        <span className={styles.dataLabel}>{label}</span>
-        <div className={styles.dataValueBox}>
-          <span className={styles.dataValueText}>{displayValue}</span>
-          {copyable && value && (
-            <button
-              type="button"
-              className={styles.copyBtn}
-              onClick={() => handleCopy(value, fieldKey)}
-              aria-label={`Copy ${label}`}
-            >
-              {copiedField === fieldKey ? <Check size={14} /> : <Copy size={14} />}
-            </button>
-          )}
-        </div>
+  const DataField = ({ label, value, fullWidth = false, copyable = false, fieldKey }) => (
+    <div className={`${styles.dataGroup} ${fullWidth ? styles.fullWidth : ""}`}>
+      <span className={styles.dataLabel}>{label}</span>
+      <div className={styles.dataValueBox}>
+        <span className={styles.dataValueText}>{value || "—"}</span>
+        {copyable && value && (
+          <button
+            type="button"
+            className={styles.copyBtn}
+            onClick={() => handleCopy(value, fieldKey)}
+            aria-label={`Copy ${label}`}
+          >
+            {copiedField === fieldKey ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        )}
       </div>
-    );
-  };
+    </div>
+  );
 
   const SectionHeader = ({ index, icon, title }) => (
     <div className={styles.cardTitleBar}>
@@ -162,7 +134,7 @@ export default function ViewStaff() {
           <button 
             className={styles.backBtn} 
             type="button" 
-            onClick={() => router.push("/admin/staff")}
+            onClick={() => router.push("/hod/staff")}
           >
             <ArrowLeft size={16} /> Back to Staff List
           </button>
@@ -190,7 +162,7 @@ export default function ViewStaff() {
           <button className={styles.backBtn} type="button" onClick={() => router.push("/hod/staff")}>
             <ArrowLeft size={16} /> Back
           </button>
-          
+         
           <button className={styles.pdfBtn} onClick={handlePrint}>
             <Download size={16} /> Save as PDF
           </button>

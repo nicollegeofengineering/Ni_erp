@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const StaffSchema = new mongoose.Schema({
   staff_id: { type: String, required: true, unique: true, trim: true },
   prefix: { type: String, trim: true },
-  photo_url: { type: String, default: null },          // legacy, keep for now
-  photo_file_id: { type: String, default: null },      // ✅ Google Drive file ID
+  photo_url: { type: String, default: null },         
+  photo_file_id: { type: String, default: null },      
   first_name: { type: String, required: true, trim: true },
   last_name: { type: String, required: true, trim: true },
   staff_code: { type: String, required: true, trim: true },
@@ -42,7 +42,8 @@ const StaffSchema = new mongoose.Schema({
     enum: ['A+','A-','B+','B-','AB+','AB-','O+','O-','A1+','A1-','A2+','A2-','A1B+','A1B-','A2B+','A2B-'],
     default: null
   },
-  marital_status: { type: String, enum: ['Single', 'Married', 'Divorced', 'Widowed'], default: null }
+  marital_status: { type: String, enum: ['Single', 'Married', 'Divorced', 'Widowed'], default: null },
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Staff', StaffSchema);

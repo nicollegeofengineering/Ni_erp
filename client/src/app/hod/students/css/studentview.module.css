@@ -1,0 +1,178 @@
+.container {
+  padding: 40px;
+  padding-top: 60px;
+  background: #eff6ff;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  gap: 20px;
+}
+.header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e3a8a;
+  margin: 8px 0 0 0;
+}
+.header p {
+  font-size: 14px;
+  color: #60a5fa;
+  margin: 0;
+  font-weight: 500;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.actionBtn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.actionBtn:first-child {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+.actionBtn:first-child:hover {
+  background: #bfdbfe;
+  border-color: #93c5fd;
+}
+.actionBtn:last-child {
+  background: #2563eb;
+  color: white;
+}
+.actionBtn:last-child:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.card {
+  background: white;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  margin-bottom: 28px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+.cardTitle {
+  padding: 18px 28px;
+  background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%);
+  border-bottom: 1px solid #bfdbfe;
+  border-left: 4px solid #3b82f6;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e40af;
+  margin: 0;
+}
+
+.personalGrid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 40px;
+  padding: 32px;
+  align-items: start;
+}
+.imageBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.profileImage {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #eff6ff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  background: #f8fafc;
+}
+.grid {
+  padding: 32px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.personalGrid .grid {
+  padding: 0;
+}
+
+.fieldWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fieldLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+}
+.fieldValue {
+  font-size: 15px;
+  color: #0b2350;
+  padding: 6px 0;
+  border-bottom: 1px dashed #dce6f7;
+  word-break: break-word;
+}
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 16px;
+  }
+  .header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+  .header h1 {
+    font-size: 24px;
+  }
+  .actions {
+    width: 100%;
+    flex-direction: column;
+  }
+  .actionBtn {
+    width: 100%;
+    padding: 14px;
+  }
+  .personalGrid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 20px;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 20px;
+  }
+  .cardTitle {
+    padding: 16px 20px;
+  }
+  .profileImage {
+    width: 140px;
+    height: 140px;
+  }
+}

@@ -1,0 +1,558 @@
+/* ==========================================================================
+   Design tokens
+   ========================================================================== */
+.container {
+  --bg: #ffffff;
+  --bg-soft: #f6faff;
+  --blue-50: #eef6ff;
+  --blue-100: #e0f0ff;
+  --blue-200: #bfe0ff;
+  --blue-400: #4a9eff;
+  --blue-500: #2d7ff9;
+  --blue-600: #1a68e0;
+  --ink-900: #16233a;
+  --ink-600: #4c5a70;
+  --ink-400: #8695ab;
+  --line: #e6edf5;
+  --green-500: #22a06b;
+  --green-100: #e3f8ee;
+  --red-500: #e0483e;
+  --red-100: #fdecea;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow-sm: 0 1px 2px rgba(22, 35, 58, 0.05);
+  --shadow-md: 0 8px 24px -8px rgba(45, 127, 249, 0.18);
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   Layout
+   ========================================================================== */
+.container {
+  max-width: 900px;
+  margin: 32px auto;
+  padding: 28px 32px 48px;
+  background: var(--bg);
+  border-radius: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--ink-900);
+  animation: pageIn 0.5s var(--ease) both;
+}
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ctop{
+  display: flex;
+  justify-content: space-between;
+}
+.container h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 18px;
+}
+
+.viewBtn {
+  background: var(--blue-50);
+  color: var(--blue-600);
+  border: 1px solid var(--blue-200);
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), transform 0.15s var(--ease), box-shadow 0.2s var(--ease);
+  margin-bottom: 24px;
+}
+
+.viewBtn:hover {
+  background: var(--blue-100);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.viewBtn:active {
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   Date field
+   ========================================================================== */
+.field {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.field label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-600);
+}
+
+.field :global(.react-datepicker__input-container input) {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.92rem;
+  color: var(--ink-900);
+  background: #fff;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.field :global(.react-datepicker__input-container input:focus) {
+  outline: none;
+  border-color: var(--blue-400);
+  box-shadow: 0 0 0 3px var(--blue-100);
+}
+
+.dayLabel {
+  background: var(--blue-50);
+  color: var(--blue-600);
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: 1px solid var(--blue-200);
+  animation: pop 0.3s var(--ease);
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ==========================================================================
+   Loading state
+   ========================================================================== */
+.loadingWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 4px;
+  color: var(--ink-400);
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid var(--blue-100);
+  border-top-color: var(--blue-500);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.skeletonRow {
+  height: 44px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, var(--blue-50) 25%, var(--blue-100) 37%, var(--blue-50) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* ==========================================================================
+   Periods
+   ========================================================================== */
+.periods {
+  margin-bottom: 30px;
+  animation: fadeUp 0.35s var(--ease) both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.periods > label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-600);
+}
+
+.periodButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.periodBtn {
+  padding: 9px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink-600);
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease),
+    border-color 0.2s var(--ease), transform 0.15s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.periodBtn:hover:not(.active) {
+  background: var(--blue-50);
+  border-color: var(--blue-200);
+  transform: translateY(-1px);
+}
+
+.periodBtn.active {
+  background: var(--blue-500);
+  color: #fff;
+  border-color: var(--blue-500);
+  box-shadow: var(--shadow-md);
+}
+
+.periodBtn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ==========================================================================
+   Student section
+   ========================================================================== */
+.studentSection {
+  margin-top: 8px;
+  animation: fadeUp 0.35s var(--ease) both;
+}
+
+.studentSection h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  margin-bottom: 14px;
+}
+
+.studentTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.studentTable th {
+  background: var(--bg-soft);
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-400);
+  border-bottom: 1px solid var(--line);
+}
+
+.studentTable td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.94rem;
+  transition: background 0.2s var(--ease);
+}
+
+.studentTable tr:last-child td {
+  border-bottom: none;
+}
+
+.studentTable tr {
+  background: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s var(--ease), transform 0.15s var(--ease);
+  animation: rowIn 0.3s var(--ease) both;
+}
+
+.studentTable tr:nth-child(n) {
+  animation-delay: calc(var(--row-index, 0) * 30ms);
+}
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.studentTable tr.present {
+  background-color: var(--green-100);
+}
+
+.studentTable tr.absent {
+  background-color: var(--red-100);
+}
+
+.studentTable tr:hover:not(.no-hover) {
+  filter: brightness(0.98);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+}
+
+tr.present .statusBadge {
+  background: var(--green-500);
+  color: white;
+}
+
+tr.absent .statusBadge {
+  background: var(--red-500);
+  color: white;
+}
+
+.studentTable tr:active .statusBadge {
+  transform: scale(0.95);
+}
+
+/* ==========================================================================
+   Submit button
+   ========================================================================== */
+.submitBtn {
+  position: relative;
+  background: var(--blue-500);
+  color: white;
+  border: none;
+  padding: 13px 32px;
+  border-radius: var(--radius-sm);
+  font-size: 0.96rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.15s var(--ease);
+  margin-top: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: var(--blue-600);
+  transform: translateY(-1px);
+}
+
+.submitBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.submitBtn:disabled {
+  background: #cfd8e3;
+  color: #8695ab;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Alerts
+   ========================================================================== */
+.error {
+  color: var(--red-500);
+  background: var(--red-100);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #f6c9c5;
+  margin: 12px 0;
+  font-size: 0.9rem;
+  animation: shake 0.35s var(--ease);
+}
+/* Add to your existing CSS */
+
+.checkboxHeader {
+  width: 40px;
+}
+
+.studentTable td:first-child,
+.studentTable th:first-child {
+  text-align: center;
+}
+
+.studentTable tr.deselected {
+  opacity: 0.6;
+  background-color: #f5f5f5;
+}
+
+.studentTable tr.deselected:hover {
+  filter: none;
+}
+
+.studentTable tr.deselected .statusBadge {
+  background: #ccc !important;
+  color: #888;
+}
+
+/* Ensure checkbox does not affect row click */
+.studentTable td input[type="checkbox"] {
+  pointer-events: auto;
+  cursor: pointer;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.info {
+  color: var(--blue-600);
+  background: var(--blue-50);
+  border: 1px solid var(--blue-200);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+/* AttendancePage.module.css – add this at the bottom */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.filters select {
+  flex: 1 1 150px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 0.9rem;
+  color: var(--ink-900);
+  transition: border-color 0.2s var(--ease);
+}
+
+.filters select:focus {
+  outline: none;
+  border-color: var(--blue-400);
+  box-shadow: 0 0 0 3px var(--blue-100);
+}
+/* ==========================================================================
+   Mobile responsive
+   ========================================================================== */
+@media (max-width: 640px) {
+  .container {
+    margin: 0;
+    padding: 16px 12px 28px;
+    border-radius: 0;
+  }
+
+  .ctop {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .container h1 {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+
+  .viewBtn {
+    width: 100%;
+    text-align: center;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+  }
+
+  .field {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+
+  .filters select {
+    flex: none;      
+    width: 100%;
+    height: auto;
+  }
+
+  .periodButtons {
+    gap: 8px;
+  }
+
+  .periodBtn {
+    padding: 8px 14px;
+    font-size: 0.82rem;
+  }
+
+  /* Make the table scroll horizontally instead of hiding columns */
+  .studentTable {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .studentTable thead,
+  .studentTable tbody,
+  .studentTable tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .studentTable th,
+  .studentTable td {
+    padding: 10px 8px;
+    font-size: 0.82rem;
+  }
+
+  /* Checkbox column: keep visible, just narrower + centered */
+  .checkboxHeader,
+  .studentTable td:first-child {
+    width: 34px;
+    min-width: 34px;
+    text-align: center;
+  }
+
+  .studentTable td input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Roll No can shrink instead of disappearing */
+  .studentTable th:nth-child(2),
+  .studentTable td:nth-child(2) {
+    width: 60px;
+  }
+
+  .submitBtn {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 0.9rem;
+  }
+}

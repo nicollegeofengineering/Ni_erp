@@ -22,9 +22,14 @@ const adminHallRoute = require("./routes/admin/hall");
 const adminSubjectRoute = require("./routes/admin/subject");
 const timetableRoute=require("./routes/admin/timetable");
 const DepartmentRoute=require("./routes/admin/department");
+const StudentRoute=require("./routes/admin/student");
+const AttendanceRoute=require("./routes/staff/attendance");
 
 
 const hodstaff=require("./routes/hod/hodstaff")
+
+
+const markmanagement=require("./routes/mark/marks");
 
 const authMiddleware = require("./middleware/verifyToken");
 
@@ -66,8 +71,12 @@ app.use("/api", authMiddleware, adminVerifyRoute);
 app.use("/api/admin/staff", authMiddleware, adminStaffRoute);
 app.use("/api/admin/hall", authMiddleware, adminHallRoute);
 app.use("/api/admin/subject", authMiddleware, adminSubjectRoute);
-app.use("/api/admin/timetable",authMiddleware,timetableRoute)
-app.use("/api/admin/department",authMiddleware,DepartmentRoute)
+app.use("/api/admin/timetable",authMiddleware,timetableRoute);
+app.use("/api/admin/department",authMiddleware,DepartmentRoute);
+app.use("/api/admin/student", authMiddleware, StudentRoute);
+
+app.use("/api/mark/",authMiddleware,markmanagement)
+app.use("/api/staff/attendance/",authMiddleware,AttendanceRoute)
 
 app.use("/api/hod/staff",authMiddleware,hodstaff)
 

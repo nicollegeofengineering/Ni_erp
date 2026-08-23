@@ -22,7 +22,7 @@ const timetableSchema = new mongoose.Schema(
     semester: {
       type: Number,
       required: true,
-      enum: [1, 2],
+      enum: [1, 2,3,4,5,6,7,8],
     },
     day: {
       type: Number,

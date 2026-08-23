@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import styles from "./timetable.module.css";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
-
-
 export default function TimetablePage() {
+  const router = useRouter();
+
   // ---------- STATE ----------
   const [academicYear, setAcademicYear] = useState("2026-2027");
   const [semesterType, setSemesterType] = useState("ODD");
@@ -53,9 +54,12 @@ export default function TimetablePage() {
     { label: "P7", period: 7, type: "period" },
   ];
 
-  const semesterNum = semesterType === "ODD" ? 1 : 2;
+  // ---------- HELPER: absolute semester ----------
+  const getAbsoluteSemester = (year) => {
+    return semesterType === "ODD" ? year * 2 - 1 : year * 2;
+  };
 
-  // ---------- HELPERS (aligned with backend Staff model) ----------
+  // ---------- HELPERS ----------
   const getSubjectCode = (s) => s?.subjectCode || "";
   const getSubjectName = (s) => s?.subjectName || "";
   const getSubjectCategory = (s) => s?.Category || s?.category || "";
@@ -66,30 +70,29 @@ export default function TimetablePage() {
     return `${prefix} ${first_name} ${last_name}`.trim().replace(/\s+/g, " ");
   };
   const getFacultyId = (s) => s?.staff_id || "";
+  // Use hallCode if available, otherwise hallName
   const getHallCode = (h) => h?.hallCode || h?.hallName || "";
-  const getHallName = (h) => h?.hallName || "";
+  const getHallName = (h) => h?.hallCode || h?.hallName || "";
 
   const isLabSubject = (subject) => {
     const cat = getSubjectCategory(subject).toUpperCase();
     return cat === "LAB" || cat === "PRACTICAL";
   };
 
-    // ---------- Helper: redirect on unauthorized (islogout) ----------
+  // ---------- Helper: redirect on unauthorized (islogout) ----------
   const handleUnauthorized = (error) => {
     if (error.response?.data?.islogout === true) {
-      // Redirect to login; the cookie will be cleared by the backend logout endpoint
       router.push("/");
       return true;
     }
     return false;
   };
 
-  // ---------- Axios instance – baseURL now at /api ----------
-const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
-  withCredentials: true,
-});
-
+  // ---------- Axios instance ----------
+  const api = axios.create({
+    baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
+    withCredentials: true,
+  });
 
   // ---------- AUTO SET ACADEMIC YEAR ----------
   useEffect(() => {
@@ -101,14 +104,12 @@ const api = axios.create({
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        // Use /admin/... routes
         const [staffRes, hallRes, subRes] = await Promise.all([
           api.get("/admin/staff/all", { params: { limit: 1000 } }),
           api.get("/admin/hall/all", { params: { limit: 1000 } }),
           api.get("/admin/subject/all", { params: { limit: 1000 } }),
         ]);
 
-        // Build departments from staff (unique department_code)
         const staffData = staffRes.data.data || [];
         const uniqueDepts = new Map();
         staffData.forEach((staff) => {
@@ -116,7 +117,7 @@ const api = axios.create({
           if (code && !uniqueDepts.has(code)) {
             uniqueDepts.set(code, {
               departmentCode: code,
-              _id: code, // dummy id – if you have a real Department model, use its _id
+              _id: code,
             });
           }
         });
@@ -128,7 +129,6 @@ const api = axios.create({
         setHallList(hallRes.data.data || []);
       } catch (err) {
         if (handleUnauthorized(err)) return;
-
         console.error("Failed to fetch master data:", err);
       }
     };
@@ -150,7 +150,7 @@ const api = axios.create({
     );
   }, [departments]);
 
-  // ---------- LOAD TIMETABLE ----------
+  // ---------- LOAD TIMETABLE WITH HALL RESOLUTION ----------
   useEffect(() => {
     if (!academicYear || branches.length === 0) {
       if (branches.length > 0 && !academicYear) setLoading(false);
@@ -163,20 +163,43 @@ const api = axios.create({
         const res = await api.get("/admin/timetable/all", { params: { academicYear } });
         const data = res.data.data || [];
 
+        const hallMap = new Map();
+        hallList.forEach((h) => {
+          if (h._id) hallMap.set(h._id.toString(), h);
+        });
+
         const newEntries = {};
         data.forEach((item) => {
           const deptCode = item.department;
           const yearVal = item.year;
           const dayNum = item.day;
           const periodNum = item.period;
+          const sem = item.semester;
 
           if (dayNum < 1 || dayNum > 5) return;
+
+          const expectedSem = getAbsoluteSemester(yearVal);
+          if (sem !== undefined && sem !== expectedSem) return;
+
+          let hall = item.hall;
+          if (hall) {
+            if (typeof hall === "object" && hall._id) {
+              // already populated
+            } else if (typeof hall === "string") {
+              const fullHall = hallMap.get(hall.toString());
+              hall = fullHall || null;
+            } else {
+              hall = null;
+            }
+          } else {
+            hall = null;
+          }
 
           const key = `${deptCode}__${yearVal}__${dayNum}__${periodNum}`;
           newEntries[key] = {
             subject: item.subject || null,
             staff: item.staff || null,
-            hall: item.hall || null,
+            hall: hall || null,
             status: "idle",
             errorMsg: null,
           };
@@ -185,7 +208,6 @@ const api = axios.create({
         setEntries(newEntries);
       } catch (err) {
         if (handleUnauthorized(err)) return;
-
         console.error("Failed to load timetable:", err);
       } finally {
         setLoading(false);
@@ -193,7 +215,7 @@ const api = axios.create({
     };
 
     loadTimetable();
-  }, [academicYear, branches]);
+  }, [academicYear, branches, hallList, semesterType]);
 
   // ---------- SAVE ENTRY ----------
   const saveEntry = async (entryKey, dayNum, branch, periodNum, subject, staff, hall) => {
@@ -201,7 +223,7 @@ const api = axios.create({
       academicYear,
       department: branch.departmentCode,
       year: branch.year,
-      semester: semesterNum,
+      semester: getAbsoluteSemester(branch.year),
       day: dayNum,
       period: periodNum,
       subject: subject?._id || null,
@@ -215,6 +237,7 @@ const api = axios.create({
     }));
 
     try {
+      // ❌ REMOVED the early return: if(!hall) return;
       await api.put("/admin/timetable/upsert", payload);
       setEntries((prev) => ({
         ...prev,
@@ -281,7 +304,7 @@ const api = axios.create({
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
           day: dayNum,
           period: periodNum,
         },
@@ -313,7 +336,7 @@ const api = axios.create({
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
           day: dayNum,
         },
       });
@@ -337,7 +360,7 @@ const api = axios.create({
   const handleDeleteClass = async (branch) => {
     const classKey = `${branch.departmentCode}__${branch.year}`;
     const confirmDelete = window.confirm(
-      `⚠️ Delete the FULL timetable for ${branch.label} (${semesterType} sem, ${academicYear})?`
+      `⚠️ Delete the FULL timetable for ${branch.label} (Semester ${getAbsoluteSemester(branch.year)}, ${academicYear})?`
     );
     if (!confirmDelete) return;
 
@@ -348,7 +371,7 @@ const api = axios.create({
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
         },
       });
       setEntries((prev) => {
@@ -614,7 +637,6 @@ const api = axios.create({
   // ---------- RENDER ----------
   return (
     <div className={styles.mcontainer}>
-      {/* Action Buttons Bar */}
       <div className={styles.hbutton}>
         <select
           value={academicYear}
@@ -651,14 +673,12 @@ const api = axios.create({
           EXPORT PDF
         </button>
       </div>
-
+      <div className={styles.pdfScroll}>
       <div className={styles.container} ref={pdfContainerRef}>
-        {/* Header */}
         <div className={styles.header}>
           <img src="/nilogo.png" alt="College Logo" width="700" height="104.3" />
         </div>
 
-        {/* Title & Academic Year */}
         <div className={styles.headtop}>
           <h3>MASTER TIMETABLE</h3>
           <span> {"("}</span>
@@ -668,7 +688,6 @@ const api = axios.create({
           <span>{")"}</span>
         </div>
 
-        {/* WEF */}
         <div className={styles.headbottom}>
           <div className={styles.wef}>
             <p>w.e.f:</p>
@@ -676,7 +695,6 @@ const api = axios.create({
           </div>
         </div>
 
-        {/* ===== MASTER TIMETABLE ===== */}
         <div className={styles.mtWrapper}>
           <table className={styles.mtTable}>
             <thead>
@@ -767,7 +785,6 @@ const api = axios.create({
                               }`}
                             >
                               <div className={styles.mtPeriodBox}>
-                                {/* Subject selector */}
                                 <span
                                   className={styles.mtSubjectCode}
                                   onClick={(e) =>
@@ -776,7 +793,6 @@ const api = axios.create({
                                 >
                                   {subject ? getSubjectCode(subject) : "+"}
                                 </span>
-                                {/* Staff selector */}
                                 <span
                                   className={styles.mtStaffCode}
                                   onClick={(e) =>
@@ -785,12 +801,9 @@ const api = axios.create({
                                 >
                                   {staff ? getStaffCode(staff) : "+"}
                                 </span>
-                                {/* Hall selector */}
                                 <span
                                   className={styles.mtHallCode}
-                                  onClick={(e) => {
-                                    openPopup(e, "hall", dayNum, branch, col.period, entryKey);
-                                  }}
+                                  onClick={(e) => openPopup(e, "hall", dayNum, branch, col.period, entryKey)}
                                   style={{
                                     cursor: "pointer",
                                     fontSize: "10px",
@@ -824,8 +837,8 @@ const api = axios.create({
             </tbody>
           </table>
         </div>
+       
 
-        {/* ===== SUBJECT REFERENCE ===== */}
         <div className={styles.srWrapper}>
           <table className={styles.srTable}>
             <thead>
@@ -861,14 +874,12 @@ const api = axios.create({
           </table>
         </div>
 
-        {/* Signatures */}
         <div className={styles.sign}>
           <p>HOD</p>
           <p>PRINCIPAL</p>
         </div>
       </div>
-
-      {/* ===== POPUP ===== */}
+               </div>
       {popup && (
         <div className={styles.mtPopupOverlay} onClick={closePopup}>
           <div
@@ -945,7 +956,6 @@ const api = axios.create({
                 )}
             </div>
 
-            {/* Clear slot option */}
             {(popup.type === "subject" || popup.type === "staff") &&
               (entries[popup.entryKey]?.subject || entries[popup.entryKey]?.staff) && (
                 <div

@@ -1,0 +1,165 @@
+.pageWrapper {
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.filterSelect,
+.dateInput {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.primaryBtn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: #0069d9;
+}
+
+.primaryBtn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.pdfBtn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pdfBtn:hover {
+  background: #218838;
+}
+
+.error {
+  color: #dc3545;
+  background: #f8d7da;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.reportContainer {
+  background: white;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.header img {
+  max-width: 100%;
+  height: auto;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.title h2 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.title p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.reportTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.reportTable th,
+.reportTable td {
+  border: 1px solid #dee2e6;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.reportTable th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+.reportTable td.leftAlign {
+  text-align: left;
+}
+
+.reportTable tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+.reportTable tr:hover {
+  background: #e9ecef;
+}
+
+.emptyMsg {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  padding: 30px 0;
+}
+
+.loadingMsg {
+  text-align: center;
+  color: #007bff;
+  padding: 20px 0;
+}
+
+/* Print / PDF specific */
+@media print {
+  .controls {
+    display: none !important;
+  }
+  .pageWrapper {
+    padding: 0;
+    margin: 0;
+  }
+  .reportContainer {
+    box-shadow: none;
+    border-radius: 0;
+    padding: 10px 15px;
+  }
+  .reportTable {
+    font-size: 11px;
+  }
+  .reportTable th,
+  .reportTable td {
+    padding: 4px 6px;
+  }
+}
