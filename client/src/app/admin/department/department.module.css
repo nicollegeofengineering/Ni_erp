@@ -116,6 +116,24 @@
   text-align: left;
 }
 
+.editButton {
+  background: transparent;
+  color: #2b7be4;
+  border: 1px solid #d0e2fb;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 8px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.editButton:hover {
+  background: #eaf2fd;
+  border-color: #2b7be4;
+}
+
 .deleteButton {
   background: transparent;
   color: #c0392b;

@@ -18,7 +18,9 @@ export default function TimetablePage() {
   const [semesterType, setSemesterType] = useState("ODD");
   const [wef, setWef] = useState("");
   const [loading, setLoading] = useState(true);
+  const [IsDownload,setIsDownload] = useState(false)
   const [deletingKey, setDeletingKey] = useState(null);
+  const [IsDownloading,setIsDownloading]=useState(false);
 
   // Master data
   const [departments, setDepartments] = useState([]);
@@ -57,7 +59,10 @@ export default function TimetablePage() {
     { label: "P7", period: 7, type: "period" },
   ];
 
-  const semesterNum = semesterType === "ODD" ? 1 : 2;
+  // ---------- HELPER: absolute semester ----------
+  const getAbsoluteSemester = (year) => {
+    return semesterType === "ODD" ? year * 2 - 1 : year * 2;
+  };
 
   // ---------- HELPERS ----------
   const getSubjectCode = (s) => s?.subjectCode || "";
@@ -78,7 +83,7 @@ export default function TimetablePage() {
     return cat === "LAB" || cat === "PRACTICAL";
   };
 
-  // ---------- Helper: redirect on unauthorized (islogout) ----------
+  // ---------- Helper: redirect on unauthorized ----------
   const handleUnauthorized = (error) => {
     if (error.response?.data?.islogout === true) {
       router.push("/");
@@ -87,7 +92,7 @@ export default function TimetablePage() {
     return false;
   };
 
-  // ---------- Axios instance (baseURL + withCredentials) ----------
+  // ---------- Axios instance ----------
   const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
     withCredentials: true,
@@ -100,7 +105,6 @@ export default function TimetablePage() {
       const dept = res.data?.department_code;
       if (dept) {
         setHodDepartment(dept);
-        console.log("HOD Department:", dept);
       } else {
         console.error("Department not found");
       }
@@ -116,6 +120,8 @@ export default function TimetablePage() {
 
   // ---------- AUTO SET ACADEMIC YEAR ----------
   useEffect(() => {
+    const today = new Date();
+    setWef(today.toISOString().split("T")[0]);
     const currentYear = new Date().getFullYear();
     setAcademicYear(`${currentYear}-${currentYear + 1}`);
   }, []);
@@ -124,29 +130,22 @@ export default function TimetablePage() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        // HOD can also fetch these master lists (permissions may be adjusted later)
-        const [staffRes, hallRes, subRes] = await Promise.all([
+        const [staffRes, hallRes, subRes, deptRes] = await Promise.all([
           api.get("/admin/staff/all", { params: { limit: 1000 } }),
           api.get("/admin/hall/all", { params: { limit: 1000 } }),
           api.get("/admin/subject/all", { params: { limit: 1000 } }),
+          api.get("/admin/department/all"),
         ]);
 
-        const staffData = staffRes.data.data || [];
-        const uniqueDepts = new Map();
-        staffData.forEach((staff) => {
-          const code = staff.department_code;
-          if (code && !uniqueDepts.has(code)) {
-            uniqueDepts.set(code, {
-              departmentCode: code,
-              _id: code,
-            });
-          }
-        });
-        const depts = Array.from(uniqueDepts.values());
+        const deptData = deptRes.data.data || [];
+        setDepartments(deptData.map(d => ({
+          departmentCode: d.code,
+          _id: d._id,
+          name: d.name,
+        })));
 
-        setDepartments(depts);
         setSubjects(subRes.data.data || []);
-        setStaffList(staffData);
+        setStaffList(staffRes.data.data || []);
         setHallList(hallRes.data.data || []);
       } catch (err) {
         if (handleUnauthorized(err)) return;
@@ -154,12 +153,9 @@ export default function TimetablePage() {
       }
     };
     fetchAll();
-
-    const today = new Date();
-    setWef(today.toISOString().split("T")[0]);
   }, []);
 
-  // ---------- BUILD BRANCHES ----------
+  // ---------- BUILD BRANCHES (show ALL departments) ----------
   const branches = useMemo(() => {
     return departments.flatMap((dept) =>
       years.map((y) => ({
@@ -171,18 +167,16 @@ export default function TimetablePage() {
     );
   }, [departments]);
 
-  // ---------- LOAD TIMETABLE (HOD endpoint) ----------
+  // ---------- LOAD TIMETABLE (master-all endpoint) ----------
   useEffect(() => {
-    if (!academicYear || branches.length === 0) {
-      if (branches.length > 0 && !academicYear) setLoading(false);
-      return;
-    }
+    if (!academicYear || !semesterType) return;
 
     const loadTimetable = async () => {
       setLoading(true);
       try {
-        // Use HOD endpoint to fetch all timetable (may include all departments)
-        const res = await api.get("/admin/timetable/all", { params: { academicYear } });
+        const res = await api.get("/admin/timetable/master-all", {
+          params: { academicYear, semesterType },
+        });
         const data = res.data.data || [];
 
         const newEntries = {};
@@ -214,11 +208,10 @@ export default function TimetablePage() {
     };
 
     loadTimetable();
-  }, [academicYear, branches]);
+  }, [academicYear, semesterType]);
 
-  // ---------- SAVE ENTRY (HOD endpoint) ----------
+  // ---------- SAVE ENTRY ----------
   const saveEntry = async (entryKey, dayNum, branch, periodNum, subject, staff, hall) => {
-    // Only allow if branch is editable
     if (!isEditable(branch)) {
       alert("You are not allowed to modify this department.");
       return;
@@ -228,7 +221,7 @@ export default function TimetablePage() {
       academicYear,
       department: branch.departmentCode,
       year: branch.year,
-      semester: semesterNum,
+      semester: getAbsoluteSemester(branch.year),
       day: dayNum,
       period: periodNum,
       subject: subject?._id || null,
@@ -299,7 +292,7 @@ export default function TimetablePage() {
     }
   };
 
-  // ---------- DELETE HANDLERS (HOD endpoints) ----------
+  // ---------- DELETE HANDLERS ----------
   const handleDeleteCell = async (dayNum, branch, periodNum, entryKey) => {
     if (!isEditable(branch)) {
       alert("You cannot delete this department.");
@@ -318,7 +311,7 @@ export default function TimetablePage() {
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
           day: dayNum,
           period: periodNum,
         },
@@ -355,7 +348,7 @@ export default function TimetablePage() {
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
           day: dayNum,
         },
       });
@@ -395,7 +388,7 @@ export default function TimetablePage() {
           academicYear,
           department: branch.departmentCode,
           year: branch.year,
-          semester: semesterNum,
+          semester: getAbsoluteSemester(branch.year),
         },
       });
       setEntries((prev) => {
@@ -417,9 +410,7 @@ export default function TimetablePage() {
 
   // ---------- POPUP HANDLERS ----------
   const openPopup = (e, type, dayNum, branch, periodNum, entryKey) => {
-    // Only allow popup for editable branches
     if (!isEditable(branch)) return;
-
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     const { x, y } = getAdjustedPosition(rect);
@@ -452,7 +443,6 @@ export default function TimetablePage() {
 
   const closePopup = () => setPopup(null);
 
-  // ---------- POPUP SELECTION HANDLERS ----------
   const handleSelectSubject = (subject) => {
     if (!popup) return;
     const { dayNum, branch, periodNum, entryKey } = popup;
@@ -474,9 +464,7 @@ export default function TimetablePage() {
     attemptUpdate(entryKey, dayNum, branch, periodNum, undefined, undefined, hall);
   };
 
-  // ... (popup handlers unchanged, they call attemptUpdate which already checks isEditable)
-
-  // ---------- FILTER FUNCTIONS (unchanged) ----------
+  // ---------- FILTER FUNCTIONS ----------
   const filterSubjects = (query) => {
     if (!query) return subjects;
     const q = query.toUpperCase();
@@ -562,9 +550,160 @@ export default function TimetablePage() {
     return Array.from(map.values());
   }, [entries]);
 
-  // ---------- PDF EXPORT (unchanged) ----------
   const handleDownloadPdf = async () => {
-    // ... (same as before)
+    setIsDownload(true);
+    const element = pdfContainerRef.current;
+    if (!element) {
+      alert("No content to export");
+      setIsDownload(false);
+      return;
+    }
+
+    // --- Save original styles and force everything to plain dark-on-white ---
+    const allEls = element.querySelectorAll('*');
+    const originalStyles = [];
+
+    allEls.forEach((el, i) => {
+      originalStyles[i] = {
+        el,
+        backgroundColor: el.style.backgroundColor,
+        color: el.style.color,
+        borderColor: el.style.borderColor,
+        border: el.style.border,
+        opacity: el.style.opacity,
+      };
+
+      el.style.opacity = '1';
+      el.style.color = '#000000';
+    });
+
+    // Force plain white/black on every cell EXCEPT the Day column, whose
+    // top/bottom borders are deliberately set per-row (inline, in JSX) to
+    // fake a merged look across each day's group of rows. Overwriting them
+    // here would redraw a border between every row and break that look.
+    const allCells = element.querySelectorAll('td, th');
+    allCells.forEach((cell) => {
+      if (cell.classList.contains(styles.mtDayCell)) {
+        cell.style.backgroundColor = 'white';
+        cell.style.borderLeft = '1px solid #000000';
+        cell.style.borderRight = '1px solid #000000';
+        return;
+      }
+      cell.style.backgroundColor = 'white';
+      cell.style.borderColor = '#000000';
+      cell.style.border = '1px solid #000000';
+    });
+
+    const rows = element.querySelectorAll('tr');
+    rows.forEach((row) => {
+      row.style.backgroundColor = 'white';
+    });
+
+    // Hide delete icons and row clear icons
+    const deleteIcons = element.querySelectorAll(`.${styles.deleteIcon}`);
+    const rowClearIcons = element.querySelectorAll(`.${styles.rowClearIcon}`);
+    deleteIcons.forEach((icon) => { icon.style.display = "none"; });
+    rowClearIcons.forEach((icon) => { icon.style.display = "none"; });
+
+    // Fix overflow for PDF
+    const scrollables = [element, ...element.querySelectorAll("*")].filter((el) => {
+      const cs = window.getComputedStyle(el);
+      return (
+        (cs.overflowY === "auto" || cs.overflowY === "scroll" ||
+         cs.overflowX === "auto" || cs.overflowX === "scroll") &&
+        (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth)
+      );
+    });
+
+    const originalScrollStyles = scrollables.map((el) => ({
+      el,
+      overflow: el.style.overflow,
+      height: el.style.height,
+      maxHeight: el.style.maxHeight,
+      width: el.style.width,
+    }));
+
+    scrollables.forEach((el) => {
+      el.style.overflow = "visible";
+      el.style.height = "auto";
+      el.style.maxHeight = "none";
+      el.style.width = "max-content";
+    });
+
+    try {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const ratio = pdfWidth / canvas.width;
+      const pageHeightInCanvasPx = pdfHeight / ratio;
+
+      let renderedHeight = 0;
+      let pageNum = 0;
+
+      while (renderedHeight < canvas.height) {
+        const sliceHeight = Math.min(pageHeightInCanvasPx, canvas.height - renderedHeight);
+
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+
+        const ctx = pageCanvas.getContext("2d");
+        ctx.drawImage(
+          canvas,
+          0, renderedHeight, canvas.width, sliceHeight,
+          0, 0, canvas.width, sliceHeight
+        );
+
+        const imgData = pageCanvas.toDataURL("image/png");
+
+        if (pageNum > 0) pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, sliceHeight * ratio);
+
+        renderedHeight += sliceHeight;
+        pageNum += 1;
+      }
+
+      pdf.save("NI_MasterTimetable.pdf");
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      // Restore scroll/overflow styles
+      originalScrollStyles.forEach(({ el, overflow, height, maxHeight, width }) => {
+        el.style.overflow = overflow;
+        el.style.height = height;
+        el.style.maxHeight = maxHeight;
+        el.style.width = width;
+      });
+
+      // Restore every element's original style
+      originalStyles.forEach(({ el, backgroundColor, color, borderColor, border, opacity }) => {
+        el.style.backgroundColor = backgroundColor;
+        el.style.color = color;
+        el.style.borderColor = borderColor;
+        el.style.border = border;
+        el.style.opacity = opacity;
+      });
+
+      // Restore delete icons
+      deleteIcons.forEach((icon) => { icon.style.display = ""; });
+      rowClearIcons.forEach((icon) => { icon.style.display = ""; });
+
+      setIsDownload(false);
+    }
   };
 
   // ---------- CHECK IF BRANCH IS EDITABLE ----------
@@ -608,8 +747,8 @@ export default function TimetablePage() {
           <option value="EVEN">EVEN</option>
         </select>
 
-        <button onClick={handleDownloadPdf} className={styles.pbutton}>
-          EXPORT PDF
+        <button onClick={handleDownloadPdf} className={styles.pbutton} disabled={IsDownload}>
+          {IsDownload ? "EXPORTING..." : "EXPORT PDF"}
         </button>
       </div>
 
@@ -621,7 +760,7 @@ export default function TimetablePage() {
       )}
 
       <div className={styles.container} ref={pdfContainerRef}>
-        {/* Header, title, wef... (unchanged) */}
+        {/* Header */}
         <div className={styles.header}>
           <img src="/nilogo.png" alt="College Logo" width="700" height="104.3" />
         </div>
@@ -684,14 +823,25 @@ export default function TimetablePage() {
                     const editable = isEditable(branch);
                     const classKey = `${branch.departmentCode}__${branch.year}`;
                     const rowClass = editable ? styles.editableRow : styles.readOnlyRow;
+                    const isFirstOfDay = idx === 0;
+                    const isLastOfDay = idx === branches.length - 1;
 
                     return (
                       <tr key={`${day}-${branch.label}`} className={rowClass}>
-                        {idx === 0 && (
-                          <td rowSpan={branches.length} className={styles.mtDayCell}>
-                            {day}
-                          </td>
-                        )}
+                        {/* Day cell rendered on every row (no rowSpan — html2canvas
+                            cannot reliably render text inside rowSpan cells). Text
+                            shows only on the group's first row; the border between
+                            rows in the same day group is removed so it still reads
+                            as one merged block, both on screen and in the PDF. */}
+                        <td
+                          className={styles.mtDayCell}
+                          style={{
+                            borderTop: isFirstOfDay ? "1px solid black" : "none",
+                            borderBottom: isLastOfDay ? "1px solid black" : "none",
+                          }}
+                        >
+                          {isFirstOfDay ? day : ""}
+                        </td>
                         <td className={styles.mtBranchCell}>
                           {branch.label}
                           {editable && (
@@ -778,7 +928,7 @@ export default function TimetablePage() {
                                   }}
                                   title={isLab && !hall ? "Lab requires a hall" : "Select hall"}
                                 >
-                                  {hall ? getHallName(hall) : editable ? "+" : "-"}
+                                  {hall ? getHallCode(hall) : editable ? "+" : "-"}
                                 </span>
                                 {status === "success" && (
                                   <span className={styles.mtSuccessTick}>✓</span>
@@ -803,7 +953,7 @@ export default function TimetablePage() {
           </table>
         </div>
 
-        {/* ===== SUBJECT REFERENCE (unchanged) ===== */}
+        {/* ===== SUBJECT REFERENCE ===== */}
         <div className={styles.srWrapper}>
           <table className={styles.srTable}>
             <thead>

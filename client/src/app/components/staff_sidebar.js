@@ -15,6 +15,7 @@ import {
   CalendarRange,
   UserRoundCheck,
   ChevronRight,
+  User,
 } from "lucide-react";
 
 import style from "./css/admin_sidebar.module.css";
@@ -56,7 +57,11 @@ const NAV_ITEMS = [
     label: "Department",
     icon: Building2,
   },
-  
+  {
+    href: "/staff/profile",
+    label: "My Profile",
+    icon: User,
+  },
 ];
 
 export default function AdminSidebar() {

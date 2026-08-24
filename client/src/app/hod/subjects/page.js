@@ -185,20 +185,6 @@ export default function SubjectsPage() {
     }
   };
 
-  // Delete
-  const handleDelete = async (id, name) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-    try {
-      await axios.delete(`${API_BASE}/api/admin/subject/${id}`, {
-        withCredentials: true,
-      });
-      await fetchSubjects();
-    } catch (err) {
-      if (handleUnauthorized(err)) return;
-      alert(`Delete failed: ${err.response?.data?.message || err.message}`);
-    }
-  };
-
   // ---------- Render ----------
   return (
     <div className={styles.container}>
@@ -217,6 +203,20 @@ export default function SubjectsPage() {
           onChange={handleSearchChange}
           value={search}
         />
+        <select
+          value={categoryFilter}
+          onChange={(e) => {
+            setCategoryFilter(e.target.value);
+            setPagination((prev) => ({ ...prev, page: 1 }));
+          }}
+          className={styles.categorySelect}
+        >
+          <option value="">All Categories</option>
+          <option value="L">L (Lab)</option>
+          <option value="T">T (Theory)</option>
+          <option value="T/L">T/L (Theory with Lab)</option>
+          <option value="O">O (Others)</option>
+        </select>
         <button onClick={handleClearFilters} className={styles.clearButton}>
           Clear Filters
         </button>
@@ -263,12 +263,6 @@ export default function SubjectsPage() {
                           onClick={() => openEditModal(item)}
                         >
                           Edit
-                        </button>
-                        <button
-                          className={styles.deleteButton}
-                          onClick={() => handleDelete(item._id, item.subjectName)}
-                        >
-                          Delete
                         </button>
                       </td>
                     </tr>
@@ -345,17 +339,21 @@ export default function SubjectsPage() {
 
               <div className={styles.formGroup}>
                 <label htmlFor="Category">Category</label>
-                <input
-                  type="text"
+                <select
                   id="Category"
                   name="Category"
                   value={formData.Category}
                   onChange={handleFormChange}
-                  placeholder="e.g., Science"
                   required
-                />
+                >
+                  <option value="">Select Category</option>
+                  <option value="L">L (Lab)</option>
+                  <option value="T">T (Theory)</option>
+                  <option value="T/L">T/L (Theory with Lab)</option>
+                  <option value="O">O (Others)</option>
+                </select>
                 <small className={styles.helper}>
-                  Category must be unique (case‑insensitive).
+                  Select subject category: L, T, T/L, or O.
                 </small>
               </div>
 

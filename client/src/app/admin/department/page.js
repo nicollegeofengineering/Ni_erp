@@ -17,7 +17,8 @@ export default function DepartmentsPage() {
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: "", code: "" });
+  const [modalMode, setModalMode] = useState("add");
+  const [formData, setFormData] = useState({ name: "", code: "", _id: "" });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -25,7 +26,6 @@ export default function DepartmentsPage() {
   const fetchDepartments = async () => {
     try {
       setLoading(true);
-      // ✅ Updated endpoint: /admin/department/all
       const res = await api.get("/admin/department/all");
       setDepartments(res.data.data || []);
       setError(null);
@@ -47,7 +47,25 @@ export default function DepartmentsPage() {
     setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
   };
 
-  // Submit new department
+  const openAddModal = () => {
+    setModalMode("add");
+    setFormData({ name: "", code: "", _id: "" });
+    setFormError("");
+    setShowModal(true);
+  };
+
+  const openEditModal = (dept) => {
+    setModalMode("edit");
+    setFormData({
+      name: dept.name,
+      code: dept.code,
+      _id: dept._id,
+    });
+    setFormError("");
+    setShowModal(true);
+  };
+
+  // Submit department (Add or Edit)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
@@ -58,14 +76,20 @@ export default function DepartmentsPage() {
     }
     setSubmitting(true);
     try {
-      // ✅ Updated endpoint: /admin/department/
-      await api.post("/admin/department/", { name: name.trim(), code: code.trim() });
+      if (modalMode === "add") {
+        await api.post("/admin/department/", { name: name.trim(), code: code.trim() });
+      } else {
+        await api.put(`/admin/department/${formData._id || formData.code}`, {
+          name: name.trim(),
+          code: code.trim(),
+        });
+      }
       setShowModal(false);
-      setFormData({ name: "", code: "" });
+      setFormData({ name: "", code: "", _id: "" });
       await fetchDepartments();
     } catch (err) {
-      console.error("Create error:", err);
-      const msg = err.response?.data?.message || "Failed to create department.";
+      console.error("Save error:", err);
+      const msg = err.response?.data?.message || `Failed to ${modalMode === "add" ? "create" : "update"} department.`;
       setFormError(msg);
     } finally {
       setSubmitting(false);
@@ -76,7 +100,6 @@ export default function DepartmentsPage() {
   const handleDelete = async (code) => {
     if (!confirm(`Are you sure you want to delete department "${code}"?`)) return;
     try {
-      // ✅ Updated endpoint: /admin/department/:code
       await api.delete(`/admin/department/${code}`);
       await fetchDepartments();
     } catch (err) {
@@ -88,7 +111,7 @@ export default function DepartmentsPage() {
   // Close modal without saving
   const closeModal = () => {
     setShowModal(false);
-    setFormData({ name: "", code: "" });
+    setFormData({ name: "", code: "", _id: "" });
     setFormError("");
   };
 
@@ -97,7 +120,7 @@ export default function DepartmentsPage() {
       {/* Header with title and Add button */}
       <div className={styles.header}>
         <h1 className={styles.title}>Departments</h1>
-        <button className={styles.addButton} onClick={() => setShowModal(true)}>
+        <button className={styles.addButton} onClick={openAddModal}>
           + Add Department
         </button>
       </div>
@@ -135,6 +158,12 @@ export default function DepartmentsPage() {
                       <td>{dept.code}</td>
                       <td className={styles.actionsCell}>
                         <button
+                          className={styles.editButton}
+                          onClick={() => openEditModal(dept)}
+                        >
+                          Edit
+                        </button>
+                        <button
                           className={styles.deleteButton}
                           onClick={() => handleDelete(dept.code)}
                         >
@@ -155,7 +184,7 @@ export default function DepartmentsPage() {
         <div className={styles.modalOverlay} onClick={closeModal}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h2>Add New Department</h2>
+              <h2>{modalMode === "add" ? "Add New Department" : "Edit Department"}</h2>
               <button className={styles.modalClose} onClick={closeModal}>
                 ×
               </button>
@@ -192,7 +221,7 @@ export default function DepartmentsPage() {
                   Cancel
                 </button>
                 <button type="submit" className={styles.saveButton} disabled={submitting}>
-                  {submitting ? "Saving…" : "Save Department"}
+                  {submitting ? "Saving…" : modalMode === "add" ? "Save Department" : "Update Department"}
                 </button>
               </div>
             </form>

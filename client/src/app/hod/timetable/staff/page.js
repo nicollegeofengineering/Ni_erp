@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import axios from "axios";
 import styles from "./staff-timetable.module.css";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
-export default function StaffTimetablePage() {
-  const api = axios.create({
+// ---------- Axios instance (outside component) ----------
+const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
   withCredentials: true,
 });
 
+export default function StaffTimetablePage() {
   const [academicYear, setAcademicYear] = useState("2026-2027");
   const [semesterType, setSemesterType] = useState("ODD");
   const [wef, setWef] = useState("");
@@ -42,7 +43,7 @@ export default function StaffTimetablePage() {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const dayMap = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5 };
 
-  // ---------- HELPERS FOR STAFF FIELDS ----------
+  // ---------- HELPERS ----------
   const getStaffFullName = (staff) => {
     if (!staff) return "";
     const { prefix = "", first_name = "", last_name = "" } = staff;
@@ -60,57 +61,58 @@ export default function StaffTimetablePage() {
   useEffect(() => {
     const currentYear = new Date().getFullYear();
     setAcademicYear(`${currentYear}-${currentYear + 1}`);
+    setWef(new Date().toISOString().split("T")[0]);
 
     const fetchStaff = async () => {
       try {
-        // ✅ Use /admin/staff/all
         const res = await api.get("/admin/staff/all", { params: { limit: 1000 } });
-        setStaffList(res.data.data|| []);
+        setStaffList(res.data.data || []);
       } catch (err) {
         console.error("Failed to load staff list", err);
       }
     };
     fetchStaff();
-
-    setWef(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // ---------- FETCH STAFF TIMETABLE ----------
-  const fetchStaffTimetable = async (staffId = null, search = "") => {
-    setLoading(true);
-    try {
-      const params = { academicYear };
-      if (staffId) {
-        params.staffId = staffId;
-      } else if (search) {
-        params.search = search;
-      }
+  // ---------- FETCH STAFF TIMETABLE (with semesterType) ----------
+const fetchStaffTimetable = useCallback(async (staffId) => {
+  if (!staffId) {
+    setStaffTimetableData([]);
+    return;
+  }
+  setLoading(true);
+  try {
+    const params = {
+      academicYear,
+      staffId,
+      semesterType,   // 👈 added
+    };
+    const res = await api.get("/admin/timetable/staffview", { params });
+    setStaffTimetableData(res.data.data || []);
+  } catch (err) {
+    console.error("Failed to load staff timetable", err);
+    setStaffTimetableData([]);
+  } finally {
+    setLoading(false);
+  }
+}, [academicYear, semesterType]); // 👈 added semesterType dependency
 
-      // ✅ Use /admin/timetable/staffview
-      const res = await api.get("/admin/timetable/staffview", { params });
-      setStaffTimetableData(res.data.data || []);
-    } catch (err) {
-      console.error("Failed to load staff timetable", err);
-      setStaffTimetableData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+// ---------- EFFECT: fetch when academicYear, semesterType, or selectedStaff changes ----------
+useEffect(() => {
+  if (selectedStaff) {
+    fetchStaffTimetable(selectedStaff._id);
+  } else {
+    setStaffTimetableData([]);
+  }
+}, [academicYear, semesterType, selectedStaff, fetchStaffTimetable]);
 
-  useEffect(() => {
-    if (!academicYear) return;
-    if (selectedStaff) {
-      fetchStaffTimetable(selectedStaff._id);
-    } else {
-      setStaffTimetableData([]);
-    }
-  }, [academicYear, selectedStaff]);
 
-  // ---------- FILTERED STAFF LIST FOR DROPDOWN ----------
+
+  // ---------- FILTERED STAFF LIST ----------
   const filteredStaff = useMemo(() => {
     if (!searchQuery) return staffList;
     const q = searchQuery.toUpperCase();
-    return staffList.filter(s => {
+    return staffList.filter((s) => {
       const fullName = getStaffFullName(s).toUpperCase();
       const code = (s.staff_code || "").toUpperCase();
       return fullName.includes(q) || code.includes(q);
@@ -121,7 +123,7 @@ export default function StaffTimetablePage() {
   const timetableMatrix = useMemo(() => {
     if (!staffTimetableData.length) return {};
     const matrix = {};
-    staffTimetableData.forEach(entry => {
+    staffTimetableData.forEach((entry) => {
       if (!entry.staff || !entry.subject) return;
       const key = `${entry.day}__${entry.period}`;
       matrix[key] = {
@@ -134,11 +136,11 @@ export default function StaffTimetablePage() {
     return matrix;
   }, [staffTimetableData]);
 
-  // ---------- UNIQUE SUBJECTS FOR THIS STAFF ----------
+  // ---------- UNIQUE SUBJECTS ----------
   const staffSubjects = useMemo(() => {
     if (!staffTimetableData.length) return [];
     const seen = new Map();
-    staffTimetableData.forEach(entry => {
+    staffTimetableData.forEach((entry) => {
       if (!entry.subject || !entry.staff) return;
       const sub = entry.subject;
       const key = sub._id;
@@ -153,7 +155,7 @@ export default function StaffTimetablePage() {
     return Array.from(seen.values());
   }, [staffTimetableData]);
 
-  // ---------- PDF EXPORT (unchanged but uses selected staff) ----------
+  // ---------- PDF EXPORT ----------
   const trimCanvasBottom = (canvas) => {
     const ctx = canvas.getContext("2d");
     const { width, height } = canvas;
@@ -195,9 +197,9 @@ export default function StaffTimetablePage() {
 
     const images = element.querySelectorAll("img");
     await Promise.all(
-      Array.from(images).map(img => {
+      Array.from(images).map((img) => {
         if (img.complete) return Promise.resolve();
-        return new Promise(resolve => {
+        return new Promise((resolve) => {
           img.onload = resolve;
           img.onerror = resolve;
         });
@@ -210,7 +212,7 @@ export default function StaffTimetablePage() {
     element.style.maxHeight = "none";
 
     try {
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
       let canvas = await html2canvas(element, {
         scale: 2,
@@ -277,6 +279,14 @@ export default function StaffTimetablePage() {
     }
   };
 
+  // ---------- CLEAR SELECTION ----------
+  const handleClear = () => {
+    setSelectedStaff(null);
+    setSearchQuery("");
+    setShowDropdown(false);
+    setStaffTimetableData([]);
+  };
+
   // ---------- RENDER ----------
   return (
     <div className={styles.pageWrapper}>
@@ -284,7 +294,7 @@ export default function StaffTimetablePage() {
       <div className={styles.controls}>
         <select
           value={academicYear}
-          onChange={e => setAcademicYear(e.target.value)}
+          onChange={(e) => setAcademicYear(e.target.value)}
           className={styles.filterSelect}
         >
           {(() => {
@@ -302,7 +312,7 @@ export default function StaffTimetablePage() {
 
         <select
           value={semesterType}
-          onChange={e => setSemesterType(e.target.value)}
+          onChange={(e) => setSemesterType(e.target.value)}
           className={styles.filterSelect}
         >
           <option value="ODD">ODD</option>
@@ -314,7 +324,7 @@ export default function StaffTimetablePage() {
             type="text"
             placeholder="Search staff..."
             value={searchQuery}
-            onChange={e => {
+            onChange={(e) => {
               setSearchQuery(e.target.value);
               setShowDropdown(true);
             }}
@@ -323,7 +333,7 @@ export default function StaffTimetablePage() {
           />
           {showDropdown && filteredStaff.length > 0 && (
             <ul className={styles.dropdown}>
-              {filteredStaff.slice(0, 20).map(staff => (
+              {filteredStaff.slice(0, 20).map((staff) => (
                 <li
                   key={staff._id}
                   onClick={() => {
@@ -339,14 +349,7 @@ export default function StaffTimetablePage() {
           )}
         </div>
 
-        <button
-          className={styles.clearbtn}
-          onClick={() => {
-            setSelectedStaff(null);
-            setSearchQuery("");
-            setShowDropdown(false);
-          }}
-        >
+        <button className={styles.clearbtn} onClick={handleClear}>
           Clear
         </button>
 
@@ -372,7 +375,14 @@ export default function StaffTimetablePage() {
         </div>
 
         <div className={styles.wefRow}>
-          <p>w.e.f: <input type="date" value={wef} readOnly /></p>
+          <p>
+            w.e.f:{" "}
+            <input
+              type="date"
+              value={wef}
+              onChange={(e) => setWef(e.target.value)}
+            />
+          </p>
         </div>
 
         {selectedStaff && (

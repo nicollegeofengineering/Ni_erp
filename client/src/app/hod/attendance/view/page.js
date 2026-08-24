@@ -66,22 +66,20 @@ export default function AttendanceListPage() {
 
   // ---------- Fetch attendance records ----------
   const fetchAttendance = async (page = 1) => {
-    if(!filters.dateFrom){
-      setError("Select dates to fetch Records.")
-      return
-    }
     setLoading(true);
     setError('');
     try {
       const params = { ...filters, page, limit: pagination.limit };
       // Remove empty filters
       Object.keys(params).forEach(key => {
-        if (params[key] === '') delete params[key];
+        if (params[key] === '' || params[key] === undefined || params[key] === null) {
+          delete params[key];
+        }
       });
       const res = await api.get('/api/staff/attendance', { params });
       if (res.data.success) {
-        setAttendance(res.data.data.attendance);
-        setPagination(res.data.data.pagination);
+        setAttendance(res.data.data.attendance || []);
+        setPagination(res.data.data.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 });
       }
     } catch (err) {
       if (handleUnauthorized(err)) return;
@@ -92,10 +90,10 @@ export default function AttendanceListPage() {
     }
   };
 
-  // Load records on initial mount (after departments loaded)
+  // Load records on initial mount
   useEffect(() => {
-    fetchAttendance();
-  }, []); // empty dependency – runs once
+    fetchAttendance(1);
+  }, []);
 
   // ---------- Filter handlers ----------
   const handleFilterChange = (e) => {
@@ -109,7 +107,6 @@ export default function AttendanceListPage() {
 
   const clearFilters = () => {
     setFilters({ dateFrom: '', dateTo: '', department: '', year: '', semester: '' });
-    // Fetch after state update (use timeout to allow state to settle)
     setTimeout(() => fetchAttendance(1), 0);
   };
 
@@ -150,8 +147,8 @@ export default function AttendanceListPage() {
         >
           <option value="">All Departments</option>
           {departments.map((dept) => (
-            <option key={dept._id} value={dept.code}>
-              {dept.code} 
+            <option key={dept._id || dept.code} value={dept.code}>
+              {dept.name || dept.code} ({dept.code})
             </option>
           ))}
         </select>
@@ -204,6 +201,7 @@ export default function AttendanceListPage() {
                 <th>Sem</th>
                 <th>Period</th>
                 <th>Subject</th>
+                <th>Faculty</th>
                 <th>Present</th>
                 <th>Absent</th>
                 <th>Total</th>
@@ -219,12 +217,15 @@ export default function AttendanceListPage() {
                   <td>{rec.semester}</td>
                   <td>P{rec.period}</td>
                   <td>{rec.subject?.subjectCode || 'N/A'}</td>
+                  <td>{rec.staff ? `${rec.staff.first_name || ''} ${rec.staff.last_name || ''}`.trim() : '-'}</td>
                   <td>{rec.presentCount}</td>
                   <td>{rec.absentCount}</td>
                   <td>{rec.totalStudents}</td>
                   <td>
                     <Link href={`/hod/attendance/${rec._id}`}>
-                      <button className={styles.viewBtn}>Edit</button>
+                      <button className={styles.viewBtn}>
+                        {rec.canEdit !== false ? 'Edit' : 'View'}
+                      </button>
                     </Link>
                   </td>
                 </tr>

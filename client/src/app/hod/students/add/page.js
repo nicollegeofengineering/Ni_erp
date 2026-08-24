@@ -697,10 +697,7 @@ export default function AddStudent() {
                   <span className={styles.fieldLabel}>Percentage</span>
                   <input className={styles.formInput} name="percentage" placeholder="Percentage" value={formData.qualification.percentage} onChange={handleQualificationChange} />
                 </div>
-                <div className={styles.fieldWrapper}>
-                  <span className={styles.fieldLabel}>Eligibility</span>
-                  <input className={styles.formInput} name="eligibility" placeholder="Eligibility" value={formData.qualification.eligibility} onChange={handleQualificationChange} />
-                </div>
+                
               </>
             )}
           </div>
@@ -732,10 +729,7 @@ export default function AddStudent() {
               <span className={styles.fieldLabel}>Disability Category</span>
               <input className={styles.formInput} name="disability_category" placeholder="Disability Category" value={formData.disability_category} onChange={handleChange} />
             </div>
-            <div className={styles.fieldWrapper}>
-              <span className={styles.fieldLabel}>Eligibility</span>
-              <input className={styles.formInput} name="eligibility" placeholder="Eligibility" value={formData.eligibility} onChange={handleChange} />
-            </div>
+            
           </div>
         </section>
 

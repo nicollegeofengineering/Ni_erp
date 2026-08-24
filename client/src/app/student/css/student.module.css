@@ -1,0 +1,428 @@
+/* ===== Design tokens (navy / gold / slate) ===== */
+.container {
+  --navy-900: #0b1d3a;
+  --navy-700: #1e3a8a;
+  --navy-500: #2d4a7d;
+  --navy-100: #e8edf6;
+  --gold-600: #0381ff;
+  --gold-500: #2563eb;
+  --ink: #1b2438;
+  --muted: #64748b;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --radius: 14px;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  padding: 24px;
+  background: var(--bg);
+  min-height: 100vh;
+  color: var(--ink);
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+  margin-top: 20px;
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--navy-900);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ===== Filter / Tabs Bar ===== */
+.filterBar {
+  background: var(--surface);
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 10px rgba(11, 29, 58, 0.06);
+  border: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.tabsGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tabBtn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--navy-900);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tabBtnActive {
+  background: var(--navy-900);
+  color: #fff;
+  border-color: var(--navy-900);
+}
+
+.tabBtn:hover:not(.tabBtnActive) {
+  background: var(--navy-100);
+}
+
+/* ===== Stat Cards Grid ===== */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  background: var(--surface);
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 10px rgba(11, 29, 58, 0.06);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--gold-600);
+}
+
+.statCardTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.statIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--navy-100);
+  color: var(--navy-700);
+}
+
+.statCard h3 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0;
+}
+
+.statCard p {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--navy-900);
+  margin: 0;
+}
+
+.progressTrack {
+  margin-top: 10px;
+  height: 6px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transition: width 0.6s ease;
+}
+
+.progressFillDanger {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+/* ===== Card Section Wrapper ===== */
+.cardSection {
+  background: var(--surface);
+  padding: 22px;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 10px rgba(11, 29, 58, 0.06);
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--navy-900);
+  margin-bottom: 16px;
+}
+
+/* ===== Table Styling ===== */
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.table th {
+  background: #f8fafc;
+  color: var(--navy-900);
+  font-weight: 700;
+  padding: 12px 14px;
+  border-bottom: 2px solid var(--border);
+  border-right: 1px solid var(--border);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.table th:first-child,
+.table td:first-child {
+  text-align: left;
+  padding-left: 16px;
+}
+
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  color: #334155;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table td:last-child,
+.table th:last-child {
+  border-right: none;
+}
+
+.table tr:hover {
+  background: #f1f5f9;
+}
+
+.subCode {
+  font-weight: 700;
+  color: var(--navy-900);
+}
+
+.subName {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+/* ===== Status Badges ===== */
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.badgeSuccess {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.badgeDanger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badgeInfo {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+/* ===== Classes Grid ===== */
+.classesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.classCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(11, 29, 58, 0.05);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.classCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(11, 29, 58, 0.1);
+  border-color: #cbd5e1;
+}
+
+.classTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.classCode {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold-600);
+  background: var(--navy-100);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.className {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--navy-900);
+  margin: 6px 0 12px 0;
+  line-height: 1.35;
+}
+
+.classDetails {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.classDetailRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===== Timetable Grid ===== */
+.timetableSlot {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.2s ease;
+}
+
+.timetableSlot:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.slotSubCode {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy-900);
+}
+
+.slotSubName {
+  font-size: 11px;
+  color: #475569;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.slotFaculty {
+  font-size: 10.5px;
+  color: #64748b;
+}
+
+.slotHall {
+  font-size: 10px;
+  color: #0369a1;
+  background: #e0f2fe;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+
+.freeSlot {
+  color: #94a3b8;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Mobile Timetable Day Tabs */
+.dayTabsContainer {
+  display: none;
+}
+
+/* ===== Responsive Breakpoints ===== */
+@media (max-width: 860px) {
+  .timetableSlot {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 16px 12px;
+  }
+
+  .topBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabsGroup {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .classesGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dayTabsContainer {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+}

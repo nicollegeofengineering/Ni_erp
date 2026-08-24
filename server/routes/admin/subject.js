@@ -99,9 +99,17 @@ router.post("/", async (req, res) => {
       });
     }
 
+    const VALID_CATEGORIES = ['L', 'T', 'T/L', 'O'];
+    const formattedCategory = Category.trim().toUpperCase();
+    if (!VALID_CATEGORIES.includes(formattedCategory)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category. Allowed options are: L, T, T/L, O",
+      });
+    }
+
     const formattedSubjectName = subjectName.trim().toUpperCase();
     const formattedSubjectCode = subjectCode.trim().toUpperCase();
-    const formattedCategory = Category.trim().toUpperCase();
 
     const existingSubject = await Subject.findOne({
       subjectCode: formattedSubjectCode,
@@ -188,7 +196,15 @@ router.put("/:id", async (req, res) => {
       updateData.subjectName = subjectName.trim().toUpperCase();
     }
     if (Category && Category.trim()) {
-      updateData.Category = Category.trim().toUpperCase();
+      const VALID_CATEGORIES = ['L', 'T', 'T/L', 'O'];
+      const formattedCategory = Category.trim().toUpperCase();
+      if (!VALID_CATEGORIES.includes(formattedCategory)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid category. Allowed options are: L, T, T/L, O",
+        });
+      }
+      updateData.Category = formattedCategory;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -232,15 +248,14 @@ router.put("/:id", async (req, res) => {
  * DELETE /api/admin/subject/:id
  */
 router.delete("/:id", async (req, res) => {
-  const role = req.user?.role;
+  const role = (req.user?.role || '').toLowerCase();
     
-    if (role !== 'Admin' && role !== 'Hod') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied',
-        islogout: true
-      });
-    }
+  if (role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Only Administrators can delete subjects.',
+    });
+  }
   try {
     await connectDB();
 

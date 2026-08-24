@@ -153,13 +153,9 @@
 }
 
 .mtDayCell{
+    width: 40px;
     font-weight: bold;
-    
-}
-.mtDayCellText{
-    display: inline-block;
-    transform: rotate(90deg);
-    white-space: nowrap;
+    box-sizing: border-box;
 }
 
 .mtBranchCell{

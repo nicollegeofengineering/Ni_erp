@@ -26,10 +26,11 @@ const StudentRoute=require("./routes/admin/student");
 const AttendanceRoute=require("./routes/staff/attendance");
 
 
-const hodstaff=require("./routes/hod/hodstaff")
-
-
+const hodstaff=require("./routes/hod/hodstaff");
 const markmanagement=require("./routes/mark/marks");
+const announcementRoute = require("./routes/announcement/announcements");
+const studentRoute = require("./routes/student/student");
+const userProfileRoute = require("./routes/user/profile");
 
 const authMiddleware = require("./middleware/verifyToken");
 
@@ -65,8 +66,14 @@ app.use(
     })
 );
 
-// ---------------- Routes
+// ---------------- Public Routes (No Auth Needed)
 app.use("/auth", loginRoute);
+app.use("/api/announcements/public", (req, res, next) => {
+    // Route handles public announcement access
+    announcementRoute(req, res, next);
+});
+
+// ---------------- Protected Routes
 app.use("/api", authMiddleware, adminVerifyRoute);
 app.use("/api/admin/staff", authMiddleware, adminStaffRoute);
 app.use("/api/admin/hall", authMiddleware, adminHallRoute);
@@ -77,8 +84,11 @@ app.use("/api/admin/student", authMiddleware, StudentRoute);
 
 app.use("/api/mark/",authMiddleware,markmanagement)
 app.use("/api/staff/attendance/",authMiddleware,AttendanceRoute)
+app.use("/api/announcements", authMiddleware, announcementRoute);
+app.use("/api/student", authMiddleware, studentRoute);
 
 app.use("/api/hod/staff",authMiddleware,hodstaff)
+app.use("/api/user", authMiddleware, userProfileRoute);
 
 app.use(
     "/uploads",

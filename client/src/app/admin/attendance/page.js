@@ -353,16 +353,18 @@ export default function AttendancePage() {
                 student.student_id,
 
               register_no:
-                studentData?.register_no || '',
+                student.register_no || studentData?.register_no || '',
 
               roll_no:
-                studentData?.roll_no || '',
+                student.roll_no || studentData?.roll_no || '',
 
-              name: studentData
-                ? `${studentData.first_name || ''} ${
-                    studentData.last_name || ''
-                  }`.trim()
-                : `Student ${student.student_id}`,
+              name:
+                student.name ||
+                (studentData
+                  ? `${studentData.first_name || ''} ${
+                      studentData.last_name || ''
+                    }`.trim()
+                  : `Student ${student.student_id}`),
 
               status: student.status,
 
@@ -411,22 +413,21 @@ export default function AttendancePage() {
           );
         }
 
+        if (studentsResponse.data.data?.attendanceSubmitted) {
+          setAttendanceExists(true);
+        }
+
+        const isSubmitted = !!studentsResponse.data.data?.attendanceSubmitted;
         const loadedStudents = (
           studentsResponse.data.data?.students || []
         ).map((student) => ({
           ...student,
-
-          // New attendance:
-          // every student selected by default
-          selected: true,
-
-          // backend already returns status,
-          // but ensure default = Present
+          selected: !isSubmitted,
           status: student.status || 'Present',
         }));
 
         setStudents(loadedStudents);
-        setSelectAll(loadedStudents.length > 0);
+        setSelectAll(!isSubmitted && loadedStudents.length > 0);
       } catch (err) {
         if (err.name === 'CanceledError') return;
         if (err.name === 'AbortError') return;
@@ -917,9 +918,10 @@ export default function AttendancePage() {
                   />
                 </th>
 
+                <th>Register No</th>
                 <th>Roll No</th>
-                <th>Name</th>
-                <th>Status</th>
+                <th>Student Name</th>
+                <th>Attendance Status</th>
               </tr>
             </thead>
 
@@ -980,13 +982,20 @@ export default function AttendancePage() {
                   </td>
 
                   <td>
-                    {student.roll_no ||
-                      student.register_no ||
-                      '-'}
+                    <strong>
+                      {student.register_no ||
+                        student.student_id}
+                    </strong>
                   </td>
 
                   <td>
-                    {student.name || '-'}
+                    {student.roll_no || '-'}
+                  </td>
+
+                  <td>
+                    <strong>
+                      {student.name || '-'}
+                    </strong>
                   </td>
 
                   <td>

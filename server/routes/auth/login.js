@@ -9,6 +9,7 @@ const { OAuth2Client } = require('google-auth-library');
 
 const User = require('../../models/User');
 const Staff = require('../../models/Staff');
+const Student = require('../../models/Student');
 const PasswordReset = require('../../models/PasswordReset');
 const RefreshSession = require('../../models/RefreshSession');
 const transporter = require('../../config/mailer');
@@ -29,13 +30,30 @@ const {
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// ---------- Helper: get profile image from Staff or User ----------
+// ---------- Helper: get profile image from Staff, Student or User ----------
 const getProfileImage = async (user) => {
-  const normalizedRole = (user.role || '').toString();
-  if (normalizedRole === 'Staff' || normalizedRole === 'Hod' || normalizedRole === 'HOD') {
+  const normalizedRole = (user.role || '').toString().toLowerCase();
+  if (normalizedRole === 'staff' || normalizedRole === 'hod') {
     const staff = await Staff.findOne({ staff_id: user.username });
     if (staff && staff.photo_file_id) {
       return `/api/admin/staff/${staff.staff_id}/photo`;
+    }
+  } else if (normalizedRole === 'student') {
+    const student = await Student.findOne({
+      $or: [
+        { register_no: user.username },
+        { roll_no: user.username },
+        { student_id: user.username },
+        { email: user.email },
+      ],
+    });
+    if (student) {
+      if (student.photo_file_id) {
+        return `/api/admin/student/${student.student_id}/photo?v=${student.photo_version || 0}`;
+      }
+      if (student.profile_image) {
+        return student.profile_image;
+      }
     }
   }
   return user.profile_image || null;
@@ -78,7 +96,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     if(user.isActive===false){
       return res.status(401).json({message:"Login access is Revoked for this account"})
     }
-    // 1. Create access token (20 min)
+    // 1. Create access token (40 min on login)
     const accessToken = jwt.sign(
       {
         id: user._id.toString(),
@@ -86,10 +104,10 @@ router.post('/login', loginLimiter, async (req, res) => {
         role: user.role,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '20m' }
+      { expiresIn: '40m' }
     );
 
-    // 2. Create refresh token (cryptographically random)
+    // 2. Create refresh token (valid for 8 hours from first login)
     const refreshToken = generateRefreshToken();
     const tokenHash = hashToken(refreshToken);
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours
@@ -100,10 +118,14 @@ router.post('/login', loginLimiter, async (req, res) => {
       tokenHash,
       expiresAt,
       createdAt: new Date(),
+      lastUsedAt: new Date(),
     });
 
-    // 4. Set cookies (both __Host- prefixed)
-    res.cookie(ACCESS_COOKIE, accessToken, accessCookieOptions);
+    // 4. Set cookies
+    res.cookie(ACCESS_COOKIE, accessToken, {
+      ...accessCookieOptions,
+      maxAge: 40 * 60 * 1000,
+    });
     res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions);
 
     // 5. Get profile image (if any)
@@ -148,7 +170,7 @@ router.post('/verify_google', async (req, res) => {
       return res.status(403).json({message:"Login access is Revoked for this account"})
     }
 
-    // Create access token
+    // Create access token (40 min on login)
     const accessToken = jwt.sign(
       {
         id: user._id.toString(),
@@ -156,10 +178,10 @@ router.post('/verify_google', async (req, res) => {
         role: user.role,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '20m' }
+      { expiresIn: '40m' }
     );
 
-    // Create refresh session
+    // Create refresh session (8 hours from first login)
     const refreshToken = generateRefreshToken();
     const tokenHash = hashToken(refreshToken);
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
@@ -168,9 +190,13 @@ router.post('/verify_google', async (req, res) => {
       tokenHash,
       expiresAt,
       createdAt: new Date(),
+      lastUsedAt: new Date(),
     });
 
-    res.cookie(ACCESS_COOKIE, accessToken, accessCookieOptions);
+    res.cookie(ACCESS_COOKIE, accessToken, {
+      ...accessCookieOptions,
+      maxAge: 40 * 60 * 1000,
+    });
     res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions);
 
     const profileImage = await getProfileImage(user);
@@ -222,20 +248,15 @@ router.post('/logout', async (req, res) => {
 
 
 // ---------- Get Current User (/me) ----------
-router.get('/me', authMiddleware,async (req, res) => {
+router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const token = req.cookies[ACCESS_COOKIE];
-    if (!token) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select(
-      'email name role profile_image username'
+    const user = await User.findById(req.user.id).select(
+      'email name role profile_image username isActive'
     );
-    if (!user) {
+    if (!user || user.isActive === false) {
       res.clearCookie(ACCESS_COOKIE, accessCookieOptions);
-      return res.status(401).json({ message: 'User not found' });
+      res.clearCookie(REFRESH_COOKIE, refreshCookieOptions);
+      return res.status(401).json({ message: 'User not found or inactive', islogout: true });
     }
 
     const profileImage = await getProfileImage(user);
@@ -252,7 +273,8 @@ router.get('/me', authMiddleware,async (req, res) => {
   } catch (error) {
     console.error('Auth check error:', error);
     res.clearCookie(ACCESS_COOKIE, accessCookieOptions);
-    return res.status(401).json({ message: 'Invalid token' });
+    res.clearCookie(REFRESH_COOKIE, refreshCookieOptions);
+    return res.status(401).json({ message: 'Invalid token', islogout: true });
   }
 });
 

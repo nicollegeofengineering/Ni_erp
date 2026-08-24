@@ -430,7 +430,7 @@ const handleDepromoteAll = async () => {
               ) : (
                 students.map((student) => (
                   <tr key={student.id}>
-                    <td className={styles.tableData}>{student.id}</td>
+                    <td className={styles.tableData}>{student.registerNo}</td>
                     <td className={styles.tableData}>
                       {student.image && !imgError.has(student.id) ? (
                         <img

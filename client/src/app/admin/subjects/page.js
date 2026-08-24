@@ -217,6 +217,20 @@ export default function SubjectsPage() {
           onChange={handleSearchChange}
           value={search}
         />
+        <select
+          value={categoryFilter}
+          onChange={(e) => {
+            setCategoryFilter(e.target.value);
+            setPagination((prev) => ({ ...prev, page: 1 }));
+          }}
+          className={styles.categorySelect}
+        >
+          <option value="">All Categories</option>
+          <option value="L">L (Lab)</option>
+          <option value="T">T (Theory)</option>
+          <option value="T/L">T/L (Theory with Lab)</option>
+          <option value="O">O (Others)</option>
+        </select>
         <button onClick={handleClearFilters} className={styles.clearButton}>
           Clear Filters
         </button>
@@ -345,17 +359,21 @@ export default function SubjectsPage() {
 
               <div className={styles.formGroup}>
                 <label htmlFor="Category">Category</label>
-                <input
-                  type="text"
+                <select
                   id="Category"
                   name="Category"
                   value={formData.Category}
                   onChange={handleFormChange}
-                  placeholder="e.g., Science"
                   required
-                />
+                >
+                  <option value="">Select Category</option>
+                  <option value="L">L (Lab)</option>
+                  <option value="T">T (Theory)</option>
+                  <option value="T/L">T/L (Theory with Lab)</option>
+                  <option value="O">O (Others)</option>
+                </select>
                 <small className={styles.helper}>
-                  Category must be unique (case‑insensitive).
+                  Select subject category: L, T, T/L, or O.
                 </small>
               </div>
 

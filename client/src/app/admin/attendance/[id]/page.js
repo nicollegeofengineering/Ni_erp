@@ -63,6 +63,7 @@ export default function AttendanceDetailPage() {
 
   // Toggle student status
   const toggleStatus = (studentId) => {
+    if (attendance?.canEdit === false) return;
     setStudents(prev =>
       prev.map(s =>
         s.student_id === studentId
@@ -74,6 +75,7 @@ export default function AttendanceDetailPage() {
 
   // Save changes
   const handleSave = async () => {
+    if (attendance?.canEdit === false) return;
     setSaving(true);
     setError('');
     setSuccess('');
@@ -98,10 +100,11 @@ export default function AttendanceDetailPage() {
 
   // ---------- Delete with math challenge ----------
   const openDeleteModal = () => {
-    const a = Math.floor(Math.random() * 9) + 1; // 1-9
-    const b = Math.floor(Math.random() * 9) + 1;
-    setNum1(a);
-    setNum2(b);
+    if (attendance?.canDelete === false) return;
+    const n1 = Math.floor(Math.random() * 10) + 1;
+    const n2 = Math.floor(Math.random() * 10) + 1;
+    setNum1(n1);
+    setNum2(n2);
     setUserAnswer('');
     setDeleteError('');
     setShowDeleteModal(true);
@@ -114,9 +117,9 @@ export default function AttendanceDetailPage() {
   };
 
   const handleDelete = async () => {
-    const expected = num1 + num2;
-    if (parseInt(userAnswer) !== expected) {
-      setDeleteError('Incorrect answer. Please try again.');
+    if (attendance?.canDelete === false) return;
+    if (parseInt(userAnswer) !== num1 + num2) {
+      setDeleteError('Incorrect math answer. Please try again.');
       return;
     }
 
@@ -125,15 +128,13 @@ export default function AttendanceDetailPage() {
     try {
       const res = await api.delete(`/api/staff/attendance/${attendanceId}`);
       if (res.data.success) {
-        setSuccess('Attendance deleted successfully!');
-        closeDeleteModal();
-        // Redirect back to list after a short delay
-        setTimeout(() => router.push('/admin/attendance'), 1500);
+        router.push('/admin/attendance/view');
       }
     } catch (err) {
       if (handleUnauthorized(err)) return;
       const msg = err.response?.data?.message || 'Delete failed.';
       setDeleteError(msg);
+      console.error(err);
     } finally {
       setDeleting(false);
     }
@@ -148,6 +149,11 @@ export default function AttendanceDetailPage() {
   return (
     <div className={styles.container}>
       <h1>Attendance Detail</h1>
+      {attendance?.canEdit === false && (
+        <p style={{ color: '#eab308', background: 'rgba(234, 179, 8, 0.1)', padding: '8px 12px', borderRadius: '6px', marginBottom: '16px' }}>
+          ℹ️ Read-Only Mode: You can view this record, but only the faculty who submitted it can edit or delete it.
+        </p>
+      )}
 
       <div className={styles.meta}>
         <p><strong>Date:</strong> {formatDate(attendance.date)}</p>
@@ -165,9 +171,10 @@ export default function AttendanceDetailPage() {
       <table className={styles.table}>
         <thead>
           <tr>
+            <th>Register No</th>
             <th>Roll No</th>
-            <th>Name</th>
-            <th>Status</th>
+            <th>Student Name</th>
+            <th>Attendance Status</th>
           </tr>
         </thead>
         <tbody>
@@ -176,10 +183,11 @@ export default function AttendanceDetailPage() {
               key={s.student_id}
               className={s.status === 'Present' ? styles.present : styles.absent}
               onClick={() => toggleStatus(s.student_id)}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: attendance?.canEdit !== false ? 'pointer' : 'default' }}
             >
-              <td>{s.roll_no || s.student_id}</td>
-              <td>{s.name || s.student_id}</td>
+              <td><strong>{s.register_no || s.student_id}</strong></td>
+              <td>{s.roll_no || '—'}</td>
+              <td><strong>{s.name || s.student_id}</strong></td>
               <td>
                 <span className={styles.statusBadge}>{s.status}</span>
               </td>
@@ -189,12 +197,16 @@ export default function AttendanceDetailPage() {
       </table>
 
       <div className={styles.actions}>
-        <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-        <button className={styles.deleteBtn} onClick={openDeleteModal}>
-          Delete Attendance
-        </button>
+        {attendance?.canEdit !== false && (
+          <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        )}
+        {attendance?.canDelete !== false && (
+          <button className={styles.deleteBtn} onClick={openDeleteModal}>
+            Delete Attendance
+          </button>
+        )}
         <button className={styles.backBtn} onClick={() => router.push('/admin/attendance/view')}>
           Back to List
         </button>

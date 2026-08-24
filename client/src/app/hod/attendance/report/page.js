@@ -9,7 +9,6 @@ import styles from './Report.module.css';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
 
-// Axios instance with credentials
 const api = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
@@ -26,28 +25,58 @@ export default function SubjectReportPage() {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [error, setError] = useState('');
-  const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+
+  // Department & Year filters
+  const [department, setDepartment] = useState('');
+  const [year, setYear] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
 
   const pdfRef = useRef(null);
 
   // ---------- Unauthorized handler ----------
   const handleUnauthorized = (error) => {
-    if (error.response?.data?.islogout === true) {
+    if (error.response?.data?.islogout === true || error.response?.status === 401) {
       router.push('/');
       return true;
     }
     return false;
   };
 
-  // ---------- Fetch subjects on mount ----------
+  // ---------- Fetch departments on mount ----------
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const res = await api.get('/api/admin/department/all');
+        const list = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || res.data?.departments || [];
+        setDepartments(list);
+      } catch (err) {
+        if (handleUnauthorized(err)) return;
+        console.error('Failed to fetch departments:', err);
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    };
+    fetchDepartments();
+  }, []);
+
+  // ---------- Fetch subjects when department or year changes ----------
   useEffect(() => {
     const fetchSubjects = async () => {
+      setSubjectsLoading(true);
+      setError('');
       try {
-        const res = await api.get('/api/staff/attendance/subjects');
+        const params = { mode: 'view' };
+        if (department) params.department = department;
+        if (year) params.year = year;
+
+        const res = await api.get('/api/staff/attendance/subjects', { params });
         if (res.data.success) {
           const nextSubjects = Array.isArray(res.data.data) ? res.data.data : [];
           setSubjects(nextSubjects);
-
           if (nextSubjects.length > 0) {
             const firstSubject = nextSubjects[0];
             const firstSubjectId = (firstSubject?._id || firstSubject?.id || '').toString();
@@ -65,9 +94,9 @@ export default function SubjectReportPage() {
       }
     };
     fetchSubjects();
-  }, []);
+  }, [department, year]);
 
-  // ---------- Fetch report ----------
+  // ---------- Generate report ----------
   const fetchReport = async () => {
     if (!selectedSubject) {
       setError('Please select a subject.');
@@ -82,9 +111,13 @@ export default function SubjectReportPage() {
     setReportData(null);
 
     try {
-      const params = { subjectId: selectedSubject };
-      if (dateFrom) params.dateFrom = dateFrom;
+      const params = {
+        subjectId: selectedSubject,
+        dateFrom,
+      };
       if (dateTo) params.dateTo = dateTo;
+      if (department) params.department = department;
+      if (year) params.year = year;
 
       const res = await api.get('/api/staff/attendance/report/subject', { params });
       if (res.data.success) {
@@ -100,12 +133,11 @@ export default function SubjectReportPage() {
     }
   };
 
-  // ---------- PDF export with footer on every page ----------
+  // ---------- PDF export ----------
   const handleDownloadPdf = async () => {
     const element = pdfRef.current;
     if (!element) return;
 
-    // Ensure images are loaded
     const images = element.querySelectorAll('img');
     await Promise.all(
       Array.from(images).map((img) => {
@@ -117,7 +149,6 @@ export default function SubjectReportPage() {
       })
     );
 
-    // Temporarily change overflow to capture full content
     const originalOverflow = element.style.overflow;
     const originalMaxHeight = element.style.maxHeight;
     element.style.overflow = 'visible';
@@ -142,20 +173,16 @@ export default function SubjectReportPage() {
       const ratio = pdfWidth / canvas.width;
       const pageHeightInCanvasPx = pdfHeight / ratio;
 
-      // Footer text and style
-      const footerText = 'Generated via NICETech ERP System. Developed by students of NICETECH';
+      const footerText = 'Generated via NICETech ERP System';
       const footerFontSize = 7;
-      const footerMargin = 8; // mm from bottom
+      const footerMargin = 8;
 
       let renderedHeight = 0;
       let pageNum = 0;
 
       while (renderedHeight < canvas.height) {
-        // Leave some space at the bottom for the footer
-        const availableHeight = pdfHeight - footerMargin - 2; // reserve footer space
+        const availableHeight = pdfHeight - footerMargin - 2;
         const sliceHeight = Math.min(pageHeightInCanvasPx, canvas.height - renderedHeight);
-
-        // Calculate the actual height to render on the PDF page (with footer margin)
         const renderHeight = Math.min(sliceHeight, availableHeight / ratio);
 
         const pageCanvas = document.createElement('canvas');
@@ -177,13 +204,10 @@ export default function SubjectReportPage() {
         const imgData = pageCanvas.toDataURL('image/png');
 
         if (pageNum > 0) pdf.addPage();
-
-        // Add the image (full width)
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, renderHeight * ratio);
 
-        // Add footer text on this page
         pdf.setFontSize(footerFontSize);
-        pdf.setTextColor(200, 200, 200); // light grey
+        pdf.setTextColor(150, 150, 150);
         const textWidth = pdf.getTextWidth(footerText);
         const x = (pdfWidth - textWidth) / 2;
         const y = pdfHeight - footerMargin;
@@ -204,11 +228,35 @@ export default function SubjectReportPage() {
     }
   };
 
-  // ---------- Render ----------
   return (
     <div className={styles.pageWrapper}>
-      {/* Controls */}
       <div className={styles.controls}>
+        <select
+          value={department}
+          onChange={(e) => setDepartment(e.target.value)}
+          className={styles.filterSelect}
+          disabled={departmentsLoading}
+        >
+          <option value="">Select Department</option>
+          {departments.map((d) => (
+            <option key={d._id || d.code} value={d.code}>
+              {d.name || d.code} ({d.code})
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          className={styles.filterSelect}
+        >
+          <option value="">All Years</option>
+          <option value="1">Year 1</option>
+          <option value="2">Year 2</option>
+          <option value="3">Year 3</option>
+          <option value="4">Year 4</option>
+        </select>
+
         <select
           value={selectedSubject}
           onChange={(e) => setSelectedSubject(e.target.value)}
@@ -224,7 +272,6 @@ export default function SubjectReportPage() {
               const subjectId = (s._id || s.id || '').toString();
               const subjectCode = s.subjectCode || s.code || 'N/A';
               const subjectName = s.subjectName || s.name || 'Unnamed subject';
-
               return (
                 <option key={subjectId} value={subjectId}>
                   {subjectCode} – {subjectName}
@@ -239,6 +286,7 @@ export default function SubjectReportPage() {
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           className={styles.dateInput}
+          title="From Date"
         />
         <span>to</span>
         <input
@@ -246,17 +294,18 @@ export default function SubjectReportPage() {
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           className={styles.dateInput}
+          title="To Date"
         />
 
         <button
           onClick={fetchReport}
           className={styles.primaryBtn}
-          disabled={loading || subjectsLoading || !selectedSubject}
+          disabled={loading || subjectsLoading || !selectedSubject || !dateFrom}
         >
           {loading ? 'Loading...' : 'Generate Report'}
         </button>
 
-        {reportData && reportData.records.length > 0 && (
+        {reportData && reportData.records && reportData.records.length > 0 && (
           <button onClick={handleDownloadPdf} className={styles.pdfBtn}>
             Download PDF
           </button>
@@ -265,15 +314,13 @@ export default function SubjectReportPage() {
 
       {error && <div className={styles.error}>{error}</div>}
 
-      {/* Report content */}
       <div ref={pdfRef} className={styles.reportContainer}>
-        {/* Header with logo */}
         <div className={styles.header}>
           <img src="/nilogo.png" alt="College Logo" width="700" height="104.3" />
         </div>
 
         <div className={styles.title}>
-          <h2>Attendance Report</h2>
+          <h2>SUBJECT ATTENDANCE REPORT</h2>
           {reportData?.subject && (
             <p>
               <strong>Subject:</strong> {reportData.subject.subjectCode} –{' '}
@@ -281,30 +328,30 @@ export default function SubjectReportPage() {
             </p>
           )}
           <p>
-            <strong>Period:</strong>{' '}
+            <strong>Department:</strong> {department || 'All Departments'} | <strong>Year:</strong> {year ? `Year ${year}` : 'All Years'}
+          </p>
+          <p>
+            <strong>Period Range:</strong>{' '}
             {dateFrom && dateTo
               ? `${dateFrom} to ${dateTo}`
               : dateFrom
-              ? `from ${dateFrom}`
+              ? `From ${dateFrom}`
               : dateTo
-              ? `up to ${dateTo}`
+              ? `Up to ${dateTo}`
               : 'All dates'}
           </p>
           <p>
-            <strong>Total Periods:</strong> {reportData?.totalPeriods || 0}
-          </p>
-          <p>
-            <strong>Total Students:</strong> {reportData?.totalStudents || 0}
+            <strong>Total Periods Conducted:</strong> {reportData?.totalPeriods || 0} | <strong>Total Students:</strong> {reportData?.totalStudents || 0}
           </p>
         </div>
 
         {loading && <p className={styles.loadingMsg}>Generating report...</p>}
 
-        {reportData && reportData.records.length === 0 && (
-          <p className={styles.emptyMsg}>No attendance records found for this subject.</p>
+        {reportData && reportData.records && reportData.records.length === 0 && (
+          <p className={styles.emptyMsg}>No attendance records found for this subject and date range.</p>
         )}
 
-        {reportData && reportData.records.length > 0 && (
+        {reportData && reportData.records && reportData.records.length > 0 && (
           <div className={styles.tableWrapper}>
             <table className={styles.reportTable}>
               <thead>
@@ -325,15 +372,19 @@ export default function SubjectReportPage() {
                 {reportData.records.map((student, idx) => (
                   <tr key={student.student_id}>
                     <td>{idx + 1}</td>
-                    <td>{student.register_no}</td>
-                    <td>{student.roll_no}</td>
+                    <td>{student.register_no || '-'}</td>
+                    <td>{student.roll_no || '-'}</td>
                     <td className={styles.leftAlign}>{student.name}</td>
-                    <td>{student.department_code}</td>
-                    <td>{student.semester}</td>
+                    <td>{student.department_code || '-'}</td>
+                    <td>{student.semester || '-'}</td>
                     <td>{student.total_periods}</td>
                     <td>{student.present}</td>
                     <td>{student.absent}</td>
-                    <td>{student.percentage}</td>
+                    <td>
+                      <strong style={{ color: student.percentage < 75 ? '#dc2626' : '#16a34a' }}>
+                        {student.percentage}%
+                      </strong>
+                    </td>
                   </tr>
                 ))}
               </tbody>

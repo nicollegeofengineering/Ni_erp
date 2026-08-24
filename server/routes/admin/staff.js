@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const multer = require('multer');
 const connectDB = require('../../config/db');
 
@@ -420,7 +421,14 @@ router.get('/:id/photo', async (req, res) => {
   try {
     await connectDB();
     const { id } = req.params;
-    const staff = await Staff.findOne({ staff_id: id }).lean();
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    const staff = await Staff.findOne({
+      $or: [
+        { staff_id: id },
+        { email: id },
+        ...(isObjectId ? [{ _id: id }] : []),
+      ],
+    }).lean();
     if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found' });
     if (!staff.photo_file_id) return res.status(404).json({ success: false, message: 'Staff photo not found' });
 

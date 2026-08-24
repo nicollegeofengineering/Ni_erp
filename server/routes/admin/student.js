@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const multer = require('multer');
 const connectDB = require('../../config/db');
 
@@ -72,17 +73,20 @@ const generateUniqueStudentId = async () => {
 // ============================================================
 router.post('/add', upload.single('photo'), async (req, res) => {
   const role = req.user?.role;
-  if (role !== 'Admin'&& role!=='Hod') {
+  if (role !== 'Admin' && role !== 'Hod') {
     return res.status(403).json({ success: false, message: 'Access denied', islogout: true });
   }
 
   try {
     await connectDB();
-    const studentData = req.body;
+
     if (!req.file) {
       return res.status(400).json({ success: false, emessage: 'Photo is required' });
     }
 
+    const studentData = req.body;
+
+    // ----- Destructure all fields -----
     const {
       application_no, admission_no, register_no, roll_no,
       academic_year, admission_date, admission_type, admission_mode,
@@ -100,7 +104,25 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       admission_status, student_status,
     } = studentData;
 
-    // ---- Required fields (except register_no; we'll generate if missing) ----
+    // ----- Helper functions (should already exist, but defined here for completeness) -----
+    const nullIfEmpty = (val) => (val && val.trim() !== '' ? val.trim() : null);
+
+    // ----- Validation constants (same as your existing ones) -----
+    const nameRegex = /^[a-zA-Z\s\-']{2,50}$/;
+    const phoneRegex = /^[6-9]\d{9}$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validGender = ['Male', 'Female', 'Other'];
+    const validBloodGroup = [
+      'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-',
+      'O+', 'O-', 'A1+', 'A1-', 'A2+', 'A2-',
+      'A1B+', 'A1B-', 'A2B+', 'A2B-',
+    ];
+    const validAdmissionStatus = ['Applied', 'Admitted', 'Cancelled', 'Rejected'];
+    const validStudentStatus = ['Active', 'Graduated', 'Discontinued', 'Transferred', 'Suspended'];
+    const validAdmissionType = ['Regular', 'Lateral'];
+    const validLocationType = ['Rural', 'Urban', 'Semi-Urban'];
+
+    // ---- Required fields ----
     if (!first_name?.trim()) return res.status(400).json({ emessage: 'First name is required' });
     if (!last_name?.trim()) return res.status(400).json({ emessage: 'Last name is required' });
     if (!gender?.trim()) return res.status(400).json({ emessage: 'Gender is required' });
@@ -109,7 +131,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (!department_code?.trim()) return res.status(400).json({ emessage: 'Department is required' });
     if (!admission_type?.trim()) return res.status(400).json({ emessage: 'Admission type is required' });
 
-    // ---- Format validations (same as before) ----
+    // ---- Format validations ----
     if (!nameRegex.test(first_name)) return res.status(400).json({ emessage: 'Invalid first name' });
     if (middle_name && !nameRegex.test(middle_name)) return res.status(400).json({ emessage: 'Invalid middle name' });
     if (!nameRegex.test(last_name)) return res.status(400).json({ emessage: 'Invalid last name' });
@@ -176,14 +198,21 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       }
     }
 
-    // ---- Check duplicates for non-ID fields ----
-    // Email and mobile must be unique
-    const existingEmail = await Student.findOne({ email: email.trim().toLowerCase() });
-    if (existingEmail) return res.status(400).json({ emessage: 'Email already exists' });
-    const existingMobile = await Student.findOne({ mobile_number: mobile_number.trim() });
-    if (existingMobile) return res.status(400).json({ emessage: 'Mobile number already exists' });
+    // ---- Duplicate checks ----
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedMobile = mobile_number.trim();
 
-    // Optional unique fields
+    // Check Student collection
+    const existingStudentEmail = await Student.findOne({ email: normalizedEmail });
+    if (existingStudentEmail) return res.status(400).json({ emessage: 'Email already exists in student records' });
+
+    const existingStudentMobile = await Student.findOne({ mobile_number: normalizedMobile });
+    if (existingStudentMobile) return res.status(400).json({ emessage: 'Mobile number already exists in student records' });
+
+    // Check User collection as well (email must be unique across both)
+    const existingUserEmail = await User.findOne({ email: normalizedEmail });
+    if (existingUserEmail) return res.status(400).json({ emessage: 'Email already registered as a user' });
+
     if (application_no) {
       const dup = await Student.findOne({ application_no: application_no.trim() });
       if (dup) return res.status(400).json({ emessage: 'Application Number already exists' });
@@ -192,12 +221,15 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       const dup = await Student.findOne({ admission_no: admission_no.trim() });
       if (dup) return res.status(400).json({ emessage: 'Admission Number already exists' });
     }
-    if (roll_no) {
-      const dup = await Student.findOne({ roll_no: roll_no.trim() });
-      if (dup) return res.status(400).json({ emessage: 'Roll Number already exists' });
+    if (register_no) {
+      const dup = await Student.findOne({ register_no: register_no.trim() });
+      if (dup) return res.status(400).json({ emessage: 'Register Number already exists' });
     }
-    if (aadhar_number) {
-      const dup = await Student.findOne({ aadhar_number: aadhar_number.trim() });
+
+    // ---- Aadhar: only check if provided and non-empty ----
+    const cleanAadhar = nullIfEmpty(aadhar_number);
+    if (cleanAadhar) {
+      const dup = await Student.findOne({ aadhar_number: cleanAadhar });
       if (dup) return res.status(400).json({ emessage: 'Aadhar number already exists' });
     }
 
@@ -206,11 +238,23 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (!finalStudentId) {
       finalStudentId = await generateUniqueStudentId();
     } else {
-      // Check if provided ID already exists
+      // Check if provided ID already exists in Student or User
       const existingStudent = await Student.findOne({ student_id: finalStudentId });
       const existingUser = await User.findOne({ username: finalStudentId });
       if (existingStudent || existingUser) {
         finalStudentId = await generateUniqueStudentId();
+      }
+    }
+
+    // ---- Ensure register_no is also unique ----
+    let finalRegisterNo = register_no ? register_no.trim() : finalStudentId;
+    // If auto-generated, verify register_no uniqueness as well
+    if (!register_no) {
+      const existingRegNo = await Student.findOne({ register_no: finalStudentId });
+      if (existingRegNo) {
+        // Regenerate a new ID
+        finalStudentId = await generateUniqueStudentId();
+        finalRegisterNo = finalStudentId;
       }
     }
 
@@ -223,7 +267,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       student_id: finalStudentId,
       application_no: nullIfEmpty(application_no),
       admission_no: nullIfEmpty(admission_no),
-      register_no: nullIfEmpty(register_no) || finalStudentId, // store the original if provided, else use generated
+      register_no: finalRegisterNo,
       roll_no: nullIfEmpty(roll_no),
       academic_year: nullIfEmpty(academic_year),
       admission_date: admission_date || null,
@@ -248,9 +292,8 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       religion: nullIfEmpty(religion),
       community: nullIfEmpty(community),
       caste: nullIfEmpty(caste),
-      aadhar_number: nullIfEmpty(aadhar_number),
-      mobile_number: mobile_number.trim(),
-      email: email.trim().toLowerCase(),
+      mobile_number: normalizedMobile,
+      email: normalizedEmail,
       address: nullIfEmpty(address),
       panchayat_name: nullIfEmpty(panchayat_name),
       location_type: nullIfEmpty(location_type),
@@ -282,24 +325,48 @@ router.post('/add', upload.single('photo'), async (req, res) => {
       photo_version: photoVersion,
     };
 
+    // ---- Handle Aadhar: omit if empty to avoid duplicate null errors (requires sparse index) ----
+    if (!cleanAadhar) {
+      delete studentDoc.aadhar_number;
+    } else {
+      studentDoc.aadhar_number = cleanAadhar;
+    }
+
     const newStudent = new Student(studentDoc);
     await newStudent.save();
 
     // ---- Create User ----
     const defaultPassword = 'Student@123';
+    const fullName = `${studentDoc.first_name} ${studentDoc.middle_name || ''} ${studentDoc.last_name}`.trim();
     const newUser = new User({
       username: finalStudentId,
-      email: studentDoc.email,
+      email: normalizedEmail,
       password: defaultPassword,
-      name: `${studentDoc.first_name} ${studentDoc.middle_name || ''} ${studentDoc.last_name}`.trim(),
+      name: fullName,
       role: 'Student',
       profile_image: buildPhotoUrl(finalStudentId, studentDoc.photo_file_id, studentDoc.photo_version),
     });
     await newUser.save();
 
-    return res.status(201).json({ success: true, message: 'Student added successfully', student_id: finalStudentId });
+    return res.status(201).json({
+      success: true,
+      message: 'Student added successfully',
+      student_id: finalStudentId,
+    });
+
   } catch (error) {
     console.error('Error adding student:', error);
+
+    // Handle duplicate key errors gracefully
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      const value = error.keyValue[field];
+      return res.status(400).json({
+        success: false,
+        emessage: `Duplicate value for ${field}: ${value}. Please ensure it is unique.`,
+      });
+    }
+
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
@@ -518,15 +585,20 @@ router.get('/all', async (req, res) => {
 // 4. GET /:id/photo (serve student photo)
 // ============================================================
 router.get('/:id/photo', async (req, res) => {
-  const role = req.user?.role;
-  if (role !== 'Admin' && role !== 'Hod') {
-    return res.status(403).json({ success: false, message: 'Access denied' });
-  }
-
   try {
     await connectDB();
     const { id } = req.params;
-    const student = await Student.findOne({ student_id: id }).lean();
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+
+    const student = await Student.findOne({
+      $or: [
+        { student_id: id },
+        { register_no: id },
+        { roll_no: id },
+        ...(isObjectId ? [{ _id: id }] : []),
+      ],
+    }).lean();
+
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }

@@ -21,6 +21,7 @@ export default function ViewTimetablePage() {
   const [timetableData, setTimetableData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [IsDownload,setIsDownload] =useState(false);
 
   const viewRef = useRef(null);
 
@@ -190,6 +191,7 @@ export default function ViewTimetablePage() {
 
   // ---------- EXPORT PDF (unchanged) ----------
   const handleExportPDF = async () => {
+    setIsDownload(true)
     const element = viewRef.current;
     if (!element) return;
     const printEl = element.cloneNode(true);
@@ -226,6 +228,7 @@ export default function ViewTimetablePage() {
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
     }
     pdf.save("NI_Timetable.pdf");
+    setIsDownload(false)
   };
 
   // ---------- RENDER ----------
@@ -295,8 +298,8 @@ export default function ViewTimetablePage() {
             <button onClick={fetchTimetable} className={styles.viewBtn}>
               View
             </button>
-            <button onClick={handleExportPDF} className={styles.pdfBtn}>
-              Export PDF
+            <button onClick={handleExportPDF} className={styles.pdfBtn} disabled={IsDownload}>
+              {IsDownload?"Exporting":"Export PDF"}
             </button>
           </div>
 

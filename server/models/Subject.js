@@ -16,6 +16,7 @@ const subjectSchema = new mongoose.Schema(
       type: String,
       required: true,
       uppercase: true,
+      enum: ["L", "T", "T/L", "O"],
     },
   },
   {

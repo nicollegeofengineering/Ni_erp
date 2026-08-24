@@ -2,20 +2,20 @@ const isProd = process.env.NODE_ENV === "production";
 
 const accessCookieOptions = {
   httpOnly: true,
-  secure: true,
-  sameSite: "none",
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
   path: "/",
-  domain: isProd ? ".manushn.in" : undefined,   // add this line
-  maxAge: 20 * 60 * 1000,
+  domain: isProd ? ".manushn.in" : undefined,
+  maxAge: 40 * 60 * 1000, // 40 minutes on login
 };
 
 const refreshCookieOptions = {
   httpOnly: true,
-  secure: true,
-  sameSite: "none",
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
   path: "/",
-  domain: isProd ? ".manushn.in" : undefined,   //  add this line
-  maxAge: 8 * 60 * 60 * 1000,
+  domain: isProd ? ".manushn.in" : undefined,
+  maxAge: 8 * 60 * 60 * 1000, // 8 hours from first login
 };
 
 const ACCESS_COOKIE = "ni_erp_token";

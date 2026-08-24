@@ -5,12 +5,12 @@ import axios from "axios";
 import styles from "./department.module.css";
 
 export default function DepartmentsPage() {
-  
+
 
   const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
-  withCredentials: true,
-});
+    baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
+    withCredentials: true,
+  });
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -47,7 +47,7 @@ export default function DepartmentsPage() {
     setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
   };
 
-  
+
   // Close modal without saving
   const closeModal = () => {
     setShowModal(false);
@@ -60,7 +60,7 @@ export default function DepartmentsPage() {
       {/* Header with title and Add button */}
       <div className={styles.header}>
         <h1 className={styles.title}>Departments</h1>
-        
+
       </div>
 
       {/* Error banner */}
@@ -78,7 +78,7 @@ export default function DepartmentsPage() {
                   <th>#</th>
                   <th>Name</th>
                   <th>Code</th>
-                  <th className={styles.actionsHeader}>Actions</th>
+
                 </tr>
               </thead>
               <tbody>
@@ -94,14 +94,7 @@ export default function DepartmentsPage() {
                       <td>{index + 1}</td>
                       <td>{dept.name}</td>
                       <td>{dept.code}</td>
-                      <td className={styles.actionsCell}>
-                        <button
-                          className={styles.deleteButton}
-                          onClick={() => handleDelete(dept.code)}
-                        >
-                          Delete
-                        </button>
-                      </td>
+
                     </tr>
                   ))
                 )}

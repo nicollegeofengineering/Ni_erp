@@ -317,7 +317,8 @@
   color: #1e2f44;
 }
 
-.formGroup input {
+.formGroup input,
+.formGroup select {
   padding: 10px 14px;
   border: 1px solid #d6e2f0;
   border-radius: 8px;
@@ -326,7 +327,8 @@
   background: #fafcff;
 }
 
-.formGroup input:focus {
+.formGroup input:focus,
+.formGroup select:focus {
   outline: none;
   border-color: #2b7be4;
   box-shadow: 0 0 0 3px rgba(43, 123, 228, 0.15);

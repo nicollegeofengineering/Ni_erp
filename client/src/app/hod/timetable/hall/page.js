@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import axios from "axios";;
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import axios from "axios";
 import styles from "./hall-timetable.module.css";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 export default function HallTimetablePage() {
- const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
-  withCredentials: true,
-});
+  const api = axios.create({
+    baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
+    withCredentials: true,
+  });
+
   const [academicYear, setAcademicYear] = useState("2026-2027");
   const [semesterType, setSemesterType] = useState("ODD");
   const [wef, setWef] = useState("");
@@ -24,7 +25,6 @@ export default function HallTimetablePage() {
   const pdfContainerRef = useRef(null);
   const searchRef = useRef(null);
 
-  // ---------- COLUMN DEFINITIONS ----------
   const columns = [
     { type: "period", label: "P1", period: 1 },
     { type: "period", label: "P2", period: 2 },
@@ -41,7 +41,6 @@ export default function HallTimetablePage() {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const dayMap = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5 };
 
-  // ---------- HELPER: format staff full name ----------
   const getStaffFullName = (staff) => {
     if (!staff) return "";
     const { prefix = "", first_name = "", last_name = "" } = staff;
@@ -55,7 +54,6 @@ export default function HallTimetablePage() {
 
     const fetchHalls = async () => {
       try {
-        // ✅ Use /admin/hall/all
         const res = await api.get("/admin/hall/all", { params: { limit: 1000 } });
         setHallList(res.data.data || []);
       } catch (err) {
@@ -63,22 +61,22 @@ export default function HallTimetablePage() {
       }
     };
     fetchHalls();
-
     setWef(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // ---------- FETCH HALL TIMETABLE ----------
-  const fetchHallTimetable = async (hallId = null, search = "") => {
+  // ---------- FETCH HALL TIMETABLE (with semesterType) ----------
+  const fetchHallTimetable = useCallback(async (hallId) => {
+    if (!hallId) {
+      setHallTimetableData([]);
+      return;
+    }
     setLoading(true);
     try {
-      const params = { academicYear };
-      if (hallId) {
-        params.hallId = hallId;
-      } else if (search) {
-        params.search = search;
-      }
-
-      // ✅ Use /admin/timetable/hallview
+      const params = {
+        academicYear,
+        hallId,
+        semesterType, // ✅ send semesterType to backend
+      };
       const res = await api.get("/admin/timetable/hallview", { params });
       setHallTimetableData(res.data.data || []);
     } catch (err) {
@@ -87,18 +85,17 @@ export default function HallTimetablePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [academicYear, semesterType]);
 
   useEffect(() => {
-    if (!academicYear) return;
     if (selectedHall) {
       fetchHallTimetable(selectedHall._id);
     } else {
       setHallTimetableData([]);
     }
-  }, [academicYear, selectedHall]);
+  }, [academicYear, semesterType, selectedHall, fetchHallTimetable]);
 
-  // ---------- FILTERED HALL LIST FOR DROPDOWN ----------
+  // ---------- FILTERED HALL LIST ----------
   const filteredHalls = useMemo(() => {
     if (!searchQuery) return hallList;
     const q = searchQuery.toUpperCase();
@@ -108,7 +105,7 @@ export default function HallTimetablePage() {
     );
   }, [hallList, searchQuery]);
 
-  // ---------- GROUP DATA FOR TABLE ----------
+  // ---------- GROUP DATA FOR TABLE (with unique classes) ----------
   const timetableMatrix = useMemo(() => {
     if (!hallTimetableData.length) return {};
     const matrix = {};
@@ -118,7 +115,6 @@ export default function HallTimetablePage() {
       const key = `${entry.day}__${entry.period}`;
       if (!matrix[key]) matrix[key] = [];
 
-      // Use backend-computed staffName if available, else build it
       const staffName = entry.staffName || getStaffFullName(entry.staff);
       const staffCode = entry.staff?.staff_code || "";
 
@@ -129,39 +125,45 @@ export default function HallTimetablePage() {
         subjectCode: entry.subject.subjectCode,
         subjectName: entry.subject.subjectName,
         staffId: entry.staff?._id || '',
-        staffName: staffName,
-        staffCode: staffCode,
+        staffName,
+        staffCode,
       });
     });
 
-    // Group by subject+staff within each period
+    // Group by subject+staff and use Set for unique classes
     const groupedMatrix = {};
     Object.keys(matrix).forEach(key => {
       const slots = matrix[key];
       const groupMap = new Map();
+
       slots.forEach(slot => {
         const groupKey = `${slot.subjectId}_${slot.staffId}`;
+
         if (!groupMap.has(groupKey)) {
           groupMap.set(groupKey, {
             subjectCode: slot.subjectCode,
             subjectName: slot.subjectName,
             staffCode: slot.staffCode,
             staffName: slot.staffName,
-            classes: [],
+            classes: new Set(), // ✅ unique classes
           });
         }
-        groupMap.get(groupKey).classes.push(`${slot.department} ${slot.year}`);
+
+        groupMap.get(groupKey).classes.add(
+          `${slot.department} ${slot.year}`
+        );
       });
+
       groupedMatrix[key] = Array.from(groupMap.values()).map(group => ({
         ...group,
-        classes: group.classes.join(', '),
+        classes: Array.from(group.classes).join(', '),
       }));
     });
 
     return groupedMatrix;
   }, [hallTimetableData]);
 
-  // ---------- UNIQUE SUBJECTS + STAFF NAMES TAUGHT IN THIS HALL ----------
+  // ---------- UNIQUE SUBJECTS ----------
   const hallSubjects = useMemo(() => {
     if (!hallTimetableData.length) return [];
     const map = new Map();
@@ -178,7 +180,6 @@ export default function HallTimetablePage() {
           staffNames: new Set(),
         });
       }
-      // Use backend-computed staffName if available
       const staffName = entry.staffName || getStaffFullName(entry.staff);
       if (staffName) map.get(id).staffNames.add(staffName);
     });
@@ -218,7 +219,6 @@ export default function HallTimetablePage() {
     const padding = 20;
     const trimmedHeight = Math.min(height, lastNonBlankRow + padding);
     if (trimmedHeight >= height) return canvas;
-
     const trimmedCanvas = document.createElement("canvas");
     trimmedCanvas.width = width;
     trimmedCanvas.height = trimmedHeight;
@@ -316,7 +316,6 @@ export default function HallTimetablePage() {
   // ---------- RENDER ----------
   return (
     <div className={styles.pageWrapper}>
-      {/* Top controls */}
       <div className={styles.controls}>
         <select
           value={academicYear}
@@ -395,7 +394,6 @@ export default function HallTimetablePage() {
         </button>
       </div>
 
-      {/* Timetable display */}
       <div className={styles.container} ref={pdfContainerRef}>
         <div className={styles.header}>
           <img src="/nilogo.png" alt="College Logo" width="700" height="104.3" />
@@ -508,7 +506,6 @@ export default function HallTimetablePage() {
           </table>
         </div>
 
-        {/* Subject reference table */}
         {selectedHall && hallSubjects.length > 0 && (
           <div className={styles.srWrapper}>
             <table className={styles.srTable}>

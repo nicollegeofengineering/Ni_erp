@@ -15,6 +15,7 @@ import {
   CalendarRange,
   UserRoundCheck,
   ChevronRight,
+  User,
 } from "lucide-react";
 
 import style from "./css/admin_sidebar.module.css";
@@ -94,6 +95,11 @@ const NAV_ITEMS = [
     href: "/admin/hall-allocation",
     label: "Hall Allocation",
     icon: UserRoundCheck,
+  },
+  {
+    href: "/admin/profile",
+    label: "My Profile",
+    icon: User,
   },
 ];
 
