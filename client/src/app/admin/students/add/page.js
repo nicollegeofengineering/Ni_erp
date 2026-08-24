@@ -308,20 +308,20 @@ export default function AddStudent() {
             </div>
             <div className={styles.grid}>
               <div className={styles.fieldWrapper}>
-                <span className={styles.fieldLabel}>Application No.</span>
-                <input className={styles.formInput} name="application_no" placeholder="Application No." value={formData.application_no} onChange={handleChange} />
+                <span className={styles.fieldLabel}>Application No. *</span>
+                <input className={styles.formInput} name="application_no" placeholder="Application No." value={formData.application_no} onChange={handleChange} required />
               </div>
               <div className={styles.fieldWrapper}>
-                <span className={styles.fieldLabel}>Admission No.</span>
-                <input className={styles.formInput} name="admission_no" placeholder="Admission No." value={formData.admission_no} onChange={handleChange} />
+                <span className={styles.fieldLabel}>Admission No. *</span>
+                <input className={styles.formInput} name="admission_no" placeholder="Admission No." value={formData.admission_no} onChange={handleChange} required />
               </div>
               <div className={styles.fieldWrapper}>
-                <span className={styles.fieldLabel}>Register No.</span>
-                <input className={styles.formInput} name="register_no" placeholder="Register No." value={formData.register_no} onChange={handleChange} />
+                <span className={styles.fieldLabel}>Register No. *</span>
+                <input className={styles.formInput} name="register_no" placeholder="Register No." value={formData.register_no} onChange={handleChange} required />
               </div>
               <div className={styles.fieldWrapper}>
-                <span className={styles.fieldLabel}>Roll No.</span>
-                <input className={styles.formInput} name="roll_no" placeholder="Roll No." value={formData.roll_no} onChange={handleChange} />
+                <span className={styles.fieldLabel}>Roll No. *</span>
+                <input className={styles.formInput} name="roll_no" placeholder="Roll No." value={formData.roll_no} onChange={handleChange} required />
               </div>
             </div>
           </div>
@@ -491,8 +491,8 @@ export default function AddStudent() {
               <input className={styles.formInput} name="caste" placeholder="Caste" value={formData.caste} onChange={handleChange} />
             </div>
             <div className={styles.fieldWrapper}>
-              <span className={styles.fieldLabel}>Aadhar No.</span>
-              <input className={styles.formInput} name="aadhar_number" placeholder="Aadhar Number" value={formData.aadhar_number} onChange={handleChange} />
+              <span className={styles.fieldLabel}>Aadhar No. *</span>
+              <input className={styles.formInput} name="aadhar_number" placeholder="Aadhar Number (12 digits)" value={formData.aadhar_number} onChange={handleChange} required />
             </div>
           </div>
         </section>

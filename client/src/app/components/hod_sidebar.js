@@ -85,8 +85,8 @@ const NAV_ITEMS = [
     ],
   },
   {
-    href: "/hod/hall-allocation",
-    label: "Hall Allocation",
+    href: "/hod/exam-hall",
+    label: "Exam Hall Allocation",
     icon: UserRoundCheck,
   },
   {

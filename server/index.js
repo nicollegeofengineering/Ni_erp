@@ -90,6 +90,10 @@ app.use("/api/student", authMiddleware, studentRoute);
 app.use("/api/hod/staff",authMiddleware,hodstaff)
 app.use("/api/user", authMiddleware, userProfileRoute);
 
+// ---------------- Isolated Exam Hall Allocation Module Route
+const examHallRoute = require("./examHall/routes/examHall");
+app.use("/api/exam-hall", authMiddleware, examHallRoute);
+
 app.use(
     "/uploads",
     express.static(path.join(__dirname, "uploads"))

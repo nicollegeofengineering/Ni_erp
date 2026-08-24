@@ -1,0 +1,677 @@
+/* =========================================================
+   Exam Hall Allocation Module Styles
+   ========================================================= */
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1e293b;
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  gap: 16px;
+}
+
+.titleArea h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.02em;
+}
+
+.titleArea p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.sessionSelectorArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sessionSelect {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  min-width: 260px;
+  cursor: pointer;
+  outline: none;
+}
+
+.sessionSelect:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Card Sections */
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cardHeader h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badgeDraft {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badgeAllocated {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* Form Controls */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formGroup label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.input, .select {
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  background: #ffffff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input:focus, .select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.inputDisabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.btnPrimary {
+  background: #2563eb;
+  color: #ffffff;
+}
+.btnPrimary:hover {
+  background: #1d4ed8;
+}
+
+.btnSuccess {
+  background: #16a34a;
+  color: #ffffff;
+}
+.btnSuccess:hover {
+  background: #15803d;
+}
+
+.btnDanger {
+  background: #dc2626;
+  color: #ffffff;
+}
+.btnDanger:hover {
+  background: #b91c1c;
+}
+
+.btnWarning {
+  background: #d97706;
+  color: #ffffff;
+}
+.btnWarning:hover {
+  background: #b45309;
+}
+
+.btnOutline {
+  background: transparent;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+.btnOutline:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btnSmall {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+/* Tab Navigation */
+.tabsNav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+}
+
+.tabBtn {
+  background: none;
+  border: none;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.tabBtnActive {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  font-weight: 600;
+}
+
+/* Tables */
+.tableWrapper {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover td {
+  background: #f8fafc;
+}
+
+/* Metrics & Allocation Bar */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.metricCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+}
+
+.metricValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.metricLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Hall Seating Grid (Colorful Web View) */
+.hallTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.hallTab {
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s;
+}
+
+.hallTabActive {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.seatingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+}
+
+.seatingGrid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 8px;
+}
+
+.grid5x5 {
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+}
+
+.grid4x6 {
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+}
+
+/* Individual Seat Box */
+.seatBox {
+  min-height: 80px;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1.5px solid;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.seatBox:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.seatHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.seatRegNo {
+  font-size: 13.5px;
+  font-weight: 700;
+  text-align: center;
+  margin: 4px 0;
+  letter-spacing: -0.01em;
+}
+
+.seatSubject {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+/* Empty Seat Box (Strictly no text, empty bordered box) */
+.seatEmpty {
+  border: 1.5px dashed #cbd5e1;
+  background: #f8fafc;
+  opacity: 0.6;
+}
+
+.seatEmpty .seatNoOnly {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* Color Palettes for Subject Badges */
+.subColor0 { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
+.subColor1 { background: #f0fdf4; border-color: #86efac; color: #166534; }
+.subColor2 { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.subColor3 { background: #faf5ff; border-color: #d8b4fe; color: #6b21a8; }
+.subColor4 { background: #fff1f2; border-color: #fecdd3; color: #9f1239; }
+.subColor5 { background: #ecfeff; border-color: #a5f3fc; color: #155e75; }
+.subColor6 { background: #fdf4ff; border-color: #f5d0fe; color: #86198f; }
+.subColor7 { background: #f0fdfa; border-color: #99f6e4; color: #115e59; }
+
+/* Modals */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  max-width: 540px;
+  width: 100%;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.modalHeader h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* Notifications */
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.alertSuccess {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.alertError {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* =========================================================
+   Dedicated Black & White Landscape Printable Sheet
+   ========================================================= */
+
+.printableContainer {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1120px; /* High-res landscape representation */
+  background: #ffffff;
+}
+
+.printSheet {
+  width: 100%;
+  background: #ffffff;
+  padding: 24px 30px;
+  box-sizing: border-box;
+  color: #000000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.printCollegeHeader {
+  text-align: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid #000000;
+}
+
+.printCollegeName {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0 0 4px 0;
+  color: #000000;
+}
+
+.printDocTitle {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  color: #000000;
+}
+
+.printMetaGrid {
+  display: grid;
+  grid-template-columns: 1.8fr 1.2fr 0.8fr 1fr 1fr;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #000000;
+}
+
+.printGridArea {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.printGrid5x5 {
+  display: grid;
+  grid-template-columns: repeat(5, 195px);
+  gap: 6px;
+}
+
+.printGrid4x6 {
+  display: grid;
+  grid-template-columns: repeat(4, 230px);
+  gap: 6px;
+}
+
+.printSeatBox {
+  height: 40px;
+  border: 1.2px solid #000000;
+  background: #ffffff;
+  padding: 3px 6px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  color: #000000;
+}
+
+.printSeatNo {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 8.5px;
+  font-weight: 800;
+}
+
+.printRegNo {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+}
+
+.printSeatEmpty {
+  height: 40px;
+  border: 1px solid #000000;
+  background: #ffffff;
+  padding: 3px 6px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.printSummaryArea {
+  margin-top: 10px;
+}
+
+.printSummaryTitle {
+  font-size: 11px;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+  color: #000000;
+}
+
+.printSummaryTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  border: 1px solid #000000;
+}
+
+.printSummaryTable th {
+  background: #f1f5f9;
+  color: #000000;
+  font-weight: 800;
+  padding: 5px 8px;
+  border: 1px solid #000000;
+  text-align: left;
+}
+
+.printSummaryTable td {
+  padding: 4px 8px;
+  border: 1px solid #000000;
+  color: #000000;
+}
+
+.printFooterSignatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding-top: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #000000;
+}
+

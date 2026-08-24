@@ -130,6 +130,11 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (!email?.trim()) return res.status(400).json({ emessage: 'Email is required' });
     if (!department_code?.trim()) return res.status(400).json({ emessage: 'Department is required' });
     if (!admission_type?.trim()) return res.status(400).json({ emessage: 'Admission type is required' });
+    if (!application_no?.trim()) return res.status(400).json({ emessage: 'Application Number is required' });
+    if (!admission_no?.trim()) return res.status(400).json({ emessage: 'Admission Number is required' });
+    if (!register_no?.trim()) return res.status(400).json({ emessage: 'Register Number is required' });
+    if (!roll_no?.trim()) return res.status(400).json({ emessage: 'Roll Number is required' });
+    if (!aadhar_number?.trim()) return res.status(400).json({ emessage: 'Aadhar Number is required' });
 
     // ---- Format validations ----
     if (!nameRegex.test(first_name)) return res.status(400).json({ emessage: 'Invalid first name' });
@@ -138,7 +143,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (!validGender.includes(gender)) return res.status(400).json({ emessage: 'Invalid gender' });
     if (!phoneRegex.test(mobile_number)) return res.status(400).json({ emessage: 'Invalid mobile number (must be 10 digits)' });
     if (!emailRegex.test(email)) return res.status(400).json({ emessage: 'Invalid email address' });
-    if (aadhar_number && !/^\d{12}$/.test(aadhar_number))
+    if (!/^\d{12}$/.test(aadhar_number?.trim()))
       return res.status(400).json({ emessage: 'Aadhar must contain 12 digits' });
     if (father_mobile && !phoneRegex.test(father_mobile))
       return res.status(400).json({ emessage: 'Invalid father mobile number' });
@@ -775,6 +780,11 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (!email?.trim()) return res.status(400).json({ emessage: 'Email is required' });
     if (!department_code?.trim()) return res.status(400).json({ emessage: 'Department is required' });
     if (!admission_type?.trim()) return res.status(400).json({ emessage: 'Admission type is required' });
+    if (!application_no?.trim()) return res.status(400).json({ emessage: 'Application Number is required' });
+    if (!admission_no?.trim()) return res.status(400).json({ emessage: 'Admission Number is required' });
+    if (!register_no?.trim()) return res.status(400).json({ emessage: 'Register Number is required' });
+    if (!roll_no?.trim()) return res.status(400).json({ emessage: 'Roll Number is required' });
+    if (!aadhar_number?.trim()) return res.status(400).json({ emessage: 'Aadhar Number is required' });
 
     // ---- Format validations (same as POST) ----
     if (!nameRegex.test(first_name)) return res.status(400).json({ emessage: 'Invalid first name' });
@@ -783,7 +793,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (!validGender.includes(gender)) return res.status(400).json({ emessage: 'Invalid gender' });
     if (!phoneRegex.test(mobile_number)) return res.status(400).json({ emessage: 'Invalid mobile number' });
     if (!emailRegex.test(email)) return res.status(400).json({ emessage: 'Invalid email address' });
-    if (aadhar_number && !/^\d{12}$/.test(aadhar_number))
+    if (!/^\d{12}$/.test(aadhar_number?.trim()))
       return res.status(400).json({ emessage: 'Aadhar must contain 12 digits' });
     if (father_mobile && !phoneRegex.test(father_mobile))
       return res.status(400).json({ emessage: 'Invalid father mobile number' });

@@ -26,10 +26,10 @@ const StudentSchema = new mongoose.Schema(
       index: true,
     },
     
-    application_no: { type: String, trim: true, unique: true, sparse: true },
-    admission_no: { type: String, trim: true, unique: true, sparse: true },
-    register_no: { type: String, trim: true, unique: true, sparse: true },
-    roll_no: { type: String, trim: true, unique: true, sparse: true },
+    application_no: { type: String, trim: true, unique: true, required: true },
+    admission_no: { type: String, trim: true, unique: true, required: true },
+    register_no: { type: String, trim: true, unique: true, required: true },
+    roll_no: { type: String, trim: true, unique: true, required: true },
 
     // ----- Photo (Google Drive) -----
     photo_file_id: { type: String, default: null },
@@ -64,7 +64,7 @@ const StudentSchema = new mongoose.Schema(
     religion: { type: String, trim: true },
     community: { type: String, trim: true },
     caste: { type: String, trim: true },
-    aadhar_number: { type: String, trim: true, unique: true, sparse: true },
+    aadhar_number: { type: String, trim: true, unique: true, required: true },
 
     // ----- Contact & Address -----
     mobile_number: { type: String, required: true, trim: true },
