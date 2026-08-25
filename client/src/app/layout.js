@@ -5,16 +5,27 @@ import "./globals.css";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
+  fallback: ["system-ui", "-apple-system", "sans-serif"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+  fallback: ["monospace"],
 });
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#1e3a8a",
+};
+
 export const metadata = {
-  title: "NICETECH",
-  description: "Your path to success begins here. ",
+  title: "NICETECH ERP — Institutional Management System",
+  description: "Noorul Islam College of Engineering and Technology ERP System",
   icons: {
     icon: "/niicon.jpeg",
   },

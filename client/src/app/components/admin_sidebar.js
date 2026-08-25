@@ -15,7 +15,9 @@ import {
   CalendarRange,
   UserRoundCheck,
   ChevronRight,
+  MessageSquareCheck,
   User,
+  GraduationCap,
 } from "lucide-react";
 
 import style from "./css/admin_sidebar.module.css";
@@ -25,6 +27,11 @@ const NAV_ITEMS = [
     href: "/admin",
     label: "Dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    href: "/admin/admissions",
+    label: "Online Admissions",
+    icon: GraduationCap,
   },
   {
     label: "Students",
@@ -92,9 +99,22 @@ const NAV_ITEMS = [
     ],
   },
   {
+    label: "Exam Timetable",
+    icon: CalendarRange,
+    children: [
+      { href: "/admin/exam-timetable/master", label: "Master Exam Timetable" },
+      { href: "/admin/exam-timetable/class", label: "Class Exam Timetable" },
+    ],
+  },
+  {
     href: "/admin/exam-hall",
     label: "Exam Hall Allocation",
     icon: UserRoundCheck,
+  },
+  {
+    href: "/admin/feedback",
+    label: "Student Feedback",
+    icon: MessageSquareCheck,
   },
   {
     href: "/admin/profile",

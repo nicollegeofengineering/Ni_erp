@@ -15,6 +15,7 @@ import {
   CalendarRange,
   UserRoundCheck,
   ChevronRight,
+  MessageSquareCheck,
   User,
 } from "lucide-react";
 
@@ -85,9 +86,22 @@ const NAV_ITEMS = [
     ],
   },
   {
+    label: "Exam Timetable",
+    icon: CalendarRange,
+    children: [
+      { href: "/hod/exam-timetable/master", label: "Master Exam Timetable" },
+      { href: "/hod/exam-timetable/class", label: "Class Exam Timetable" },
+    ],
+  },
+  {
     href: "/hod/exam-hall",
     label: "Exam Hall Allocation",
     icon: UserRoundCheck,
+  },
+  {
+    href: "/hod/feedback",
+    label: "Student Feedback",
+    icon: MessageSquareCheck,
   },
   {
     href: "/hod/profile",

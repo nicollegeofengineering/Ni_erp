@@ -8,6 +8,11 @@ const ExamCandidateSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      default: null,
+    },
     name: {
       type: String,
       required: true,
@@ -17,6 +22,22 @@ const ExamCandidateSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    programme: {
+      type: String,
+      trim: true,
+      default: 'B.Tech',
+    },
+    department: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    departmentCode: {
+      type: String,
+      trim: true,
+      default: '',
+      uppercase: true,
     },
     subjectCode: {
       type: String,

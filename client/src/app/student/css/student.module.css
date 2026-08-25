@@ -386,6 +386,12 @@
 }
 
 /* ===== Responsive Breakpoints ===== */
+@media (max-width: 1024px) {
+  .statsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
 @media (max-width: 860px) {
   .timetableSlot {
     padding: 6px 4px;
@@ -396,33 +402,158 @@
 @media (max-width: 768px) {
   .container {
     padding: 16px 12px;
+    overflow-x: hidden;
   }
 
   .topBar {
     flex-direction: column;
     align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 18px;
+    margin-top: 10px;
+  }
+
+  .title {
+    font-size: 20px;
+  }
+
+  .subtitle {
+    font-size: 12.5px;
   }
 
   .filterBar {
     flex-direction: column;
     align-items: stretch;
+    padding: 12px;
+    gap: 10px;
   }
 
   .tabsGroup {
-    justify-content: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    width: 100%;
+  }
+
+  .tabBtn {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .statCard {
+    padding: 14px;
+  }
+
+  .statCard p {
+    font-size: 20px;
+  }
+
+  .statIcon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .cardSection {
+    padding: 16px 12px;
+    border-radius: 12px;
+    margin-bottom: 18px;
+  }
+
+  .sectionTitle {
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+
+  .tableWrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-left: -4px;
+    margin-right: -4px;
+    border-radius: 8px;
+  }
+
+  .table {
+    min-width: 600px;
+    font-size: 12px;
+  }
+
+  .table th,
+  .table td {
+    padding: 8px 10px;
   }
 
   .classesGrid {
     grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .classCard {
+    padding: 16px;
   }
 
   .dayTabsContainer {
     display: flex;
     gap: 6px;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     padding-bottom: 8px;
     margin-bottom: 14px;
+  }
+
+  .dayTabBtn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    flex-shrink: 0;
+    min-height: 38px;
+  }
+
+  .dayTabBtnActive {
+    background: #0b1d3a;
+    color: #ffffff;
+    border-color: #0b1d3a;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 12px 8px;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .statCard p {
+    font-size: 18px;
+  }
+
+  .table {
+    min-width: 520px;
   }
 }

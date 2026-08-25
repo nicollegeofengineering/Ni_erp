@@ -1,8 +1,12 @@
 const mongoose = require('mongoose');
+const ExamMaster = require('../models/ExamMaster');
 const ExamSession = require('../models/ExamSession');
 const ExamCandidate = require('../models/ExamCandidate');
 const ExamHall = require('../models/ExamHall');
 const ExamSeating = require('../models/ExamSeating');
+const Student = require('../../models/Student');
+const Department = require('../../models/Department');
+const Subject = require('../../models/Subject');
 const AllocationService = require('../services/allocationService');
 const { getLayoutDefinition } = require('../utils/layoutDefinitions');
 
@@ -19,12 +23,139 @@ const checkAuth = (req, res) => {
   return true;
 };
 
+// ==================== 0. EXAM MASTERS (CONFIGURATION) ====================
+
+exports.getMasters = async (req, res) => {
+  if (!checkAuth(req, res)) return;
+  try {
+    const masters = await ExamMaster.find().sort({ createdAt: -1 }).lean();
+    return res.status(200).json({ success: true, data: masters });
+  } catch (err) {
+    console.error('Error fetching exam masters:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.createMaster = async (req, res) => {
+  if (!checkAuth(req, res)) return;
+  try {
+    const { examCode, examName, centreCode, centreName } = req.body;
+    if (!examCode?.trim() || !examName?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Exam Code and Exam Name are required.',
+      });
+    }
+
+    const code = examCode.trim().toUpperCase();
+    const existing = await ExamMaster.findOne({ examCode: code });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: `Exam Configuration with code '${code}' already exists.`,
+      });
+    }
+
+    const newMaster = new ExamMaster({
+      examCode: code,
+      examName: examName.trim(),
+      centreCode: centreCode?.trim() || '9460',
+      centreName: centreName?.trim() || 'Nagercoil Islam College of Engineering and Technology',
+      active: true,
+    });
+
+    await newMaster.save();
+    return res.status(201).json({
+      success: true,
+      message: 'Exam Master configuration saved successfully',
+      data: newMaster,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.updateMaster = async (req, res) => {
+  if (!checkAuth(req, res)) return;
+  try {
+    const { id } = req.params;
+    const { examCode, examName, centreCode, centreName, active } = req.body;
+
+    const master = await ExamMaster.findById(id);
+    if (!master) {
+      return res.status(404).json({ success: false, message: 'Exam Master configuration not found' });
+    }
+
+    if (examCode?.trim()) {
+      const code = examCode.trim().toUpperCase();
+      if (code !== master.examCode) {
+        const dup = await ExamMaster.findOne({ examCode: code, _id: { $ne: id } });
+        if (dup) {
+          return res.status(409).json({ success: false, message: `Exam Code '${code}' is already in use.` });
+        }
+        master.examCode = code;
+      }
+    }
+
+    if (examName?.trim()) master.examName = examName.trim();
+    if (centreCode !== undefined) master.centreCode = centreCode.trim();
+    if (centreName !== undefined) master.centreName = centreName.trim();
+    if (active !== undefined) master.active = Boolean(active);
+
+    await master.save();
+
+    // Also cascade updates to linked sessions
+    await ExamSession.updateMany(
+      { examMaster: id },
+      {
+        examCode: master.examCode,
+        examName: master.examName,
+        centreCode: master.centreCode,
+        centreName: master.centreName,
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Exam Master configuration updated successfully',
+      data: master,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.deleteMaster = async (req, res) => {
+  if (!checkAuth(req, res)) return;
+  try {
+    const { id } = req.params;
+    const linkedSessionsCount = await ExamSession.countDocuments({ examMaster: id });
+    if (linkedSessionsCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete Exam Master because ${linkedSessionsCount} exam schedule(s) are linked to it.`,
+      });
+    }
+
+    const deleted = await ExamMaster.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Exam Master configuration not found' });
+    }
+    return res.status(200).json({ success: true, message: 'Exam Master configuration deleted successfully' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // ==================== 1. SESSIONS ====================
 
 exports.getSessions = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
-    const sessions = await ExamSession.find().sort({ examDate: -1, createdAt: -1 }).lean();
+    const sessions = await ExamSession.find()
+      .populate('examMaster')
+      .sort({ examDate: -1, createdAt: -1 })
+      .lean();
     
     // Enrich with counts
     const enriched = await Promise.all(
@@ -34,6 +165,10 @@ exports.getSessions = async (req, res) => {
         const allocatedHalls = await ExamSeating.distinct('hall', { examSession: sess._id });
         return {
           ...sess,
+          examName: sess.examMaster?.examName || sess.examName,
+          examCode: sess.examMaster?.examCode || sess.examCode,
+          centreCode: sess.examMaster?.centreCode || sess.centreCode || '9460',
+          centreName: sess.examMaster?.centreName || sess.centreName || 'Nagercoil Islam College of Engineering and Technology',
           candidateCount,
           seatingCount,
           allocatedHallCount: allocatedHalls.length,
@@ -52,7 +187,7 @@ exports.getSessionById = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { id } = req.params;
-    const session = await ExamSession.findById(id).lean();
+    const session = await ExamSession.findById(id).populate('examMaster').lean();
     if (!session) {
       return res.status(404).json({ success: false, message: 'Exam session not found' });
     }
@@ -60,7 +195,15 @@ exports.getSessionById = async (req, res) => {
     const seatingCount = await ExamSeating.countDocuments({ examSession: session._id });
     return res.status(200).json({
       success: true,
-      data: { ...session, candidateCount, seatingCount },
+      data: {
+        ...session,
+        examName: session.examMaster?.examName || session.examName,
+        examCode: session.examMaster?.examCode || session.examCode,
+        centreCode: session.examMaster?.centreCode || session.centreCode || '9460',
+        centreName: session.examMaster?.centreName || session.centreName || 'Nagercoil Islam College of Engineering and Technology',
+        candidateCount,
+        seatingCount,
+      },
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -70,8 +213,26 @@ exports.getSessionById = async (req, res) => {
 exports.createSession = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
-    const { examName, examDate, session } = req.body;
-    if (!examName?.trim() || !examDate || !session) {
+    const { examMasterId, examCode, examName, centreCode, centreName, examDate, session } = req.body;
+    
+    let resolvedExamName = examName?.trim();
+    let resolvedExamCode = examCode?.trim();
+    let resolvedCentreCode = centreCode?.trim() || '9460';
+    let resolvedCentreName = centreName?.trim() || 'Nagercoil Islam College of Engineering and Technology';
+    let masterRef = null;
+
+    if (examMasterId && mongoose.Types.ObjectId.isValid(examMasterId)) {
+      const master = await ExamMaster.findById(examMasterId);
+      if (master) {
+        masterRef = master._id;
+        resolvedExamName = master.examName;
+        resolvedExamCode = master.examCode;
+        resolvedCentreCode = master.centreCode;
+        resolvedCentreName = master.centreName;
+      }
+    }
+
+    if (!resolvedExamName || !examDate || !session) {
       return res.status(400).json({
         success: false,
         message: 'Exam name, date, and session (FN/AN) are required.',
@@ -79,7 +240,11 @@ exports.createSession = async (req, res) => {
     }
 
     const newSession = new ExamSession({
-      examName: examName.trim(),
+      examMaster: masterRef,
+      examCode: resolvedExamCode || '',
+      examName: resolvedExamName,
+      centreCode: resolvedCentreCode,
+      centreName: resolvedCentreName,
       examDate: new Date(examDate),
       session: session.toUpperCase(),
       status: 'DRAFT',
@@ -101,14 +266,29 @@ exports.updateSession = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { id } = req.params;
-    const { examName, examDate, session, status } = req.body;
+    const { examMasterId, examName, examCode, centreCode, centreName, examDate, session, status } = req.body;
 
     const existing = await ExamSession.findById(id);
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Exam session not found' });
     }
 
-    if (examName?.trim()) existing.examName = examName.trim();
+    if (examMasterId && mongoose.Types.ObjectId.isValid(examMasterId)) {
+      const master = await ExamMaster.findById(examMasterId);
+      if (master) {
+        existing.examMaster = master._id;
+        existing.examName = master.examName;
+        existing.examCode = master.examCode;
+        existing.centreCode = master.centreCode;
+        existing.centreName = master.centreName;
+      }
+    } else {
+      if (examName?.trim()) existing.examName = examName.trim();
+      if (examCode?.trim()) existing.examCode = examCode.trim();
+      if (centreCode !== undefined) existing.centreCode = centreCode.trim();
+      if (centreName !== undefined) existing.centreName = centreName.trim();
+    }
+
     if (examDate) existing.examDate = new Date(examDate);
     if (session) existing.session = session.toUpperCase();
     if (status) existing.status = status;
@@ -143,7 +323,156 @@ exports.deleteSession = async (req, res) => {
   }
 };
 
-// ==================== 2. CANDIDATES ====================
+// ==================== 2. CANDIDATES & STUDENT DB ====================
+
+exports.lookupStudents = async (req, res) => {
+  if (!checkAuth(req, res)) return;
+  try {
+    const { departmentCode, year, semester, section, search } = req.query;
+    const filter = { student_status: 'Active' };
+
+    if (departmentCode?.trim()) {
+      filter.department_code = departmentCode.trim().toUpperCase();
+    }
+    if (year) {
+      filter.year = parseInt(year, 10);
+    }
+    if (semester) {
+      filter.semester = parseInt(semester, 10);
+    }
+    if (section?.trim()) {
+      filter.section = section.trim().toUpperCase();
+    }
+    if (search?.trim()) {
+      const reg = new RegExp(search.trim(), 'i');
+      filter.$or = [
+        { register_no: reg },
+        { roll_no: reg },
+        { student_id: reg },
+        { first_name: reg },
+        { last_name: reg },
+      ];
+    }
+
+    const [students, departments, subjects] = await Promise.all([
+      Student.find(filter)
+        .select('student_id register_no roll_no first_name last_name programme department_code year semester section')
+        .sort({ department_code: 1, year: 1, register_no: 1 })
+        .limit(1000)
+        .lean(),
+      Department.find().select('name code').sort({ code: 1 }).lean(),
+      Subject.find().select('subjectName subjectCode').sort({ subjectCode: 1 }).lean(),
+    ]);
+
+    // Map department name to code
+    const deptNameMap = {};
+    departments.forEach((d) => {
+      deptNameMap[d.code.toUpperCase()] = d.name;
+    });
+
+    const enrichedStudents = students.map((s) => ({
+      _id: s._id,
+      student_id: s.student_id,
+      register_no: s.register_no,
+      roll_no: s.roll_no,
+      name: `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+      programme: s.programme || 'B.Tech',
+      department_code: (s.department_code || '').toUpperCase(),
+      department_name: deptNameMap[(s.department_code || '').toUpperCase()] || s.department_code,
+      year: s.year,
+      semester: s.semester,
+      section: s.section,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: enrichedStudents.length,
+      students: enrichedStudents,
+      departments,
+      subjects,
+    });
+  } catch (err) {
+    console.error('Error looking up students:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.importStudents = async (req, res) => {
+  if (!checkAuth(req, res)) return;
+  try {
+    const { sessionId, studentIds, subjectCode, subjectName } = req.body;
+    if (!sessionId || !Array.isArray(studentIds) || studentIds.length === 0 || !subjectCode?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Session ID, student IDs array, and Subject Code are required.',
+      });
+    }
+
+    const session = await ExamSession.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'Exam session not found' });
+    }
+
+    const [students, departments] = await Promise.all([
+      Student.find({ _id: { $in: studentIds } }).lean(),
+      Department.find().lean(),
+    ]);
+
+    const deptMap = {};
+    departments.forEach((d) => {
+      deptMap[d.code.toUpperCase()] = d.name;
+    });
+
+    const existingCandidates = await ExamCandidate.find({ examSession: sessionId }).select('registerNo').lean();
+    const existingSet = new Set(existingCandidates.map((c) => c.registerNo));
+
+    const newCandidates = [];
+    const duplicates = [];
+
+    students.forEach((st) => {
+      const regNo = st.register_no?.trim();
+      if (!regNo) return;
+      if (existingSet.has(regNo)) {
+        duplicates.push(regNo);
+      } else {
+        const deptCode = (st.department_code || '').toUpperCase();
+        const deptName = deptMap[deptCode] || deptCode;
+        newCandidates.push({
+          examSession: sessionId,
+          student: st._id,
+          name: `${st.first_name || ''} ${st.last_name || ''}`.trim() || `Candidate ${regNo}`,
+          registerNo: regNo,
+          programme: st.programme || 'B.Tech',
+          department: deptName,
+          departmentCode: deptCode,
+          subjectCode: subjectCode.trim().toUpperCase(),
+          subjectName: subjectName?.trim() || '',
+        });
+        existingSet.add(regNo);
+      }
+    });
+
+    if (newCandidates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: `All ${duplicates.length} selected students already exist in this exam session.`,
+        duplicates,
+      });
+    }
+
+    await ExamCandidate.insertMany(newCandidates);
+
+    return res.status(201).json({
+      success: true,
+      message: `Successfully imported ${newCandidates.length} students from database.${duplicates.length > 0 ? ` (${duplicates.length} duplicates skipped)` : ''}`,
+      addedCount: newCandidates.length,
+      skippedCount: duplicates.length,
+    });
+  } catch (err) {
+    console.error('Error importing students:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
 
 exports.getCandidates = async (req, res) => {
   if (!checkAuth(req, res)) return;
@@ -178,7 +507,7 @@ exports.getCandidates = async (req, res) => {
 exports.addRangeCandidates = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
-    const { sessionId, subjectCode, subjectName, registerNoFrom, registerNoTo, defaultNamePrefix } = req.body;
+    const { sessionId, subjectCode, subjectName, registerNoFrom, registerNoTo, defaultNamePrefix, programme, department, departmentCode } = req.body;
 
     if (!sessionId || !subjectCode?.trim() || !registerNoFrom?.trim() || !registerNoTo?.trim()) {
       return res.status(400).json({
@@ -195,14 +524,14 @@ exports.addRangeCandidates = async (req, res) => {
     const fromStr = registerNoFrom.trim();
     const toStr = registerNoTo.trim();
 
-    // Check if range is pure numeric or has common alphanumeric prefix
-    const fromMatch = fromStr.match(/^(\D*)(\d+)$/);
-    const toMatch = toStr.match(/^(\D*)(\d+)$/);
+    // Match arbitrary prefix with numeric suffix
+    const fromMatch = fromStr.match(/^(.*?)([0-9]+)$/);
+    const toMatch = toStr.match(/^(.*?)([0-9]+)$/);
 
     if (!fromMatch || !toMatch || fromMatch[1] !== toMatch[1]) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid range format. Prefix must match and suffix must be numeric.',
+        message: 'Invalid range format. Common prefix must match and end with numeric digits.',
       });
     }
 
@@ -241,6 +570,9 @@ exports.addRangeCandidates = async (req, res) => {
           examSession: sessionId,
           registerNo: regNo,
           name: defaultNamePrefix ? `${defaultNamePrefix} ${regNo}` : `Candidate ${regNo}`,
+          programme: programme || 'B.Tech',
+          department: department || '',
+          departmentCode: (departmentCode || '').toUpperCase(),
           subjectCode: subjectCode.trim().toUpperCase(),
           subjectName: subjectName?.trim() || '',
         });
@@ -293,7 +625,7 @@ exports.addManualCandidates = async (req, res) => {
     const validRows = [];
     const duplicates = [];
 
-    candidates.forEach((cand, idx) => {
+    candidates.forEach((cand) => {
       const regNo = (cand.registerNo || '').trim();
       const name = (cand.name || '').trim();
       const subjectCode = (cand.subjectCode || '').trim().toUpperCase();
@@ -307,6 +639,9 @@ exports.addManualCandidates = async (req, res) => {
             examSession: sessionId,
             registerNo: regNo,
             name: name || `Candidate ${regNo}`,
+            programme: cand.programme || 'B.Tech',
+            department: cand.department || '',
+            departmentCode: (cand.departmentCode || '').toUpperCase(),
             subjectCode,
             subjectName,
           });
@@ -342,7 +677,7 @@ exports.updateCandidate = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { id } = req.params;
-    const { registerNo, name, subjectCode, subjectName } = req.body;
+    const { registerNo, name, subjectCode, subjectName, programme, department, departmentCode } = req.body;
 
     const candidate = await ExamCandidate.findById(id);
     if (!candidate) {
@@ -365,6 +700,9 @@ exports.updateCandidate = async (req, res) => {
     }
 
     if (name?.trim()) candidate.name = name.trim();
+    if (programme !== undefined) candidate.programme = programme.trim();
+    if (department !== undefined) candidate.department = department.trim();
+    if (departmentCode !== undefined) candidate.departmentCode = departmentCode.trim().toUpperCase();
     if (subjectCode?.trim()) candidate.subjectCode = subjectCode.trim().toUpperCase();
     if (subjectName !== undefined) candidate.subjectName = subjectName.trim();
 
@@ -376,6 +714,9 @@ exports.updateCandidate = async (req, res) => {
       {
         registerNo: candidate.registerNo,
         name: candidate.name,
+        programme: candidate.programme,
+        department: candidate.department,
+        departmentCode: candidate.departmentCode,
         subjectCode: candidate.subjectCode,
         subjectName: candidate.subjectName,
       }
@@ -403,7 +744,6 @@ exports.deleteCandidate = async (req, res) => {
     // Check if seating exists for this candidate
     const existingSeating = await ExamSeating.findOne({ candidate: id });
     if (existingSeating) {
-      // Remove this seat so it becomes empty, or user can regenerate
       await ExamSeating.deleteOne({ candidate: id });
     }
 
@@ -514,7 +854,6 @@ exports.deleteHall = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { id } = req.params;
-    // Check if seating is currently allocated in this hall
     const seatingCount = await ExamSeating.countDocuments({ hall: id });
     if (seatingCount > 0) {
       return res.status(400).json({
@@ -572,7 +911,7 @@ exports.generateAllocation = async (req, res) => {
     if (candidates.length > totalCapacity) {
       return res.status(400).json({
         success: false,
-        message: `Not enough hall capacity. Total Candidates: ${candidates.length}, Total Capacity: ${totalCapacity}. Please select another hall.`,
+        message: `Selected halls do not have sufficient seating capacity. Total Candidates: ${candidates.length}, Selected Capacity: ${totalCapacity}.`,
         candidatesCount: candidates.length,
         totalCapacity,
       });
@@ -595,6 +934,9 @@ exports.generateAllocation = async (req, res) => {
           candidate: seat.candidate,
           registerNo: seat.registerNo,
           name: seat.name,
+          programme: seat.programme || 'B.Tech',
+          department: seat.department || '',
+          departmentCode: seat.departmentCode || '',
           subjectCode: seat.subjectCode,
           subjectName: seat.subjectName,
         });
@@ -624,7 +966,6 @@ exports.generateAllocation = async (req, res) => {
 };
 
 exports.regenerateAllocation = async (req, res) => {
-  // Same logic as generateAllocation, overwriting existing records
   return exports.generateAllocation(req, res);
 };
 
@@ -655,7 +996,7 @@ exports.getSeatingArrangement = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { sessionId } = req.params;
-    const session = await ExamSession.findById(sessionId).lean();
+    const session = await ExamSession.findById(sessionId).populate('examMaster').lean();
     if (!session) {
       return res.status(404).json({ success: false, message: 'Exam session not found' });
     }
@@ -676,40 +1017,24 @@ exports.getSeatingArrangement = async (req, res) => {
           hall: seat.hall,
           layout: layoutDef,
           seats: {},
+          seatsList: [],
           occupiedCount: 0,
-          subjectSummary: {},
         });
       }
 
       const hallData = hallsMap.get(hallId);
       hallData.seats[seat.seatNo] = seat;
+      hallData.seatsList.push(seat);
       hallData.occupiedCount++;
-
-      // Subject summary
-      const sub = seat.subjectCode;
-      if (!hallData.subjectSummary[sub]) {
-        hallData.subjectSummary[sub] = {
-          subjectCode: sub,
-          subjectName: seat.subjectName,
-          registerNumbers: [],
-          count: 0,
-        };
-      }
-      hallData.subjectSummary[sub].registerNumbers.push(seat.registerNo);
-      hallData.subjectSummary[sub].count++;
     });
 
+    const resolvedExamName = session.examMaster?.examName || session.examName;
+    const resolvedCentreCode = session.examMaster?.centreCode || session.centreCode || '9460';
+    const resolvedCentreName = session.examMaster?.centreName || session.centreName || 'Nagercoil Islam College of Engineering and Technology';
+
     const hallsResult = Array.from(hallsMap.values()).map((h) => {
-      // Format register numbers ranges or list
-      const summaryList = Object.values(h.subjectSummary).map((s) => {
-        s.registerNumbers.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-        return {
-          subjectCode: s.subjectCode,
-          subjectName: s.subjectName,
-          count: s.count,
-          registerRange: formatRegisterRange(s.registerNumbers),
-        };
-      });
+      // Compute dynamic Anna University Degree & Branch summary (with Common Sub logic)
+      const summaryList = AllocationService.computeDegreeBranchSummary(h.seatsList);
 
       return {
         hallId: h.hall._id,
@@ -724,7 +1049,12 @@ exports.getSeatingArrangement = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      session,
+      session: {
+        ...session,
+        examName: resolvedExamName,
+        centreCode: resolvedCentreCode,
+        centreName: resolvedCentreName,
+      },
       totalAllocated: seatings.length,
       halls: hallsResult,
     });

@@ -5,6 +5,7 @@ const Announcement = require('../../models/Announcement');
 const User = require('../../models/User');
 const Staff = require('../../models/Staff');
 const Student = require('../../models/Student');
+const { notifyAnnouncement } = require('../../services/notificationService');
 
 // Helper to resolve user details, role, and department code
 async function getUserDetails(req) {
@@ -194,6 +195,13 @@ router.post('/', async (req, res) => {
 
     await newAnnouncement.save();
 
+    // Trigger universal / department notification
+    try {
+      await notifyAnnouncement(newAnnouncement, false);
+    } catch (notifErr) {
+      console.error('Error dispatching notification for new announcement:', notifErr);
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Announcement created successfully',
@@ -252,6 +260,13 @@ router.put('/:id', async (req, res) => {
     }
 
     await announcement.save();
+
+    // Trigger universal / department notification for update
+    try {
+      await notifyAnnouncement(announcement, true);
+    } catch (notifErr) {
+      console.error('Error dispatching notification for updated announcement:', notifErr);
+    }
 
     return res.status(200).json({
       success: true,

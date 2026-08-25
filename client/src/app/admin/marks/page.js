@@ -81,6 +81,41 @@ export default function StaffMarksViewPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingMarks, setDeletingMarks] = useState(false);
 
+  // Notify Modal State
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [notifying, setNotifying] = useState(false);
+
+  const handleNotifyMarks = async () => {
+    try {
+      setNotifying(true);
+      setError("");
+      setSuccess("");
+
+      const activeSubject = subjects.find((s) => String(s._id) === String(subjectId));
+      const examNameStr =
+        marksData.exams && marksData.exams.length > 0
+          ? `Internal Assessment ${marksData.exams.join(" & ")}`
+          : "Internal Assessment";
+
+      const res = await api.post("/api/notifications/notify-marks", {
+        department,
+        year,
+        semester,
+        subjectCode: activeSubject?.subjectCode || "",
+        subjectName: activeSubject?.subjectName || "",
+        examName: examNameStr,
+      });
+
+      setSuccess(res.data?.message || "Notifications sent to students and faculty successfully!");
+      setShowNotifyModal(false);
+    } catch (err) {
+      if (handleUnauthorized(err)) return;
+      setError(err.response?.data?.message || err.message || "Failed to broadcast notifications.");
+    } finally {
+      setNotifying(false);
+    }
+  };
+
   const yearOptions = [1, 2, 3, 4];
   const semesterOptions = [1, 2, 3, 4, 5, 6, 7, 8];
   const academicYearOptions = currentAcademicYears();
@@ -1121,13 +1156,114 @@ export default function StaffMarksViewPage() {
     );
   }
 
+  function renderNotifyModal() {
+    if (!showNotifyModal) return null;
+    const targetDept = department || "All Departments";
+    const targetYear = year ? `Year ${year}` : "All Years";
+    const targetSem = semester ? `Semester ${semester}` : "All Semesters";
+
+    return (
+      <div
+        className={styles.modalOverlay}
+        onClick={() => !notifying && setShowNotifyModal(false)}
+      >
+        <div
+          className={styles.modal}
+          style={{ maxWidth: "520px" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className={styles.modalHeader}>
+            <h2 style={{ fontSize: "19px", color: "#0b1d3a", margin: 0 }}>
+              📢 Broadcast Internal Marks Published
+            </h2>
+            <button
+              className={styles.modalClose}
+              onClick={() => !notifying && setShowNotifyModal(false)}
+            >
+              ×
+            </button>
+          </div>
+
+          <div className={styles.modalBody} style={{ fontSize: "14px", lineHeight: "1.6", color: "#334155" }}>
+            <p style={{ margin: "0 0 14px 0" }}>
+              Send instant Web Push notifications and in-app alerts to students and staff announcing that internal marks are published:
+            </p>
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "14px", marginBottom: "16px" }}>
+              <div style={{ marginBottom: "6px" }}>
+                <strong>Department Scope:</strong> <span style={{ color: "#2563eb", fontWeight: 700 }}>{targetDept}</span>
+              </div>
+              <div style={{ marginBottom: "6px" }}>
+                <strong>Class Scope:</strong> {targetYear} {semester ? `| ${targetSem}` : ""}
+              </div>
+              <div>
+                <strong>Broadcast Message:</strong>
+                <div style={{ fontStyle: "italic", color: "#475569", marginTop: "4px", background: "#ffffff", padding: "8px 12px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+                  &ldquo;📢 Internal marks {department ? `for ${department} ` : ''}have been officially published. Check your marks portal now to view your assessment scores.&rdquo;
+                </div>
+              </div>
+            </div>
+
+            <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#1e40af" }}>
+              💡 All enrolled students and faculty will receive a push notification banner on their devices and an unread badge on their dashboard.
+            </div>
+          </div>
+
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() => setShowNotifyModal(false)}
+              disabled={notifying}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              style={{ background: "#2563eb", borderColor: "#1d4ed8" }}
+              onClick={handleNotifyMarks}
+              disabled={notifying}
+            >
+              {notifying ? "Broadcasting..." : "Confirm & Send Notifications"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.dashboard}>
-      <div className={styles.titleRow}>
-        <h1 className={styles.title}>Internal Mark View</h1>
-        <p className={styles.subtitle}>
-          View, edit, add students, and download complete internal mark reports.
-        </p>
+      <div className={styles.titleRow} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "20px" }}>
+        <div>
+          <h1 className={styles.title}>Internal Mark Management</h1>
+          <p className={styles.subtitle}>
+            View, edit, add missing students, and broadcast mark publication notifications.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className={styles.btnPrimary}
+          style={{
+            background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+            color: "#ffffff",
+            border: "none",
+            padding: "11px 18px",
+            borderRadius: "10px",
+            fontWeight: 700,
+            fontSize: "14px",
+            cursor: "pointer",
+            boxShadow: "0 4px 14px rgba(37, 99, 235, 0.25)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+          onClick={() => setShowNotifyModal(true)}
+        >
+          📢 Notify Internal Marks Published
+        </button>
       </div>
 
       {error && (
@@ -1248,6 +1384,7 @@ export default function StaffMarksViewPage() {
       {renderEditModal()}
       {renderAddStudentsModal()}
       {renderDeleteModal()}
+      {renderNotifyModal()}
     </div>
   );
 }

@@ -127,6 +127,9 @@ class AllocationService {
           candidate: candidate._id,
           registerNo: candidate.registerNo,
           name: candidate.name,
+          programme: candidate.programme || 'B.Tech',
+          department: candidate.department || '',
+          departmentCode: candidate.departmentCode || '',
           subjectCode: candidate.subjectCode,
           subjectName: candidate.subjectName || '',
         });
@@ -140,6 +143,110 @@ class AllocationService {
     }
 
     return hallAllocations;
+  }
+
+  /**
+   * Formats sorted register numbers into range strings (e.g. "946023AIDS001 - 946023AIDS025")
+   */
+  static formatRegisterNumberRanges(regNos = []) {
+    if (!regNos || regNos.length === 0) return '';
+    if (regNos.length === 1) return regNos[0];
+
+    const ranges = [];
+    let rangeStart = regNos[0];
+    let prevReg = regNos[0];
+
+    const parseReg = (r) => {
+      const match = String(r).match(/^(.*?)([0-9]+)$/);
+      if (!match) return { prefix: String(r), num: null };
+      return {
+        prefix: match[1],
+        num: parseInt(match[2], 10),
+      };
+    };
+
+    for (let i = 1; i < regNos.length; i++) {
+      const curr = regNos[i];
+      const prevParsed = parseReg(prevReg);
+      const currParsed = parseReg(curr);
+
+      if (
+        prevParsed.num !== null &&
+        currParsed.num !== null &&
+        prevParsed.prefix === currParsed.prefix &&
+        currParsed.num === prevParsed.num + 1
+      ) {
+        prevReg = curr;
+      } else {
+        if (rangeStart === prevReg) {
+          ranges.push(rangeStart);
+        } else {
+          ranges.push(`${rangeStart} - ${prevReg}`);
+        }
+        rangeStart = curr;
+        prevReg = curr;
+      }
+    }
+
+    if (rangeStart === prevReg) {
+      ranges.push(rangeStart);
+    } else {
+      ranges.push(`${rangeStart} - ${prevReg}`);
+    }
+
+    return ranges.join(', ');
+  }
+
+  /**
+   * Computes the official Degree & Branch summary for a hall's seating according to Anna University rules.
+   * If students for a subject come from >1 branch -> "Common Sub", else specific "Degree & Branch"
+   */
+  static computeDegreeBranchSummary(seats = []) {
+    const subMap = new Map();
+
+    seats.forEach((s) => {
+      const code = (s.subjectCode || '').trim().toUpperCase();
+      if (!subMap.has(code)) {
+        subMap.set(code, {
+          subjectCode: code,
+          subjectName: s.subjectName || '',
+          seats: [],
+        });
+      }
+      subMap.get(code).seats.push(s);
+    });
+
+    const summaryList = [];
+
+    for (const [code, group] of subMap.entries()) {
+      const sortedSeats = group.seats.sort((a, b) =>
+        a.registerNo.localeCompare(b.registerNo, undefined, { numeric: true })
+      );
+
+      // Determine unique Degree + Branch combinations
+      const branchSet = new Set();
+      sortedSeats.forEach((st) => {
+        const prog = (st.programme || '').trim() || 'B.Tech';
+        const dept = (st.department || st.departmentCode || '').trim();
+        const branchStr = dept ? `${prog} ${dept}` : prog;
+        branchSet.add(branchStr);
+      });
+
+      const degreeBranch = branchSet.size > 1 ? 'Common Sub' : Array.from(branchSet)[0] || 'Common Sub';
+      const registerNumbers = AllocationService.formatRegisterNumberRanges(
+        sortedSeats.map((st) => st.registerNo)
+      );
+
+      summaryList.push({
+        subjectCode: code,
+        subjectName: group.subjectName,
+        degreeBranch,
+        registerNumbers,
+        count: sortedSeats.length,
+      });
+    }
+
+    return summaryList;
   }
 }
 

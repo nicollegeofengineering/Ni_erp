@@ -2,10 +2,30 @@ const mongoose = require('mongoose');
 
 const ExamSessionSchema = new mongoose.Schema(
   {
+    examMaster: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ExamMaster',
+      default: null,
+    },
+    examCode: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     examName: {
       type: String,
       required: true,
       trim: true,
+    },
+    centreCode: {
+      type: String,
+      trim: true,
+      default: '9460',
+    },
+    centreName: {
+      type: String,
+      trim: true,
+      default: 'Nagercoil Islam College of Engineering and Technology',
     },
     examDate: {
       type: Date,

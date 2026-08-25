@@ -48,6 +48,11 @@ const NAV_ITEMS = [
   
   
   {
+    href: "/staff/exam-timetable",
+    label: "Exam Timetable",
+    icon: CalendarRange,
+  },
+  {
     href: "/staff/subjects",
     label: "Subjects",
     icon: BookOpen,

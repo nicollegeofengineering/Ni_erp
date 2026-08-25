@@ -393,21 +393,50 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
     await transporter.sendMail({
-      from: `"NIC ERP" <${process.env.EMAIL_USER}>`,
+      from: `"NICETech ERP" <${process.env.EMAIL_USER}>`,
       to: user.email,
-      subject: 'Reset your NIC ERP password',
+      subject: 'Reset Your NICETech ERP Password',
       html: `
-        <div style="font-family: Arial, sans-serif;">
-          <h2>Password Reset</h2>
-          <p>Hello ${user.name},</p>
-          <p>We received a request to reset your NIC ERP password.</p>
-          <p>Click the button below to create a new password.</p>
-          <a href="${resetLink}" style="display:inline-block;padding:12px 20px;background:#2563eb;color:white;text-decoration:none;border-radius:6px;">
-            Reset Password
-          </a>
-          <p>This link will expire in 15 minutes.</p>
-          <p>If you did not request this, you can safely ignore this email.</p>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#1e293b;background-color:#f8fafc;margin:0;padding:24px 12px;">
+          <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,0.04);overflow:hidden;">
+            <div style="padding:24px 28px 20px;background:#ffffff;border-bottom:1px solid #f1f5f9;">
+              <div style="font-size:20px;font-weight:800;color:#1d4ed8;letter-spacing:-0.3px;">NICETech ERP</div>
+              <div style="font-size:13px;font-weight:600;color:#64748b;margin-top:3px;">Noorul Islam College of Engineering and Technology</div>
+              <div style="display:inline-block;background:#eff6ff;color:#2563eb;font-size:11px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:6px;margin-top:8px;">Security &amp; Authentication</div>
+            </div>
+            <div style="padding:28px;">
+              <h2 style="font-size:18px;font-weight:700;color:#0f172a;margin:0 0 14px 0;">Reset Your Password</h2>
+              <p style="font-size:14px;color:#334155;margin:0 0 14px 0;">Hello <strong>${user.name}</strong>,</p>
+              <p style="font-size:14px;color:#334155;margin:0 0 14px 0;">We received a request to reset your password for your <strong>NICETech ERP</strong> account. Click the button below to choose a new password:</p>
+              
+              <div style="text-align:center;margin:26px 0;">
+                <a href="${resetLink}" style="display:inline-block;padding:12px 28px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;">
+                  Reset Password
+                </a>
+              </div>
+
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px;margin:18px 0;font-size:13px;color:#64748b;">
+                ⏱️ This password reset link will expire in <strong>15 minutes</strong> for security reasons.<br>
+                If you did not request a password reset, you can safely ignore this email.
+              </div>
+
+              <p style="font-size:12px;color:#94a3b8;word-break:break-all;margin-top:16px;">
+                Link: <a href="${resetLink}" style="color:#2563eb;">${resetLink}</a>
+              </p>
+            </div>
+            <div style="background:#f8fafc;padding:18px 28px;text-align:center;font-size:12px;color:#64748b;border-top:1px solid #e2e8f0;">
+              <p style="margin:0;font-weight:700;color:#334155;">NICETech ERP • Noorul Islam College of Engineering and Technology</p>
+              <p style="margin:4px 0 0 0;font-size:11px;color:#94a3b8;">This is an automated security notification. Please do not reply directly to this email.</p>
+            </div>
+          </div>
+        </body>
+        </html>
       `,
     });
 

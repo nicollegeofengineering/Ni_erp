@@ -6,6 +6,7 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import NotificationBell from "./NotificationBell";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
@@ -124,7 +125,9 @@ export default function AdminTop() {
           className={style.logoImage}
         />
       </div>
-      <div className={style.right_con}>
+      <div className={style.right_con} style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+        <NotificationBell />
+
         <Link
           href={getProfilePath()}
           style={{

@@ -5,11 +5,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import {
   ClipboardList,
-  GraduationCap,
-  Award,
   BookOpen,
-  CheckCircle2,
-  AlertCircle,
   RotateCw,
   ArrowLeft,
 } from "lucide-react";
@@ -18,6 +14,12 @@ import styles from "../css/student.module.css";
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 const api = axios.create({ baseURL: BASE_URL, withCredentials: true });
 
+function getSubjectCategoryLabel(cat) {
+  if (cat === "L") return "Practical (L)";
+  if (cat === "T/L" || cat === "TL") return "Theory + Practical (T/L)";
+  return "Theory (T)";
+}
+
 export default function StudentMarksPage() {
   const router = useRouter();
 
@@ -25,11 +27,7 @@ export default function StudentMarksPage() {
   const [selectedSemester, setSelectedSemester] = useState(null);
   const [currentSemester, setCurrentSemester] = useState(null);
   const [marks, setMarks] = useState([]);
-  const [summary, setSummary] = useState({
-    totalSubjects: 0,
-    passedCount: 0,
-    averageTotal: 0,
-  });
+  const [totalSubjects, setTotalSubjects] = useState(0);
 
   const fetchMarks = async (sem) => {
     setLoading(true);
@@ -39,39 +37,14 @@ export default function StudentMarksPage() {
       });
       if (res.data.success) {
         const data = res.data.data;
-        setMarks(data.marks || []);
+        const marksList = data.marks || [];
+        setMarks(marksList);
+        setTotalSubjects(marksList.length);
         const curSem = data.currentSemester || data.semester || 1;
         setCurrentSemester(curSem);
         if (!selectedSemester) {
           setSelectedSemester(data.semester || curSem);
         }
-
-        // Calculate statistics
-        let passed = 0;
-        let totalScoreSum = 0;
-        let evaluatedCount = 0;
-
-        (data.marks || []).forEach((m) => {
-          const score1 = m.iat1?.theory?.total ?? m.iat1?.practical?.mark ?? null;
-          const score2 = m.iat2?.theory?.total ?? m.iat2?.practical?.mark ?? null;
-
-          const scores = [score1, score2].filter((s) => s !== null);
-          if (scores.length > 0) {
-            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-            totalScoreSum += avg;
-            evaluatedCount++;
-            if (avg >= 50) passed++;
-          }
-        });
-
-        setSummary({
-          totalSubjects: data.marks?.length || 0,
-          passedCount: passed,
-          averageTotal:
-            evaluatedCount > 0
-              ? parseFloat((totalScoreSum / evaluatedCount).toFixed(1))
-              : 0,
-        });
       }
     } catch (err) {
       if (err.response?.data?.islogout === true || err.response?.status === 401) {
@@ -173,35 +146,7 @@ export default function StudentMarksPage() {
             </div>
             <h3>Enrolled Subjects</h3>
           </div>
-          <p>{summary.totalSubjects}</p>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statCardTop}>
-            <div className={styles.statIcon}>
-              <CheckCircle2 size={18} />
-            </div>
-            <h3>Clear / Pass Subjects</h3>
-          </div>
-          <p>{summary.passedCount}</p>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statCardTop}>
-            <div className={styles.statIcon}>
-              <Award size={18} />
-            </div>
-            <h3>Average Score</h3>
-          </div>
-          <p>{summary.averageTotal}%</p>
-          <div className={styles.progressTrack}>
-            <div
-              className={`${styles.progressFill} ${
-                summary.averageTotal < 50 ? styles.progressFillDanger : ""
-              }`}
-              style={{ width: `${Math.min(100, summary.averageTotal)}%` }}
-            />
-          </div>
+          <p>{totalSubjects}</p>
         </div>
       </div>
 
@@ -226,42 +171,51 @@ export default function StudentMarksPage() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Subject Details</th>
-                  <th>Cat</th>
-                  <th>Credits</th>
-                  <th>IAT 1 (Assgn)</th>
-                  <th>IAT 1 (Exam)</th>
-                  <th>IAT 1 (Total)</th>
-                  <th>IAT 2 (Assgn)</th>
-                  <th>IAT 2 (Exam)</th>
-                  <th>IAT 2 (Total)</th>
-                  <th>Avg Total</th>
-                  <th>Status</th>
+                  <th rowSpan="2" style={{ verticalAlign: "middle" }}>Subject Details</th>
+                  <th rowSpan="2" style={{ verticalAlign: "middle" }}>Category</th>
+                  <th rowSpan="2" style={{ verticalAlign: "middle" }}>Credits</th>
+                  <th colSpan="4" style={{ textAlign: "center", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                    Internal Exam 1 (IAT 1)
+                  </th>
+                  <th colSpan="4" style={{ textAlign: "center", background: "#f1f5f9", borderBottom: "1px solid #e2e8f0" }}>
+                    Internal Exam 2 (IAT 2)
+                  </th>
+                </tr>
+                <tr>
+                  <th>Assignment</th>
+                  <th>Written</th>
+                  <th style={{ fontWeight: 800 }}>Total</th>
+                  <th style={{ color: "#2563eb", fontWeight: 700 }}>Practical</th>
+
+                  <th>Assignment</th>
+                  <th>Written</th>
+                  <th style={{ fontWeight: 800 }}>Total</th>
+                  <th style={{ color: "#2563eb", fontWeight: 700 }}>Practical</th>
                 </tr>
               </thead>
               <tbody>
                 {marks.map((m) => {
-                  const iat1Assign = m.iat1?.theory?.assignment ?? "-";
-                  const iat1Exam = m.iat1?.theory?.writtenExam ?? "-";
-                  const iat1Total =
-                    m.iat1?.theory?.total ?? m.iat1?.practical?.mark ?? "-";
+                  const cat = (m.category || "T").toUpperCase();
+                  const isPracticalOnly = cat === "L";
+                  const isTheoryOnly = cat === "T";
 
-                  const iat2Assign = m.iat2?.theory?.assignment ?? "-";
-                  const iat2Exam = m.iat2?.theory?.writtenExam ?? "-";
-                  const iat2Total =
-                    m.iat2?.theory?.total ?? m.iat2?.practical?.mark ?? "-";
+                  // IAT 1
+                  const iat1Assign = isPracticalOnly ? "—" : (m.iat1?.theory?.assignment ?? "—");
+                  const iat1Exam = isPracticalOnly ? "—" : (m.iat1?.theory?.writtenExam ?? "—");
+                  const iat1TotalVal = isPracticalOnly
+                    ? "—"
+                    : m.iat1?.theory?.total ?? (m.iat1?.theory?.assignment != null && m.iat1?.theory?.writtenExam != null ? Number(m.iat1.theory.assignment) + Number(m.iat1.theory.writtenExam) : null);
+                  const iat1Total = iat1TotalVal !== null && iat1TotalVal !== undefined ? iat1TotalVal : "—";
+                  const iat1Practical = isTheoryOnly ? "—" : (m.iat1?.practical?.mark ?? "—");
 
-                  const num1 = typeof iat1Total === "number" ? iat1Total : null;
-                  const num2 = typeof iat2Total === "number" ? iat2Total : null;
-                  const validNums = [num1, num2].filter((n) => n !== null);
-
-                  const avgScore =
-                    validNums.length > 0
-                      ? (validNums.reduce((a, b) => a + b, 0) / validNums.length).toFixed(1)
-                      : "-";
-
-                  const isPassed =
-                    avgScore !== "-" ? parseFloat(avgScore) >= 50 : null;
+                  // IAT 2
+                  const iat2Assign = isPracticalOnly ? "—" : (m.iat2?.theory?.assignment ?? "—");
+                  const iat2Exam = isPracticalOnly ? "—" : (m.iat2?.theory?.writtenExam ?? "—");
+                  const iat2TotalVal = isPracticalOnly
+                    ? "—"
+                    : m.iat2?.theory?.total ?? (m.iat2?.theory?.assignment != null && m.iat2?.theory?.writtenExam != null ? Number(m.iat2.theory.assignment) + Number(m.iat2.theory.writtenExam) : null);
+                  const iat2Total = iat2TotalVal !== null && iat2TotalVal !== undefined ? iat2TotalVal : "—";
+                  const iat2Practical = isTheoryOnly ? "—" : (m.iat2?.practical?.mark ?? "—");
 
                   return (
                     <tr key={m.subjectId}>
@@ -269,33 +223,37 @@ export default function StudentMarksPage() {
                         <div className={styles.subCode}>{m.subjectCode}</div>
                         <div className={styles.subName}>{m.subjectName}</div>
                       </td>
-                      <td>{m.category}</td>
-                      <td>{m.credits}</td>
+                      <td>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            background: cat === "T" ? "#eff6ff" : cat === "L" ? "#f0fdf4" : "#fef3c7",
+                            color: cat === "T" ? "#1d4ed8" : cat === "L" ? "#15803d" : "#b45309",
+                          }}
+                        >
+                          {getSubjectCategoryLabel(cat)}
+                        </span>
+                      </td>
+                      <td>{m.credits || 3}</td>
+
+                      {/* IAT 1: Assignment, Written, Total, Practical */}
                       <td>{iat1Assign}</td>
                       <td>{iat1Exam}</td>
-                      <td style={{ fontWeight: 700 }}>{iat1Total}</td>
+                      <td style={{ fontWeight: 800, color: "#0f172a" }}>{iat1Total}</td>
+                      <td style={{ color: isTheoryOnly ? "#94a3b8" : "#2563eb", fontWeight: isTheoryOnly ? 400 : 700 }}>
+                        {iat1Practical}
+                      </td>
+
+                      {/* IAT 2: Assignment, Written, Total, Practical */}
                       <td>{iat2Assign}</td>
                       <td>{iat2Exam}</td>
-                      <td style={{ fontWeight: 700 }}>{iat2Total}</td>
-                      <td style={{ fontWeight: 700, color: "#1e3a8a" }}>
-                        {avgScore !== "-" ? `${avgScore}` : "-"}
-                      </td>
-                      <td>
-                        {isPassed === true && (
-                          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-                            PASS
-                          </span>
-                        )}
-                        {isPassed === false && (
-                          <span className={`${styles.badge} ${styles.badgeDanger}`}>
-                            FAIL
-                          </span>
-                        )}
-                        {isPassed === null && (
-                          <span className={`${styles.badge} ${styles.badgeInfo}`}>
-                            PENDING
-                          </span>
-                        )}
+                      <td style={{ fontWeight: 800, color: "#0f172a" }}>{iat2Total}</td>
+                      <td style={{ color: isTheoryOnly ? "#94a3b8" : "#2563eb", fontWeight: isTheoryOnly ? 400 : 700 }}>
+                        {iat2Practical}
                       </td>
                     </tr>
                   );

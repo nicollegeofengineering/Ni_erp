@@ -10,6 +10,7 @@ import {
   BookOpen,
   CalendarRange,
   Megaphone,
+  MessageSquareCheck,
   User,
 } from "lucide-react";
 
@@ -42,9 +43,19 @@ const NAV_ITEMS = [
     icon: CalendarRange,
   },
   {
+    href: "/student/exam-timetable",
+    label: "Exam Timetable",
+    icon: CalendarCheck,
+  },
+  {
     href: "/student/announcements",
     label: "Announcements",
     icon: Megaphone,
+  },
+  {
+    href: "/student/feedback",
+    label: "Course Feedback",
+    icon: MessageSquareCheck,
   },
   {
     href: "/student/profile",

@@ -1099,6 +1099,7 @@ router.post('/promote-all', async (req, res) => {
         student_id: 1,
         year: 1,
         semester: 1,
+        academic_year: 1,
       })
       .lean();
 
@@ -1108,6 +1109,17 @@ router.post('/promote-all', async (req, res) => {
         message: 'No active students found for promotion.',
       });
     }
+
+    const incrementAcademicYear = (acadYear) => {
+      if (!acadYear) return acadYear;
+      const match = String(acadYear).trim().match(/^(\d{4})-(\d{4})$/);
+      if (match) {
+        const y1 = parseInt(match[1], 10) + 1;
+        const y2 = parseInt(match[2], 10) + 1;
+        return `${y1}-${y2}`;
+      }
+      return acadYear;
+    };
 
     const bulkOperations = [];
 
@@ -1127,6 +1139,7 @@ router.post('/promote-all', async (req, res) => {
       let newSemester = semester;
       let newYear = year;
       let newStatus = 'Active';
+      let newAcademicYear = student.academic_year;
 
       switch (semester) {
         // ----------------------------------------
@@ -1134,7 +1147,6 @@ router.post('/promote-all', async (req, res) => {
         // ----------------------------------------
         case 1:
           newSemester = 2;
-
           semester1To2++;
           break;
 
@@ -1145,7 +1157,7 @@ router.post('/promote-all', async (req, res) => {
         case 2:
           newSemester = 3;
           newYear = 2;
-
+          newAcademicYear = incrementAcademicYear(student.academic_year);
           semester2To3++;
           break;
 
@@ -1154,7 +1166,6 @@ router.post('/promote-all', async (req, res) => {
         // ----------------------------------------
         case 3:
           newSemester = 4;
-
           semester3To4++;
           break;
 
@@ -1165,7 +1176,7 @@ router.post('/promote-all', async (req, res) => {
         case 4:
           newSemester = 5;
           newYear = 3;
-
+          newAcademicYear = incrementAcademicYear(student.academic_year);
           semester4To5++;
           break;
 
@@ -1174,7 +1185,6 @@ router.post('/promote-all', async (req, res) => {
         // ----------------------------------------
         case 5:
           newSemester = 6;
-
           semester5To6++;
           break;
 
@@ -1185,7 +1195,7 @@ router.post('/promote-all', async (req, res) => {
         case 6:
           newSemester = 7;
           newYear = 4;
-
+          newAcademicYear = incrementAcademicYear(student.academic_year);
           semester6To7++;
           break;
 
@@ -1194,7 +1204,6 @@ router.post('/promote-all', async (req, res) => {
         // ----------------------------------------
         case 7:
           newSemester = 8;
-
           semester7To8++;
           break;
 
@@ -1205,12 +1214,20 @@ router.post('/promote-all', async (req, res) => {
           newSemester = 8;
           newYear = 4;
           newStatus = 'Graduated';
-
           semester8Graduated++;
           break;
 
         default:
           continue;
+      }
+
+      const updateFields = {
+        year: newYear,
+        semester: newSemester,
+        student_status: newStatus,
+      };
+      if (newAcademicYear && newAcademicYear !== student.academic_year) {
+        updateFields.academic_year = newAcademicYear;
       }
 
       bulkOperations.push({
@@ -1219,11 +1236,7 @@ router.post('/promote-all', async (req, res) => {
             student_id: student.student_id,
           },
           update: {
-            $set: {
-              year: newYear,
-              semester: newSemester,
-              student_status: newStatus,
-            },
+            $set: updateFields,
           },
         },
       });

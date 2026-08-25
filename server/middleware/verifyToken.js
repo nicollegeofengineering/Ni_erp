@@ -61,7 +61,11 @@ async function tryRefreshSession(req, res) {
 }
 
 const verifyToken = async (req, res, next) => {
-  const token = req.cookies?.[ACCESS_COOKIE];
+  const token =
+    req.cookies?.[ACCESS_COOKIE] ||
+    (req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.split(' ')[1]
+      : null);
 
   if (token) {
     try {
