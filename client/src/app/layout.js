@@ -26,8 +26,10 @@ export const viewport = {
 export const metadata = {
   title: "NICETECH ERP — Institutional Management System",
   description: "Noorul Islam College of Engineering and Technology ERP System",
+  manifest: "/manifest.json",
   icons: {
     icon: "/niicon.jpeg",
+    apple: "/niicon.jpeg",
   },
 };
 

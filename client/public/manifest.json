@@ -1,0 +1,23 @@
+{
+  "name": "NICETech ERP — Institutional Management System",
+  "short_name": "NICETech ERP",
+  "description": "Noorul Islam College of Engineering and Technology ERP System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    {
+      "src": "/niicon.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/niicon.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

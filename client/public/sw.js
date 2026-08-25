@@ -15,8 +15,8 @@ self.addEventListener('push', (event) => {
   let data = {
     title: 'NICETECH ERP Notification',
     body: 'You have a new update in your ERP portal.',
-    icon: '/nilogo.png',
-    badge: '/nilogo.png',
+    icon: '/niicon.jpeg',
+    badge: '/niicon.jpeg',
     data: { url: '/student' },
   };
 
@@ -33,8 +33,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: data.icon || '/nilogo.png',
-    badge: data.badge || '/nilogo.png',
+    icon: data.icon || '/niicon.jpeg',
+    badge: data.badge || '/niicon.jpeg',
     vibrate: [200, 100, 200],
     data: data.data || { url: '/' },
     actions: [
