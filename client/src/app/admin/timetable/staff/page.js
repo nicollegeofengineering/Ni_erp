@@ -79,14 +79,14 @@ export default function StaffTimetablePage() {
   const fetchStaffTimetable = async (staffId = null, search = "") => {
     setLoading(true);
     try {
-      const params = { academicYear };
+      const params = { academicYear, semesterType };
       if (staffId) {
         params.staffId = staffId;
       } else if (search) {
         params.search = search;
       }
 
-      // ✅ Use /admin/timetable/staffview
+      // ✅ Use /admin/timetable/staffview with semesterType filter
       const res = await api.get("/admin/timetable/staffview", { params });
       setStaffTimetableData(res.data.data || []);
     } catch (err) {
@@ -104,7 +104,7 @@ export default function StaffTimetablePage() {
     } else {
       setStaffTimetableData([]);
     }
-  }, [academicYear, selectedStaff]);
+  }, [academicYear, selectedStaff, semesterType]);
 
   // ---------- FILTERED STAFF LIST FOR DROPDOWN ----------
   const filteredStaff = useMemo(() => {

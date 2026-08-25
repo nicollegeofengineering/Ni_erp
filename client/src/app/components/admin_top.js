@@ -125,69 +125,35 @@ export default function AdminTop() {
           className={style.logoImage}
         />
       </div>
-      <div className={style.right_con} style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+      <div className={style.right_con}>
         <NotificationBell />
 
         <Link
           href={getProfilePath()}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            textDecoration: "none",
-            color: "inherit",
-          }}
+          className={style.profileLink}
           title="View My Profile"
         >
-          <div
-            className={style.userImageWrapper}
-            style={{
-              width: "42px",
-              height: "42px",
-              borderRadius: "50%",
-              overflow: "hidden",
-              border: "2px solid #0381ff",
-              position: "relative",
-              flexShrink: 0,
-              background: "#f1f5f9",
-            }}
-          >
+          <div className={style.userImageWrapper}>
             <img
               src={profileImage}
               alt="User"
               className={style.userImage}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                borderRadius: "50%",
-              }}
               onError={(e) => {
                 e.target.src = "/user.png";
               }}
               id="hide-on-pdf"
             />
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div className={style.userInfo}>
             <span
               className={style.userName}
-              style={{
-                fontWeight: 700,
-                color: "#0b1d3a",
-                fontSize: "14px",
-                margin: 0,
-              }}
               id="hide-on-pdf"
             >
               {userName || "User"}
             </span>
             <span
-              style={{
-                fontSize: "11px",
-                color: "#64748b",
-                fontWeight: 600,
-                textTransform: "uppercase",
-              }}
+              className={style.userRole}
+              id="hide-on-pdf"
             >
               {userRole}
             </span>

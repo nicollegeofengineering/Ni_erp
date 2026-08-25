@@ -99,60 +99,39 @@ export default function StudentTop() {
           className={style.logoImage}
         />
       </div>
-      <div className={style.right_con} style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+      <div className={style.right_con}>
         <NotificationBell />
 
         <Link
           href="/student/profile"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            textDecoration: "none",
-            color: "inherit",
-          }}
+          className={style.profileLink}
           title="View My Profile"
         >
-          <div
-            className={style.userImageWrapper}
-            style={{
-              width: "42px",
-              height: "42px",
-              borderRadius: "50%",
-              overflow: "hidden",
-              border: "2px solid #0381ff",
-              position: "relative",
-              flexShrink: 0,
-              background: "#f1f5f9",
-            }}
-          >
+          <div className={style.userImageWrapper}>
             <img
               src={profileImage}
               alt="Student"
               className={style.userImage}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                borderRadius: "50%",
-              }}
               onError={(e) => {
                 e.target.src = "/user.png";
               }}
               id="hide-on-pdf"
             />
           </div>
-          <span
-            className={style.userName}
-            style={{
-              fontWeight: 700,
-              color: "#0b1d3a",
-              fontSize: "14px",
-            }}
-            id="hide-on-pdf"
-          >
-            {userName || "Student"}
-          </span>
+          <div className={style.userInfo}>
+            <span
+              className={style.userName}
+              id="hide-on-pdf"
+            >
+              {userName || "Student"}
+            </span>
+            <span
+              className={style.userRole}
+              id="hide-on-pdf"
+            >
+              Student
+            </span>
+          </div>
         </Link>
 
         <button

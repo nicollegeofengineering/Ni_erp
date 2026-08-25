@@ -71,14 +71,14 @@ export default function HallTimetablePage() {
   const fetchHallTimetable = async (hallId = null, search = "") => {
     setLoading(true);
     try {
-      const params = { academicYear };
+      const params = { academicYear, semesterType };
       if (hallId) {
         params.hallId = hallId;
       } else if (search) {
         params.search = search;
       }
 
-      // ✅ Use /admin/timetable/hallview
+      // ✅ Use /admin/timetable/hallview with semesterType filter
       const res = await api.get("/admin/timetable/hallview", { params });
       setHallTimetableData(res.data.data || []);
     } catch (err) {
@@ -96,7 +96,7 @@ export default function HallTimetablePage() {
     } else {
       setHallTimetableData([]);
     }
-  }, [academicYear, selectedHall]);
+  }, [academicYear, selectedHall, semesterType]);
 
   // ---------- FILTERED HALL LIST FOR DROPDOWN ----------
   const filteredHalls = useMemo(() => {

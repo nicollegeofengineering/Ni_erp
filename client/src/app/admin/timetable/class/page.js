@@ -78,11 +78,11 @@ export default function ViewTimetablePage() {
     setLoading(true);
     setError("");
     try {
-      const params = { academicYear, department: selectedDept };
+      const params = { academicYear, department: selectedDept, semesterType };
       if (selectedYear !== "All") {
         params.year = parseInt(selectedYear);
       }
-      // ✅ Using /admin/timetable/all
+      // ✅ Using /admin/timetable/all with semesterType filter
       const res = await api.get("/admin/timetable/all", { params });
       setTimetableData(res.data.data || []);
     } catch (err) {
@@ -91,7 +91,7 @@ export default function ViewTimetablePage() {
     } finally {
       setLoading(false);
     }
-  }, [academicYear, selectedDept, selectedYear]);
+  }, [academicYear, selectedDept, selectedYear, semesterType]);
 
   useEffect(() => {
     if (selectedDept) {

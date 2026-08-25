@@ -129,20 +129,42 @@ exports.deleteMaster = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { id } = req.params;
-    const linkedSessionsCount = await ExamSession.countDocuments({ examMaster: id });
-    if (linkedSessionsCount > 0) {
-      return res.status(400).json({
+    const force = req.query.force === 'true' || req.body?.force === true;
+
+    const linkedSessions = await ExamSession.find({ examMaster: id }).select('_id').lean();
+    const sessionIds = linkedSessions.map((s) => s._id);
+
+    if (sessionIds.length > 0 && !force) {
+      const candidateCount = await ExamCandidate.countDocuments({ examSession: { $in: sessionIds } });
+      const seatingCount = await ExamSeating.countDocuments({ examSession: { $in: sessionIds } });
+      return res.status(200).json({
         success: false,
-        message: `Cannot delete Exam Master because ${linkedSessionsCount} exam schedule(s) are linked to it.`,
+        requiresConfirmation: true,
+        sessionCount: sessionIds.length,
+        candidateCount,
+        seatingCount,
+        message: `This exam has ${sessionIds.length} schedule(s), ${candidateCount} registered student(s), and ${seatingCount} seating allocations. Deleting will erase all assigned halls and students. Do you want to delete all?`,
       });
+    }
+
+    // Cascade delete: Seating arrangements, registered candidates, and linked sessions
+    if (sessionIds.length > 0) {
+      await ExamSeating.deleteMany({ examSession: { $in: sessionIds } });
+      await ExamCandidate.deleteMany({ examSession: { $in: sessionIds } });
+      await ExamSession.deleteMany({ _id: { $in: sessionIds } });
     }
 
     const deleted = await ExamMaster.findByIdAndDelete(id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Exam Master configuration not found' });
     }
-    return res.status(200).json({ success: true, message: 'Exam Master configuration deleted successfully' });
+
+    return res.status(200).json({
+      success: true,
+      message: `Exam Master and all ${sessionIds.length} associated schedule(s), hall allocations, and registered candidates deleted successfully.`,
+    });
   } catch (err) {
+    console.error('Error deleting exam master:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

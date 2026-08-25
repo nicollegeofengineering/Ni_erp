@@ -98,7 +98,7 @@ router.get("/all", async (req, res) => {
     }
     await connectDB();
 
-    const { academicYear, department, year } = req.query;
+    const { academicYear, department, year, semesterType } = req.query;
 
     if (!academicYear) {
       return res.status(400).json({
@@ -110,6 +110,12 @@ router.get("/all", async (req, res) => {
     const filter = { academicYear };
     if (department) filter.department = department.toUpperCase();
     if (year) filter.year = parseInt(year);
+
+    // Filter by semester parity (ODD: 1, 3, 5, 7 vs EVEN: 2, 4, 6, 8)
+    if (semesterType) {
+      const parity = semesterType.toUpperCase() === "ODD" ? 1 : 0;
+      filter.$expr = { $eq: [{ $mod: ["$semester", 2] }, parity] };
+    }
 
     const data = await fetchTimetableWithPopulate(filter);
 

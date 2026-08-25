@@ -175,6 +175,7 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
     session: 'FN',
   });
   const [showDeleteSessionModal, setShowDeleteSessionModal] = useState(false);
+  const [deleteMasterConfirm, setDeleteMasterConfirm] = useState(null);
   const [showAllExamsModal, setShowAllExamsModal] = useState(false);
 
   const [editingCandidate, setEditingCandidate] = useState(null);
@@ -365,12 +366,25 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
     }
   };
 
-  const handleDeleteMaster = async (masterId) => {
+  const handleDeleteMaster = async (masterId, force = false) => {
     try {
-      const res = await api.delete(`/masters/${masterId}`);
-      if (res.data.success) {
-        showAlert('success', 'Exam Master deleted successfully.');
+      const url = force ? `/masters/${masterId}?force=true` : `/masters/${masterId}`;
+      const res = await api.delete(url);
+      if (res.data?.requiresConfirmation) {
+        setDeleteMasterConfirm({
+          masterId,
+          message: res.data.message,
+          sessionCount: res.data.sessionCount,
+          candidateCount: res.data.candidateCount,
+          seatingCount: res.data.seatingCount,
+        });
+        return;
+      }
+      if (res.data?.success) {
+        showAlert('success', res.data.message || 'Exam Master deleted successfully.');
+        setDeleteMasterConfirm(null);
         await fetchMasters();
+        await fetchSessions();
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Failed to delete Exam Master.');
@@ -2172,6 +2186,47 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
                 onClick={handleDeleteSession}
               >
                 Delete Exam
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Force Delete Exam Master with Cascade Warning Modal Popup */}
+      {deleteMasterConfirm && (
+        <div className={styles.modalOverlay} onClick={() => setDeleteMasterConfirm(null)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 style={{ color: '#dc2626' }}>Force Delete Exam &amp; All Linked Data</h3>
+              <button className={styles.modalClose} onClick={() => setDeleteMasterConfirm(null)}>
+                ×
+              </button>
+            </div>
+            <div style={{ color: '#334155', fontSize: '14px', lineHeight: '1.6', margin: '14px 0' }}>
+              <p style={{ margin: '0 0 10px 0' }}>{deleteMasterConfirm.message}</p>
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', color: '#991b1b', fontSize: '13px' }}>
+                <strong>⚠️ Warning:</strong> Deleting this exam will permanently remove:
+                <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px' }}>
+                  <li>{deleteMasterConfirm.sessionCount} Exam Schedule(s)</li>
+                  <li>{deleteMasterConfirm.candidateCount} Registered Student(s)</li>
+                  <li>{deleteMasterConfirm.seatingCount} Hall Seating Allocation(s)</li>
+                </ul>
+              </div>
+            </div>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnOutline}`}
+                onClick={() => setDeleteMasterConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnDanger}`}
+                onClick={() => handleDeleteMaster(deleteMasterConfirm.masterId, true)}
+              >
+                Delete All Data
               </button>
             </div>
           </div>
