@@ -23,13 +23,14 @@ export default function Students() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // ----- Default filters for faster loading (only admitted, active, year 4, AI&DS) -----
+  // ----- Default filters: dynamically set to HOD's department -----
   const [searchText, setSearchText] = useState('');
-  const [selDepartment, setSelDepartment] = useState('AI&DS');
+  const [selDepartment, setSelDepartment] = useState('');
+  const [hodDepartment, setHodDepartment] = useState('');
   const [selAdmissionType, setSelAdmissionType] = useState(''); // empty = all types
   const [selAdmissionStatus, setSelAdmissionStatus] = useState('Admitted');
   const [selStudentStatus, setSelStudentStatus] = useState('Active');
-  const [selYear, setSelYear] = useState('4');
+  const [selYear, setSelYear] = useState('');
 
   const [imgError, setImgError] = useState(new Set());
 
@@ -60,7 +61,32 @@ export default function Students() {
     return false;
   };
 
+  // Fetch HOD's department on mount
+  const fetchdep = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/verify-dep`,
+        { withCredentials: true }
+      );
+      if (response.data.dep) {
+        setSelDepartment(response.data.dep);
+        setHodDepartment(response.data.dep);
+      }
+    } catch (error) {
+      if (handleUnauthorized(error)) return;
+      console.error('Error fetching HOD department:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchdep();
+  }, []);
+
   const fetchStudents = async () => {
+    if (!selDepartment) return;
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -102,15 +128,15 @@ export default function Students() {
     setCurrentPage(1);
   }, [searchText, selDepartment, selAdmissionType, selAdmissionStatus, selStudentStatus, selYear]);
 
-  const hasActiveFilters = !!(searchText || selDepartment || selAdmissionType || selAdmissionStatus || selStudentStatus || selYear);
+  const hasActiveFilters = !!(searchText || (selDepartment && selDepartment !== hodDepartment) || selAdmissionType || selAdmissionStatus || selStudentStatus || selYear);
 
   const clearFilters = () => {
     setSearchText('');
-    setSelDepartment('AI&DS');
+    setSelDepartment(hodDepartment || '');
     setSelAdmissionType('');
     setSelAdmissionStatus('Admitted');
     setSelStudentStatus('Active');
-    setSelYear('4');
+    setSelYear('');
   };
 
   const handlePageChange = (newPage) => {

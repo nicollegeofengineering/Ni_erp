@@ -146,11 +146,10 @@ export default function StudentClassesPage() {
                   <div className={styles.classTop}>
                     <span className={styles.classCode}>{cls.subjectCode}</span>
                     <span
-                      className={`${styles.badge} ${
-                        cls.category === "Lab" || cls.category === "Practical"
+                      className={`${styles.badge} ${cls.category === "Lab" || cls.category === "Practical"
                           ? styles.badgeInfo
                           : styles.badgeSuccess
-                      }`}
+                        }`}
                     >
                       {cls.category}
                     </span>
@@ -186,12 +185,7 @@ export default function StudentClassesPage() {
                     </div>
                   )}
 
-                  {cls.weeklyPeriods > 0 && (
-                    <div className={styles.classDetailRow}>
-                      <Calendar size={15} color="#0381ff" />
-                      <span>Weekly Periods: {cls.weeklyPeriods} hrs/week</span>
-                    </div>
-                  )}
+
                 </div>
               </div>
             ))}

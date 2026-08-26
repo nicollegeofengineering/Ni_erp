@@ -36,14 +36,13 @@ async function getStaffAssignedSubjects(
     academicYear: String(academicYear || "").trim(),
   };
 
-  // If viewAll is true or user is Admin viewing, do not restrict timetable to staffId
-  // If HOD viewing their own department subjects, viewAll allows seeing all department subjects
-  if (!viewAll && normalizedRole !== "admin") {
+  // If viewAll is false (entry mode), restrict to subjects assigned to this staff member.
+  // If viewAll is true (view mode), Admin sees all, HOD sees department, Staff sees assigned.
+  if (!viewAll) {
     timetableFilter.staff = staffId;
-  } else if (normalizedRole === "hod" && !viewAll) {
+  } else if (normalizedRole === "hod" && normalizedDept !== normalizedStaffDept) {
     timetableFilter.staff = staffId;
-  } else if (normalizedRole === "hod" && viewAll && normalizedDept !== normalizedStaffDept) {
-    // HOD selecting another department in view mode only sees their own assigned subjects in that department
+  } else if (normalizedRole !== "admin" && normalizedRole !== "hod") {
     timetableFilter.staff = staffId;
   }
 

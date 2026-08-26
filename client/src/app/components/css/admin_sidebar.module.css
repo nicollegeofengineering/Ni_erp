@@ -249,8 +249,10 @@
    MENU BUTTON (with visible bars)
 ========================= */
 .menuBtn {
-  position: fixed;
-  top: 108px;
+  --navy: #142447;
+  --gold: #0381ff;
+  position: fixed !important;
+  top: 92px;
   left: 20px;
   z-index: 1002;
 
@@ -258,7 +260,7 @@
   height: 44px;
   padding: 0;
   margin: 0;
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -271,7 +273,7 @@
   cursor: pointer;
   appearance: none;
 
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, top 0.2s ease;
 }
 .menuBtn:hover {
   background: #f8faff;
@@ -284,11 +286,12 @@
 
 /* ----- BARS (visible) ----- */
 .bar {
-  display: block;
+  display: block !important;
   width: 20px;
   height: 2.5px;
   flex-shrink: 0;
-  background: var(--navy); /* dark navy */
+  background: #142447 !important;
+  background-color: #142447 !important;
   border-radius: 2px;
   transform-origin: center;
   transition: transform 0.25s ease, opacity 0.2s ease;
@@ -332,15 +335,38 @@
 /* =========================
    RESPONSIVE
 ========================= */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .sidebar {
-    width: 78vw;
+    width: 80vw;
     max-width: 320px;
     border-radius: 0 18px 18px 0;
     padding: 20px 14px 14px;
+    top: 64px;
+    height: calc(100vh - 64px);
   }
+
   .menuBtn {
-    left: 14px;
+    top: 68px !important;
+    left: 14px !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px;
+    gap: 4.5px;
+  }
+
+  .bar {
+    width: 18px !important;
+    height: 2.2px !important;
+    background: #142447 !important;
+    background-color: #142447 !important;
+  }
+
+  /* Open state adjustments for smaller button */
+  .menuBtn.menuBtnOpen .bar:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+  .menuBtn.menuBtnOpen .bar:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
   }
 }
 

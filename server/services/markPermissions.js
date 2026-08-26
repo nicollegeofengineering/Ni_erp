@@ -33,6 +33,7 @@ async function getStaffFromReq(req) {
   if (!staff && role === "Admin") {
     return {
       _id: user._id,
+      userId: user._id,
       staff_id: user.username,
       first_name: user.name,
       last_name: "",
@@ -47,20 +48,28 @@ async function getStaffFromReq(req) {
 
   return {
     ...staff,
+    userId: user._id,
     role: role,
     userRole: role,
   };
 }
 
 async function verifySubjectAssignment(
-  staffId,
+  staffOrId,
   subjectId,
-  { academicYear, department, year, semester }
+  { academicYear, department, year, semester } = {}
 ) {
   const normalizedDept = normalizeDepartment(department);
+  const staffId = staffOrId?._id || staffOrId;
+  const userId = staffOrId?.userId;
+
+  const staffIds = [staffId];
+  if (userId && String(userId) !== String(staffId)) {
+    staffIds.push(userId);
+  }
 
   const assignmentExists = await Timetable.exists({
-    staff: staffId,
+    staff: { $in: staffIds },
     subject: subjectId,
     academicYear: String(academicYear || "").trim(),
     department: normalizedDept,
@@ -74,99 +83,37 @@ async function verifySubjectAssignment(
 }
 
 async function getAllowedComponentsForEntry(
-  staffId,
+  staffOrId,
   subject,
-  { academicYear, department, year, semester, internalExam }
+  { academicYear, department, year, semester, internalExam, role } = {}
 ) {
-  const category = normalizeCategory(subject.Category);
+  const category = normalizeCategory(subject?.Category);
 
-  if (category === "T") return ["theory"];
+  if (category === "T" || category === "O") return ["theory"];
   if (category === "L") return ["practical"];
+  if (category === "T/L") return ["theory", "practical"];
 
-  if (category === "T/L") {
-    const filters = {
-      academicYear: String(academicYear || "").trim(),
-      department: normalizeDepartment(department),
-      year: Number(year),
-      semester: Number(semester),
-      subject: subject._id,
-      internalExam: Number(internalExam),
-    };
-
-    const theoryClaimedByOther = await InternalMark.exists({
-      ...filters,
-      "theory.enteredBy": { $ne: null, $ne: staffId },
-    });
-
-    const practicalClaimedByOther = await InternalMark.exists({
-      ...filters,
-      "practical.enteredBy": { $ne: null, $ne: staffId },
-    });
-
-    const allowed = [];
-
-    if (!theoryClaimedByOther) allowed.push("theory");
-    if (!practicalClaimedByOther) allowed.push("practical");
-
-    return allowed;
-  }
-
-  return [];
+  return ["theory"];
 }
 
 async function canDeleteCompleteEntry(
-  staffId,
+  staffOrId,
   subject,
-  { academicYear, department, year, semester, internalExam }
+  { academicYear, department, year, semester, internalExam, role } = {}
 ) {
-  const allowed = await getAllowedComponentsForEntry(staffId, subject, {
+  const userRole = String(role || staffOrId?.role || staffOrId?.userRole || "").trim().toLowerCase();
+  if (userRole === "admin") return true;
+
+  const staffId = staffOrId?._id || staffOrId;
+  const isAssigned = await verifySubjectAssignment(staffId, subject?._id, {
     academicYear,
     department,
     year,
     semester,
-    internalExam,
+    role: userRole,
   });
 
-  if (!allowed.length) return false;
-
-  const category = normalizeCategory(subject.Category);
-
-  if (category === "T" || category === "L") {
-    return true;
-  }
-
-  if (category === "T/L") {
-    const filters = {
-      academicYear: String(academicYear || "").trim(),
-      department: normalizeDepartment(department),
-      year: Number(year),
-      semester: Number(semester),
-      subject: subject._id,
-      internalExam: Number(internalExam),
-    };
-
-    const theoryOwners = await InternalMark.distinct("theory.enteredBy", {
-      ...filters,
-      "theory.enteredBy": { $ne: null },
-    });
-
-    const practicalOwners = await InternalMark.distinct("practical.enteredBy", {
-      ...filters,
-      "practical.enteredBy": { $ne: null },
-    });
-
-    for (const owner of theoryOwners) {
-      if (String(owner) !== String(staffId)) return false;
-    }
-
-    for (const owner of practicalOwners) {
-      if (String(owner) !== String(staffId)) return false;
-    }
-
-    return true;
-  }
-
-  return false;
+  return Boolean(isAssigned);
 }
 
 module.exports = {

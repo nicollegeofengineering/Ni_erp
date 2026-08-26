@@ -49,11 +49,7 @@ const NAV_ITEMS = [
       { href: "/admin/staff/add", label: "Add Staff" },
     ],
   },
-  {
-    href: "/admin/fees",
-    label: "Fees",
-    icon: Wallet,
-  },
+
   {
     label: "Marks",
     icon: ClipboardList,
@@ -72,7 +68,7 @@ const NAV_ITEMS = [
       { href: "/admin/attendance/report", label: "Attendance Report" },
     ],
   },
-  
+
   {
     href: "/admin/hall",
     label: "Hall Management",
@@ -95,7 +91,7 @@ const NAV_ITEMS = [
       { href: "/admin/timetable/master", label: "Master Timetable" },
       { href: "/admin/timetable/class", label: "Class Timetable" },
       { href: "/admin/timetable/staff", label: "Staff Timetable" },
-      { href: "/admin/timetable/hall", label:"Hall Timetable"}
+      { href: "/admin/timetable/hall", label: "Hall Timetable" }
     ],
   },
   {
@@ -177,7 +173,7 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* ---------- MENU BUTTON (with inline styles as fallback) ---------- */}
+      {/* ---------- MENU BUTTON ---------- */}
       <button
         id="menu-toggle-btn"
         type="button"
@@ -185,64 +181,10 @@ export default function AdminSidebar() {
         aria-expanded={open}
         className={`${style.menuBtn} ${open ? style.menuBtnOpen : ""}`}
         onClick={() => setOpen((current) => !current)}
-        style={{
-          position: "fixed",
-          top: "108px",
-          left: "20px",
-          zIndex: 1002,
-          width: "44px",
-          height: "44px",
-          padding: 0,
-          margin: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "5px",
-          border: "none",
-          borderRadius: "12px",
-          background: "#ffffff",
-          boxShadow: "0 4px 14px rgba(20,36,71,0.16)",
-          cursor: "pointer",
-        }}
       >
-        <span
-          className={style.bar}
-          style={{
-            display: "block",
-            width: "20px",
-            height: "2.5px",
-            background: "#142447",
-            borderRadius: "2px",
-            transition: "transform 0.25s ease, opacity 0.2s ease",
-            transform: open ? "translateY(7px) rotate(45deg)" : "translateY(0) rotate(0)",
-          }}
-        />
-        <span
-          className={style.bar}
-          style={{
-            display: "block",
-            width: "20px",
-            height: "2.5px",
-            background: "#142447",
-            borderRadius: "2px",
-            transition: "transform 0.25s ease, opacity 0.2s ease",
-            opacity: open ? 0 : 1,
-            transform: open ? "scaleX(0)" : "scaleX(1)",
-          }}
-        />
-        <span
-          className={style.bar}
-          style={{
-            display: "block",
-            width: "20px",
-            height: "2.5px",
-            background: "#142447",
-            borderRadius: "2px",
-            transition: "transform 0.25s ease, opacity 0.2s ease",
-            transform: open ? "translateY(-7px) rotate(-45deg)" : "translateY(0) rotate(0)",
-          }}
-        />
+        <span className={style.bar} style={{ backgroundColor: "#142447", display: "block" }} />
+        <span className={style.bar} style={{ backgroundColor: "#142447", display: "block" }} />
+        <span className={style.bar} style={{ backgroundColor: "#142447", display: "block" }} />
       </button>
 
       {/* ---------- SIDEBAR ---------- */}

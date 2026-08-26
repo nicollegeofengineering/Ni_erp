@@ -100,30 +100,10 @@ export default function StudentSidebar() {
         aria-expanded={open}
         className={`${style.menuBtn} ${open ? style.menuBtnOpen : ""}`}
         onClick={() => setOpen((prev) => !prev)}
-        style={{
-          position: "fixed",
-          top: "108px",
-          left: "20px",
-          zIndex: 1002,
-          width: "44px",
-          height: "44px",
-          padding: 0,
-          margin: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "5px",
-          border: "none",
-          borderRadius: "12px",
-          background: "#ffffff",
-          boxShadow: "0 4px 14px rgba(20,36,71,0.16)",
-          cursor: "pointer",
-        }}
       >
-        <span className={style.bar} style={{ width: "20px", height: "2.5px", background: "#142447", borderRadius: "2px", display: "block" }} />
-        <span className={style.bar} style={{ width: "20px", height: "2.5px", background: "#142447", borderRadius: "2px", display: "block" }} />
-        <span className={style.bar} style={{ width: "20px", height: "2.5px", background: "#142447", borderRadius: "2px", display: "block" }} />
+        <span className={style.bar} style={{ backgroundColor: "#142447", display: "block" }} />
+        <span className={style.bar} style={{ backgroundColor: "#142447", display: "block" }} />
+        <span className={style.bar} style={{ backgroundColor: "#142447", display: "block" }} />
       </button>
 
       {open && (

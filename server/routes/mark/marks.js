@@ -42,10 +42,12 @@ router.get("/subjects", async (req, res) => {
     const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
     const isViewMode = mode === "view" || viewAll === "true";
 
-    // Determine viewAll based on user role and mode:
-    // - Admin in view mode: can view all subjects in ANY department
-    // - HOD in view mode: can view all subjects if selected department is HOD's own department
-    // - Staff (or any user in entry mode): only assigned subjects
+    // In VIEW mode:
+    // - Admin: can view all subjects in ANY department
+    // - HOD: can view all subjects if selected department is HOD's own department
+    // - Staff: only assigned subjects
+    // In ENTRY mode:
+    // - All users (Admin, HOD, Staff): ONLY their assigned subjects
     let allowViewAll = false;
     if (isViewMode) {
       if (role === "admin") {
@@ -115,10 +117,12 @@ router.get("/students", async (req, res) => {
       return sendError(res, 400, "Internal exam must be 1 or 2.");
     }
 
+    const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
+
     const subject = await permissions.verifySubjectAssignment(
       staff._id,
       subjectId,
-      { academicYear, department, year, semester }
+      { academicYear, department, year, semester, role }
     );
 
     if (!subject) {
@@ -136,6 +140,7 @@ router.get("/students", async (req, res) => {
         year,
         semester,
         internalExam: Number(internalExam),
+        role,
       });
 
     if (!allowedComponents.length) {
@@ -259,11 +264,11 @@ router.get("/", async (req, res) => {
     const exams = [...new Set(marks.map((mark) => mark.internalExam))].sort();
     const allowedByExam = {};
 
-    // User can ONLY edit / delete / add students if they are assigned to this subject
+    // User can ONLY edit / delete / add students if they are assigned to this subject in the Timetable
     if (isAssigned) {
       for (const exam of [1, 2]) {
         allowedByExam[exam] =
-          await permissions.getAllowedComponentsForEntry(staff._id, subject, {
+          await permissions.getAllowedComponentsForEntry(staff, subject, {
             academicYear,
             department,
             year,
@@ -340,10 +345,12 @@ router.post("/", async (req, res) => {
       return sendError(res, 400, "Students array is required.");
     }
 
+    const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
+
     const subject = await permissions.verifySubjectAssignment(
       staff._id,
       subjectId,
-      { academicYear, department, year, semester }
+      { academicYear, department, year, semester, role }
     );
 
     if (!subject) {
@@ -361,6 +368,7 @@ router.post("/", async (req, res) => {
         year,
         semester,
         internalExam: Number(internalExam),
+        role,
       });
 
     if (!allowedComponents.length) {
@@ -419,6 +427,8 @@ router.put("/:id", async (req, res) => {
       return sendError(res, 404, "Subject not found.");
     }
 
+    const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
+
     const assignedSubject = await permissions.verifySubjectAssignment(
       staff._id,
       subject._id,
@@ -427,6 +437,7 @@ router.put("/:id", async (req, res) => {
         department: existing.department,
         year: existing.year,
         semester: existing.semester,
+        role,
       }
     );
 
@@ -445,6 +456,7 @@ router.put("/:id", async (req, res) => {
         year: existing.year,
         semester: existing.semester,
         internalExam: existing.internalExam,
+        role,
       });
 
     if (!allowedComponents.length) {
@@ -522,10 +534,12 @@ router.get("/available-students", async (req, res) => {
       return sendError(res, 400, "Internal exam must be 1 or 2.");
     }
 
+    const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
+
     const subject = await permissions.verifySubjectAssignment(
       staff._id,
       subjectId,
-      { academicYear, department, year, semester }
+      { academicYear, department, year, semester, role }
     );
 
     if (!subject) {
@@ -543,6 +557,7 @@ router.get("/available-students", async (req, res) => {
         year,
         semester,
         internalExam: Number(internalExam),
+        role,
       });
 
     if (!allowedComponents.length) {
@@ -613,10 +628,12 @@ router.post("/add-students", async (req, res) => {
       return sendError(res, 400, "studentIds array is required.");
     }
 
+    const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
+
     const subject = await permissions.verifySubjectAssignment(
       staff._id,
       subjectId,
-      { academicYear, department, year, semester }
+      { academicYear, department, year, semester, role }
     );
 
     if (!subject) {
@@ -634,6 +651,7 @@ router.post("/add-students", async (req, res) => {
         year,
         semester,
         internalExam: Number(internalExam),
+        role,
       });
 
     if (!allowedComponents.length) {
@@ -704,10 +722,12 @@ router.delete("/", async (req, res) => {
       return sendError(res, 400, "Internal exam must be 1 or 2.");
     }
 
+    const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
+
     const subject = await permissions.verifySubjectAssignment(
       staff._id,
       subjectId,
-      { academicYear, department, year, semester }
+      { academicYear, department, year, semester, role }
     );
 
     if (!subject) {
@@ -727,6 +747,7 @@ router.delete("/", async (req, res) => {
         year,
         semester,
         internalExam: Number(internalExam),
+        role,
       }
     );
 

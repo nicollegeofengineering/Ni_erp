@@ -782,24 +782,62 @@ router.get('/today-summary', async (req, res) => {
     // Query active departments
     const departments = await Department.find().sort({ code: 1 }).lean();
 
-    // Global active counts for dashboard
-    const [totalStudents, totalStaff] = await Promise.all([
-      Student.countDocuments({ student_status: 'Active' }),
-      Staff.countDocuments(),
-    ]);
+    const userRole = (staff.role || staff.userRole || req.user?.role || '').toLowerCase();
+    const isHod = userRole === 'hod';
+    const hodDeptCode = (staff.department_code || '').trim().toUpperCase();
 
-    let totalPresentOverall = 0;
-    let totalAbsentOverall = 0;
+    let totalStudents = 0;
+    let totalStaff = 0;
+    let overallPercentage = 0;
 
-    records.forEach(r => {
-      (r.students || []).forEach(s => {
-        if (s.status === 'Present') totalPresentOverall++;
-        else if (s.status === 'Absent') totalAbsentOverall++;
+    if (isHod && hodDeptCode && hodDeptCode !== 'ALL') {
+      // HOD scope: calculate strictly for the HOD's department
+      const [deptStudents, deptStaff] = await Promise.all([
+        Student.countDocuments({
+          department_code: new RegExp('^' + hodDeptCode + '$', 'i'),
+          student_status: 'Active',
+        }),
+        Staff.countDocuments({
+          department_code: new RegExp('^' + hodDeptCode + '$', 'i'),
+        }),
+      ]);
+
+      totalStudents = deptStudents;
+      totalStaff = deptStaff;
+
+      let deptPresent = 0;
+      let deptAbsent = 0;
+      records.filter(r => (r.department || '').trim().toUpperCase() === hodDeptCode).forEach(r => {
+        (r.students || []).forEach(s => {
+          if (s.status === 'Present') deptPresent++;
+          else if (s.status === 'Absent') deptAbsent++;
+        });
       });
-    });
 
-    const totalMarkedOverall = totalPresentOverall + totalAbsentOverall;
-    const overallPercentage = totalMarkedOverall > 0 ? parseFloat(((totalPresentOverall / totalMarkedOverall) * 100).toFixed(1)) : 0;
+      const deptMarked = deptPresent + deptAbsent;
+      overallPercentage = deptMarked > 0 ? parseFloat(((deptPresent / deptMarked) * 100).toFixed(1)) : 0;
+    } else {
+      // Global Admin scope: calculate across the entire institution
+      const [allStudents, allStaff] = await Promise.all([
+        Student.countDocuments({ student_status: 'Active' }),
+        Staff.countDocuments(),
+      ]);
+
+      totalStudents = allStudents;
+      totalStaff = allStaff;
+
+      let totalPresentOverall = 0;
+      let totalAbsentOverall = 0;
+      records.forEach(r => {
+        (r.students || []).forEach(s => {
+          if (s.status === 'Present') totalPresentOverall++;
+          else if (s.status === 'Absent') totalAbsentOverall++;
+        });
+      });
+
+      const totalMarkedOverall = totalPresentOverall + totalAbsentOverall;
+      overallPercentage = totalMarkedOverall > 0 ? parseFloat(((totalPresentOverall / totalMarkedOverall) * 100).toFixed(1)) : 0;
+    }
 
     // 1. Build Admin Matrix: Dept rows (AI&DS, CSE, IT, EEE, ECE, MECH...), P1..P7 cols
     const adminMatrix = departments.map(dept => {
@@ -836,7 +874,6 @@ router.get('/today-summary', async (req, res) => {
     });
 
     // 2. Build HOD Matrix: For HOD's department, Year 1..4 rows, P1..P7 cols
-    const hodDeptCode = (staff.department_code || '').toUpperCase();
     const hodMatrix = [1, 2, 3, 4].map(y => {
       const periods = {};
 

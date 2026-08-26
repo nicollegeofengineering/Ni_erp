@@ -70,8 +70,8 @@ export default function StaffProfilePage() {
     ? profile.profile_image.startsWith("http")
       ? profile.profile_image
       : profile.profile_image === "/user.png"
-      ? "/user.png"
-      : `${BASE_URL}${profile.profile_image.startsWith("/") ? "" : "/"}${profile.profile_image}`
+        ? "/user.png"
+        : `${BASE_URL}${profile.profile_image.startsWith("/") ? "" : "/"}${profile.profile_image}`
     : "/user.png";
 
   const fullName = profile
@@ -429,7 +429,7 @@ export default function StaffProfilePage() {
                 </div>
                 {profile.salary && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#64748b" }}>Monthly Salary:</span>
+                    <span style={{ color: "#64748b" }}>Salary:</span>
                     <strong style={{ color: "#15803d" }}>₹{Number(profile.salary).toLocaleString("en-IN")}</strong>
                   </div>
                 )}

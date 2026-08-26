@@ -546,11 +546,22 @@
 }
 
 @media (max-width: 768px) {
+  .dashboard {
+    padding: 16px 14px 28px;
+  }
+  .titleRow {
+    margin-top: 52px;
+    margin-bottom: 18px;
+  }
   .contentGrid {
     grid-template-columns: 1fr;
   }
   .title {
-    font-size: 24px;
+    font-size: 22px;
+    line-height: 1.25;
+  }
+  .subtitle {
+    font-size: 13px;
   }
   .actionButtons {
     flex-direction: column;
