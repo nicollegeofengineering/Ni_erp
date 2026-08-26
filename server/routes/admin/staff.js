@@ -35,7 +35,7 @@ const buildPhotoUrl = (staffId, photoFileId, photoVersion) =>
   photoFileId ? `/api/admin/staff/${staffId}/photo?v=${photoVersion || 0}` : null;
 
 // ----- Validation constants -----
-const nameRegex = /^[A-Za-z ]+$/;
+const nameRegex = /^[a-zA-Z\s.\-']{1,50}$/;
 const phoneRegex = /^\d{10}$/;
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
 const validGender = ['Male', 'Female', 'Other'];
@@ -758,7 +758,7 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
           isActive: !shouldDeactivate,
         },
       },
-      { runValidators: true, new: true }
+      { runValidators: true, returnDocument: 'after' }
     );
 
     // 7b. If staff was just deactivated, revoke their active sessions so

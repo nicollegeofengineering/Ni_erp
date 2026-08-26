@@ -393,7 +393,16 @@ export default function SubjectReportPage() {
                     <td>{student.present}</td>
                     <td>{student.absent}</td>
                     <td>
-                      <strong style={{ color: student.percentage < 75 ? '#dc2626' : '#16a34a' }}>
+                      <strong
+                        style={{
+                          color:
+                            student.percentage < 70
+                              ? '#dc2626'
+                              : student.percentage < 80
+                              ? '#d97706'
+                              : '#16a34a',
+                        }}
+                      >
                         {student.percentage}%
                       </strong>
                     </td>

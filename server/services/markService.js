@@ -195,7 +195,7 @@ async function saveMarks({
 
     await InternalMark.findOneAndUpdate(filter, update, {
       upsert: true,
-      new: true,
+      returnDocument: 'after',
       setDefaultsOnInsert: true,
     });
 

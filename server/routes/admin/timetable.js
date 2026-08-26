@@ -6,12 +6,29 @@ const Timetable = require("../../models/Timetable.js");
 const Subject = require("../../models/Subject.js");
 const Staff = require("../../models/Staff.js");
 const Hall = require("../../models/Hall.js");
+const User = require("../../models/User.js");
 
 // ---------- Helper: format staff full name ----------
 const getStaffFullName = (staff) => {
   if (!staff) return null;
   const { prefix = "", first_name = "", last_name = "" } = staff;
   return `${prefix} ${first_name} ${last_name}`.trim().replace(/\s+/g, " ");
+};
+
+// ---------- Helper: verify HOD department authorization (Admin can edit any, HOD can edit only own) ----------
+const verifyDepartmentAccess = async (req, targetDepartment) => {
+  const role = req.user?.role;
+  if (role === 'Admin') return true; // Admin can modify any department
+  if (role === 'Hod') {
+    const user = await User.findById(req.user.id).select('username email department').lean();
+    if (!user) return false;
+    const staff = await Staff.findOne({
+      $or: [{ staff_id: user.username }, { email: user.email }],
+    }).lean();
+    const hodDept = (staff?.department_code || staff?.department || user.department || '').toUpperCase();
+    return Boolean(hodDept && hodDept === targetDepartment.toUpperCase());
+  }
+  return false;
 };
 
 // ---------- Helper: fetch with population (fields aligned with models) ----------
@@ -170,6 +187,15 @@ router.put("/upsert", async (req, res) => {
     const dayNum = parseInt(day);
     const periodNum = parseInt(period);
 
+    // Verify permission: Admin can edit any department, HOD can only edit own department
+    const hasAccess = await verifyDepartmentAccess(req, deptUpper);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "You are only authorized to modify timetable entries for your own department.",
+      });
+    }
+
     if (![1, 2, 3, 4, 5, 6, 7, 8].includes(semesterNum)) {
       return res.status(400).json({ success: false, message: "semester must be 1-8" });
     }
@@ -290,7 +316,7 @@ router.put("/upsert", async (req, res) => {
     if (hall !== undefined) updateData.hall = hall || null;
 
     const options = {
-      new: true,
+      returnDocument: "after",
       upsert: true,
       runValidators: true,
       setDefaultsOnInsert: true,
@@ -337,6 +363,14 @@ router.delete("/cell", async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "academicYear, department, year, semester, day, and period are all required",
+      });
+    }
+
+    const hasAccess = await verifyDepartmentAccess(req, department);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "You are only authorized to clear timetable entries for your own department.",
       });
     }
 
@@ -388,6 +422,14 @@ router.delete("/row", async (req, res) => {
       });
     }
 
+    const hasAccess = await verifyDepartmentAccess(req, department);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "You are only authorized to clear timetable rows for your own department.",
+      });
+    }
+
     const filter = {
       academicYear,
       department: department.toUpperCase(),
@@ -428,6 +470,14 @@ router.delete("/class", async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "academicYear, department, year, and semester are all required",
+      });
+    }
+
+    const hasAccess = await verifyDepartmentAccess(req, department);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "You are only authorized to delete timetables for your own department.",
       });
     }
 

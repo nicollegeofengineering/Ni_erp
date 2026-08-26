@@ -15,6 +15,15 @@ const formatDate = (date) => {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+// Helper to get today's date in YYYY-MM-DD format
+const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function AttendanceListPage() {
   const router = useRouter();
 
@@ -24,10 +33,11 @@ export default function AttendanceListPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // State for filters
+  // State for filters (default to today's date)
+  const todayStr = getTodayDateString();
   const [filters, setFilters] = useState({
-    dateFrom: '',
-    dateTo: '',
+    dateFrom: todayStr,
+    dateTo: todayStr,
     department: '',
     year: '',
     semester: '',
@@ -65,11 +75,11 @@ export default function AttendanceListPage() {
   }, []);
 
   // ---------- Fetch attendance records ----------
-  const fetchAttendance = async (page = 1) => {
+  const fetchAttendance = async (page = 1, currentFilters = filters) => {
     setLoading(true);
     setError('');
     try {
-      const params = { ...filters, page, limit: pagination.limit };
+      const params = { ...currentFilters, page, limit: pagination.limit };
       // Remove empty filters
       Object.keys(params).forEach(key => {
         if (params[key] === '' || params[key] === undefined || params[key] === null) {
@@ -102,12 +112,14 @@ export default function AttendanceListPage() {
   };
 
   const applyFilters = () => {
-    fetchAttendance(1);
+    fetchAttendance(1, filters);
   };
 
   const clearFilters = () => {
-    setFilters({ dateFrom: '', dateTo: '', department: '', year: '', semester: '' });
-    setTimeout(() => fetchAttendance(1), 0);
+    const today = getTodayDateString();
+    const defaultFilters = { dateFrom: today, dateTo: today, department: '', year: '', semester: '' };
+    setFilters(defaultFilters);
+    fetchAttendance(1, defaultFilters);
   };
 
   // ---------- Render ----------
@@ -235,7 +247,7 @@ export default function AttendanceListPage() {
 
           <div className={styles.pagination}>
             <button
-              onClick={() => fetchAttendance(pagination.page - 1)}
+              onClick={() => fetchAttendance(pagination.page - 1, filters)}
               disabled={pagination.page <= 1}
             >
               Previous
@@ -244,7 +256,7 @@ export default function AttendanceListPage() {
               Page {pagination.page} of {pagination.totalPages}
             </span>
             <button
-              onClick={() => fetchAttendance(pagination.page + 1)}
+              onClick={() => fetchAttendance(pagination.page + 1, filters)}
               disabled={pagination.page >= pagination.totalPages}
             >
               Next

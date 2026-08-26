@@ -41,7 +41,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['MARK_PUBLISHED', 'FEEDBACK_REMINDER', 'ANNOUNCEMENT', 'EXAM_HALL', 'GENERAL'],
+      enum: ['MARK_PUBLISHED', 'FEEDBACK_REMINDER', 'ANNOUNCEMENT', 'EXAM_HALL', 'GENERAL', 'ATTENDANCE_WARNING'],
       default: 'GENERAL',
     },
     link: {

@@ -7,7 +7,7 @@ export default function EditMarksRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/staff/marks");
+    router.replace("/admin/marks");
   }, [router]);
 
   return null;

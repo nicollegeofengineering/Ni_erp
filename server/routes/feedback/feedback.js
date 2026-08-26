@@ -31,6 +31,19 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+// Helper to get HOD department if user is HOD
+const getHodDepartment = async (user) => {
+  if (user?.role !== 'Hod') return null;
+  const userId = user.id || user._id;
+  const userDoc = await User.findById(userId).select('username email department role').lean();
+  if (!userDoc) return null;
+  const staff = await Staff.findOne({
+    $or: [{ staff_id: userDoc.username }, { email: userDoc.email }, { email: user.email }],
+  }).lean();
+  const dept = (staff?.department_code || staff?.department || userDoc?.department || '').toUpperCase();
+  return dept || null;
+};
+
 // Helper: calculate grade label based on average rating (1-5)
 function getGradeLabel(avg) {
   if (avg >= 4.5) return 'Excellent';
@@ -354,9 +367,12 @@ router.get('/admin/dashboard', verifyToken, async (req, res) => {
 
     await connectDB();
     const { department, year, semester } = req.query;
-
+    const hodDept = await getHodDepartment(req.user);
     const match = {};
-    if (department && department !== 'ALL') {
+    if (hodDept) {
+      // HOD can ONLY view their own department performance
+      match.department = hodDept;
+    } else if (department && department !== 'ALL') {
       match.department = String(department).trim().toUpperCase();
     }
     if (year && year !== 'ALL') {
@@ -671,9 +687,12 @@ router.get('/admin/students', verifyToken, async (req, res) => {
 
     await connectDB();
     const { department, year, semester, status, search } = req.query;
-
+    const hodDept = await getHodDepartment(req.user);
     const studentFilter = { student_status: 'Active' };
-    if (department && department !== 'ALL') {
+    if (hodDept) {
+      // HOD can ONLY view their own department students
+      studentFilter.department_code = new RegExp(`^${hodDept}$`, 'i');
+    } else if (department && department !== 'ALL') {
       studentFilter.department_code = new RegExp(`^${department.trim()}$`, 'i');
     }
     if (year && year !== 'ALL') {

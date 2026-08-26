@@ -321,6 +321,95 @@ router.get('/attendance', async (req, res) => {
     const overallPercentage =
       totalPeriods > 0 ? parseFloat(((totalPresent / totalPeriods) * 100).toFixed(1)) : 0;
 
+    // ----- Compute Last 2 Days Leave Record -----
+    const leavesByDateMap = new Map();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    absentLog.forEach((item) => {
+      let dateKey = '';
+      if (item.date) {
+        const dObj = new Date(item.date);
+        dateKey = dObj.toISOString().split('T')[0];
+      } else {
+        dateKey = 'UNKNOWN';
+      }
+
+      if (!leavesByDateMap.has(dateKey)) {
+        const dObj = item.date ? new Date(item.date) : null;
+        leavesByDateMap.set(dateKey, {
+          date: dateKey,
+          rawDate: item.date,
+          dayName: dObj ? dayNames[dObj.getDay()] : (item.day ? `Day ${item.day}` : ''),
+          periods: [],
+        });
+      }
+
+      leavesByDateMap.get(dateKey).periods.push(item);
+    });
+
+    // Sort distinct leave dates descending (most recent first)
+    const sortedLeaveDates = Array.from(leavesByDateMap.values()).sort((a, b) => {
+      return new Date(b.rawDate || b.date) - new Date(a.rawDate || a.date);
+    });
+
+    // Take the 2 most recent leave days
+    const lastTwoDaysLeave = sortedLeaveDates.slice(0, 2).map((entry) => {
+      entry.periods.sort((p1, p2) => (p1.period || 0) - (p2.period || 0));
+      return {
+        date: entry.date,
+        dayName: entry.dayName,
+        missedPeriodsCount: entry.periods.length,
+        periods: entry.periods,
+      };
+    });
+
+    // ----- Fetch Timetable for Next Day & Weekly Schedule Simulator -----
+    const today = new Date();
+    const todayDay = today.getDay(); // 0 is Sun, 1 is Mon, ... 6 is Sat
+    const nextDayNumber = todayDay === 0 ? 1 : (todayDay === 6 ? 1 : todayDay + 1);
+
+    const deptCode = (student.department_code || '').toUpperCase();
+    const studentYear = student.year || 1;
+
+    const timetableEntries = await Timetable.find({
+      department: deptCode,
+      year: studentYear,
+      semester: requestedSemester,
+    })
+      .populate('subject', 'subjectName subjectCode Category')
+      .populate('staff', 'prefix first_name last_name')
+      .populate('hall', 'hallName hallCode')
+      .sort({ day: 1, period: 1 })
+      .lean();
+
+    const weeklyTimetable = {};
+    for (let d = 1; d <= 6; d++) {
+      weeklyTimetable[d] = [];
+    }
+
+    timetableEntries.forEach((slot) => {
+      if (slot.day && weeklyTimetable[slot.day]) {
+        weeklyTimetable[slot.day].push({
+          period: slot.period,
+          subjectCode: slot.subject?.subjectCode || 'N/A',
+          subjectName: slot.subject?.subjectName || 'Subject',
+          category: slot.subject?.Category || 'Theory',
+          facultyName: slot.staff
+            ? `${slot.staff.prefix || ''} ${slot.staff.first_name || ''} ${slot.staff.last_name || ''}`.trim()
+            : 'Faculty',
+          hall: slot.hall?.hallCode || slot.hall?.hallName || '',
+        });
+      }
+    });
+
+    const nextDayPeriods = weeklyTimetable[nextDayNumber] || [];
+    const nextDaySchedule = {
+      dayNumber: nextDayNumber,
+      dayName: dayNames[nextDayNumber],
+      periodsCount: nextDayPeriods.length,
+      periods: nextDayPeriods,
+    };
+
     return res.status(200).json({
       success: true,
       data: {
@@ -332,6 +421,9 @@ router.get('/attendance', async (req, res) => {
         overallPercentage,
         subjects: Object.values(subjectStats),
         absentLog, // All absent records with date, day, period, subject
+        lastTwoDaysLeave, // 2 most recent leave days with period breakdowns
+        nextDaySchedule, // Timetable schedule for the next college day
+        weeklyTimetable, // Full class timetable for multi-day leave simulation
         recentLog: log.slice(0, 30),
       },
     });

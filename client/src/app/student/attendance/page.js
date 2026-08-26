@@ -12,6 +12,12 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   ArrowLeft,
+  Calendar,
+  CalendarDays,
+  Calculator,
+  TrendingDown,
+  Info,
+  Sparkles,
 } from "lucide-react";
 import styles from "../css/student.module.css";
 
@@ -31,7 +37,13 @@ export default function StudentAttendancePage() {
     overallPercentage: 0,
     subjects: [],
     recentLog: [],
+    lastTwoDaysLeave: [],
+    nextDaySchedule: null,
+    weeklyTimetable: {},
   });
+
+  // Simulator State
+  const [simDay, setSimDay] = useState(null);
 
   const fetchAttendance = async (sem) => {
     setLoading(true);
@@ -45,6 +57,9 @@ export default function StudentAttendancePage() {
         setCurrentSemester(curSem);
         if (!selectedSemester) {
           setSelectedSemester(res.data.data.semester || curSem);
+        }
+        if (res.data.data.nextDaySchedule?.dayNumber) {
+          setSimDay(res.data.data.nextDaySchedule.dayNumber);
         }
       }
     } catch (err) {
@@ -101,7 +116,9 @@ export default function StudentAttendancePage() {
         );
 
   const totalAbsences = attendanceData.totalAbsent || absentList.length;
-  const isLowAttendance = (attendanceData.overallPercentage || 0) < 75;
+  const overallPct = attendanceData.overallPercentage || 0;
+  const isCritical = overallPct < 70;
+  const isWarning = overallPct >= 70 && overallPct < 80;
 
   return (
     <div className={styles.container}>
@@ -193,18 +210,28 @@ export default function StudentAttendancePage() {
 
         <div className={styles.statCard}>
           <div className={styles.statCardTop}>
-            <div className={styles.statIcon} style={{ background: isLowAttendance ? "#fee2e2" : "#e0f2fe", color: isLowAttendance ? "#b91c1c" : "#0369a1" }}>
+            <div
+              className={styles.statIcon}
+              style={{
+                background: isCritical ? "#fee2e2" : isWarning ? "#fef3c7" : "#e0f2fe",
+                color: isCritical ? "#b91c1c" : isWarning ? "#b45309" : "#0369a1",
+              }}
+            >
               <CalendarCheck size={18} />
             </div>
             <h3>Overall Percentage</h3>
           </div>
-          <p style={{ color: isLowAttendance ? "#b91c1c" : "#1e3a8a" }}>
+          <p style={{ color: isCritical ? "#b91c1c" : isWarning ? "#b45309" : "#1e3a8a" }}>
             {attendanceData.overallPercentage}%
           </p>
           <div className={styles.progressTrack}>
             <div
               className={`${styles.progressFill} ${
-                isLowAttendance ? styles.progressFillDanger : ""
+                isCritical
+                  ? styles.progressFillDanger
+                  : isWarning
+                  ? styles.progressFillWarning
+                  : ""
               }`}
               style={{ width: `${Math.min(100, attendanceData.overallPercentage)}%` }}
             />
@@ -212,8 +239,8 @@ export default function StudentAttendancePage() {
         </div>
       </div>
 
-      {/* Warning Notice if Attendance < 75% */}
-      {isLowAttendance && attendanceData.totalPeriods > 0 && (
+      {/* Critical Warning Notice if Attendance < 70% */}
+      {isCritical && attendanceData.totalPeriods > 0 && (
         <div
           style={{
             background: "#fff1f2",
@@ -229,11 +256,252 @@ export default function StudentAttendancePage() {
         >
           <AlertTriangle size={24} color="#e11d48" />
           <div>
-            <strong style={{ fontSize: "14px" }}>Attendance Shortage Warning:</strong>
+            <strong style={{ fontSize: "14px" }}>🚨 Critical Attendance Alert (Exam Ineligible):</strong>
             <p style={{ margin: "2px 0 0 0", fontSize: "13px" }}>
-              Your current attendance is {attendanceData.overallPercentage}%, which is below the mandatory 75% threshold required to appear for University / Internal examinations.
+              Your current attendance is {attendanceData.overallPercentage}%, which is below the mandatory 70% minimum threshold to appear for University / Internal examinations.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Warning Notice if Attendance >= 70% and < 80% */}
+      {isWarning && attendanceData.totalPeriods > 0 && (
+        <div
+          style={{
+            background: "#fffbeb",
+            border: "1px solid #fde68a",
+            borderRadius: "12px",
+            padding: "14px 18px",
+            marginBottom: "22px",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            color: "#92400e",
+          }}
+        >
+          <AlertTriangle size={24} color="#d97706" />
+          <div>
+            <strong style={{ fontSize: "14px" }}>⚠️ Attendance Warning (Below 80%):</strong>
+            <p style={{ margin: "2px 0 0 0", fontSize: "13px" }}>
+              Your current attendance is {attendanceData.overallPercentage}%. Maintain regular attendance to stay safely above the 70% minimum exam eligibility threshold.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ===== 1. Recent Leaves (Last 2 Days Leave Record) ===== */}
+      <div className={styles.cardSection}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "14px" }}>
+          <div className={styles.sectionTitle} style={{ margin: 0 }}>
+            <CalendarDays size={20} color="#ef4444" />
+            Recent Leaves (Last 2 Days Leave Record)
+          </div>
+          <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 600 }}>
+            Semester {selectedSemester} Absences
+          </span>
+        </div>
+
+        {loading ? (
+          <p style={{ textAlign: "center", color: "#64748b", padding: "20px 0" }}>Loading leave history...</p>
+        ) : !attendanceData.lastTwoDaysLeave || attendanceData.lastTwoDaysLeave.length === 0 ? (
+          <div style={{ padding: "18px 20px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "12px", display: "flex", alignItems: "center", gap: "12px", color: "#166534" }}>
+            <CheckCircle2 size={24} color="#16a34a" />
+            <div>
+              <strong style={{ fontSize: "14px" }}>No Recent Leaves Taken!</strong>
+              <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "#15803d" }}>
+                You have 0 recorded absences in recent days for Semester {selectedSemester}.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.recentLeavesGrid}>
+            {attendanceData.lastTwoDaysLeave.map((leave, lIdx) => {
+              const isFullDay = leave.missedPeriodsCount >= 6;
+              return (
+                <div key={lIdx} className={styles.leaveDayCard}>
+                  <div className={styles.leaveDayHeader}>
+                    <div className={styles.leaveDateTitle}>
+                      <Calendar size={16} />
+                      {formatDate(leave.date)} ({leave.dayName})
+                    </div>
+                    <span className={`${styles.badge} ${styles.badgeDanger}`} style={{ fontSize: "11px", padding: "3px 8px" }}>
+                      {isFullDay ? "Full Day Leave" : `${leave.missedPeriodsCount} Periods Missed`}
+                    </span>
+                  </div>
+
+                  <div className={styles.leavePeriodsList}>
+                    {leave.periods.map((p, pIdx) => (
+                      <div key={pIdx} className={styles.leavePeriodItem}>
+                        <div>
+                          <strong style={{ color: "#991b1b" }}>Period {p.period}:</strong>{" "}
+                          <span style={{ fontWeight: 600, color: "#1e293b" }}>{p.subjectCode}</span> - {p.subjectName}
+                        </div>
+                        <span style={{ color: "#64748b", fontSize: "11.5px" }}>{p.facultyName}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ===== 2. Next Day Leave & Missed Classes Planner (Simulator) ===== */}
+      {attendanceData.weeklyTimetable && Object.keys(attendanceData.weeklyTimetable).length > 0 && (
+        <div className={styles.cardSection}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "10px" }}>
+            <div className={styles.sectionTitle} style={{ margin: 0 }}>
+              <Calculator size={20} color="#2563eb" />
+              Leave Impact Planner (Next Day / Missed Class Simulator)
+            </div>
+            <span style={{ fontSize: "12px", color: "#2563eb", background: "#eff6ff", padding: "4px 10px", borderRadius: "12px", fontWeight: 700 }}>
+              Live Projection
+            </span>
+          </div>
+          <p style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#64748b" }}>
+            Simulate the exact impact on your attendance percentage before taking leave on upcoming days.
+          </p>
+
+          {/* Weekday Selector */}
+          <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "8px", marginBottom: "14px" }}>
+            {[
+              { id: 1, name: "Monday" },
+              { id: 2, name: "Tuesday" },
+              { id: 3, name: "Wednesday" },
+              { id: 4, name: "Thursday" },
+              { id: 5, name: "Friday" },
+              { id: 6, name: "Saturday" },
+            ].map((d) => {
+              const isNext = attendanceData.nextDaySchedule?.dayNumber === d.id;
+              const active = simDay === d.id;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setSimDay(d.id)}
+                  style={{
+                    padding: "7px 14px",
+                    borderRadius: "8px",
+                    fontSize: "12.5px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    border: active ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                    background: active ? "#2563eb" : isNext ? "#eff6ff" : "#ffffff",
+                    color: active ? "#ffffff" : isNext ? "#1d4ed8" : "#334155",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {d.name} {isNext && <span style={{ fontSize: "10px", background: active ? "rgba(255,255,255,0.25)" : "#dbeafe", padding: "1px 6px", borderRadius: "8px" }}>Next Day</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Simulator Calculations */}
+          {(() => {
+            const dayPeriods = (attendanceData.weeklyTimetable && attendanceData.weeklyTimetable[simDay]) || [];
+            const missedCount = dayPeriods.length;
+            const currentTotal = attendanceData.totalPeriods || 0;
+            const currentPresent = attendanceData.totalPresent || 0;
+            const currentPct = attendanceData.overallPercentage || 0;
+
+            const simTotal = currentTotal + missedCount;
+            const simPresent = currentPresent;
+            const simPct = simTotal > 0 ? parseFloat(((simPresent / simTotal) * 100).toFixed(1)) : 0;
+            const dropDiff = parseFloat((currentPct - simPct).toFixed(1));
+
+            const isSimCritical = simPct < 70;
+            const isSimWarning = simPct >= 70 && simPct < 80;
+
+            const neededToRecover = Math.max(0, Math.ceil((0.8 * simTotal - simPresent) / 0.2));
+
+            return (
+              <div className={styles.simulatorGrid}>
+                {/* Left: Metric Comparison Box */}
+                <div className={styles.simulatorMetricBox} style={{ borderTop: `4px solid ${isSimCritical ? "#ef4444" : isSimWarning ? "#f59e0b" : "#10b981"}` }}>
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "#334155" }}>Attendance Impact</span>
+                      <span className={`${styles.badge} ${isSimCritical ? styles.badgeDanger : isSimWarning ? styles.badgeWarning : styles.badgeSuccess}`} style={{ fontSize: "11.5px", padding: "3px 8px" }}>
+                        {isSimCritical ? "Critical (<70%)" : isSimWarning ? "Warning (<80%)" : "Eligible (≥80%)"}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                      <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase" }}>Current</div>
+                        <div style={{ fontSize: "22px", fontWeight: 800, color: "#1e293b", marginTop: "2px" }}>{currentPct}%</div>
+                        <div style={{ fontSize: "11px", color: "#64748b" }}>{currentPresent}/{currentTotal} Periods</div>
+                      </div>
+
+                      <div style={{ background: isSimCritical ? "#fff1f2" : isSimWarning ? "#fffbeb" : "#f0fdf4", padding: "12px", borderRadius: "8px", textAlign: "center", border: `1px solid ${isSimCritical ? "#fecaca" : isSimWarning ? "#fde68a" : "#bbf7d0"}` }}>
+                        <div style={{ fontSize: "11px", fontWeight: 600, color: isSimCritical ? "#991b1b" : isSimWarning ? "#92400e" : "#166534", textTransform: "uppercase" }}>If Leave Taken</div>
+                        <div style={{ fontSize: "22px", fontWeight: 800, color: isSimCritical ? "#dc2626" : isSimWarning ? "#d97706" : "#16a34a", marginTop: "2px" }}>
+                          {simPct}%
+                        </div>
+                        <div style={{ fontSize: "11px", color: isSimCritical ? "#b91c1c" : isSimWarning ? "#b45309" : "#15803d", fontWeight: 700 }}>
+                          <TrendingDown size={11} style={{ display: "inline", verticalAlign: "middle" }} /> -{dropDiff}% Drop
+                        </div>
+                      </div>
+                    </div>
+
+                    {isSimCritical && (
+                      <div style={{ fontSize: "12px", color: "#b91c1c", background: "#fef2f2", padding: "8px 12px", borderRadius: "8px", border: "1px solid #fee2e2", marginBottom: "10px" }}>
+                        ⚠️ <strong>Warning:</strong> Taking leave will drop you below the <strong>70% minimum exam eligibility</strong> threshold.
+                      </div>
+                    )}
+
+                    {isSimWarning && (
+                      <div style={{ fontSize: "12px", color: "#92400e", background: "#fffbeb", padding: "8px 12px", borderRadius: "8px", border: "1px solid #fef3c7", marginBottom: "10px" }}>
+                        ⚠️ <strong>Notice:</strong> Taking leave will push your attendance below <strong>80%</strong>.
+                      </div>
+                    )}
+
+                    {neededToRecover > 0 && (
+                      <div style={{ fontSize: "12px", color: "#1e40af", background: "#eff6ff", padding: "8px 12px", borderRadius: "8px", border: "1px solid #dbeafe" }}>
+                        🎯 <strong>Recovery Target:</strong> You must attend the next <strong>{neededToRecover} consecutive classes</strong> to bring your attendance back to 80%.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Classes Scheduled on That Day */}
+                <div className={styles.simulatorControlCard}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b" }}>
+                      Classes Missed ({missedCount} Periods Scheduled)
+                    </span>
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>Timetable Schedule</span>
+                  </div>
+
+                  {missedCount === 0 ? (
+                    <div style={{ textAlign: "center", padding: "30px 10px", color: "#64748b", fontSize: "13px" }}>
+                      No classes scheduled for this day in Timetable.
+                    </div>
+                  ) : (
+                    <div className={styles.forecastScheduleList}>
+                      {dayPeriods.map((slot, sIdx) => (
+                        <div key={sIdx} className={styles.forecastPeriodRow}>
+                          <div>
+                            <strong style={{ color: "#2563eb" }}>Period {slot.period}:</strong>{" "}
+                            <span style={{ fontWeight: 600, color: "#1e293b" }}>{slot.subjectCode}</span> - {slot.subjectName}
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "11.5px", color: "#475569" }}>{slot.facultyName}</div>
+                            {slot.hall && <div style={{ fontSize: "10.5px", color: "#94a3b8" }}>{slot.hall}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -268,7 +536,8 @@ export default function StudentAttendancePage() {
               </thead>
               <tbody>
                 {attendanceData.subjects.map((sub) => {
-                  const isShortage = sub.percentage < 75;
+                  const isSubCritical = sub.percentage < 70;
+                  const isSubWarning = sub.percentage >= 70 && sub.percentage < 80;
                   return (
                     <tr key={sub.subjectId}>
                       <td>
@@ -279,154 +548,25 @@ export default function StudentAttendancePage() {
                       <td>{sub.total}</td>
                       <td style={{ fontWeight: 700, color: "#15803d" }}>{sub.present}</td>
                       <td style={{ fontWeight: 700, color: "#b91c1c" }}>{sub.absent}</td>
-                      <td style={{ fontWeight: 700 }}>{sub.percentage}%</td>
+                      <td
+                        style={{
+                          fontWeight: 700,
+                          color: isSubCritical ? "#b91c1c" : isSubWarning ? "#b45309" : "#15803d",
+                        }}
+                      >
+                        {sub.percentage}%
+                      </td>
                       <td>
                         <span
                           className={`${styles.badge} ${
-                            isShortage ? styles.badgeDanger : styles.badgeSuccess
+                            isSubCritical
+                              ? styles.badgeDanger
+                              : isSubWarning
+                              ? styles.badgeWarning
+                              : styles.badgeSuccess
                           }`}
                         >
-                          {isShortage ? "Shortage" : "Eligible"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ===== Absent Days & Periods Record ===== */}
-      <div className={styles.cardSection}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "12px",
-            marginBottom: "16px",
-          }}
-        >
-          <div className={styles.sectionTitle} style={{ margin: 0 }}>
-            <XCircle size={20} color="#b91c1c" />
-            Absent Days &amp; Periods Log (Semester {selectedSemester})
-          </div>
-
-          <span
-            className={`${styles.badge} ${
-              totalAbsences > 0 ? styles.badgeDanger : styles.badgeSuccess
-            }`}
-            style={{ fontSize: "13px", padding: "4px 10px" }}
-          >
-            {totalAbsences} Periods Absent
-          </span>
-        </div>
-
-        {loading ? (
-          <p style={{ textAlign: "center", color: "#64748b", padding: "30px 0" }}>
-            Loading absence records...
-          </p>
-        ) : absentList.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "36px 20px",
-              background: "#f0fdf4",
-              border: "1px solid #bbf7d0",
-              borderRadius: "12px",
-              color: "#166534",
-            }}
-          >
-            <CheckCircle2
-              size={40}
-              color="#16a34a"
-              style={{ margin: "0 auto 10px" }}
-            />
-            <h4 style={{ margin: "0 0 6px 0", fontSize: "16px" }}>
-              🎉 Perfect Attendance Record!
-            </h4>
-            <p style={{ margin: 0, fontSize: "13.5px", color: "#15803d" }}>
-              You have not missed any classes in Semester {selectedSemester}. Keep up the great work!
-            </p>
-          </div>
-        ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Day</th>
-                  <th>Period &amp; Time</th>
-                  <th>Subject Details</th>
-                  <th>Faculty</th>
-                  <th>Attendance Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {absentList.map((log, idx) => {
-                  const dayNames = [
-                    "Sunday",
-                    "Monday",
-                    "Tuesday",
-                    "Wednesday",
-                    "Thursday",
-                    "Friday",
-                    "Saturday",
-                  ];
-                  let dayName = "";
-                  if (log.date) {
-                    const d = new Date(log.date);
-                    dayName = dayNames[d.getDay()] || "";
-                  } else if (log.day && dayNames[log.day]) {
-                    dayName = dayNames[log.day];
-                  }
-
-                  const periodTimings = {
-                    1: "09:45 - 10:30",
-                    2: "10:30 - 11:15",
-                    3: "11:30 - 12:15",
-                    4: "12:15 - 13:00",
-                    5: "13:35 - 14:20",
-                    6: "14:20 - 15:05",
-                    7: "15:05 - 16:00",
-                  };
-
-                  return (
-                    <tr key={idx} style={{ background: "#fff5f5" }}>
-                      <td style={{ fontWeight: 700, color: "#b91c1c" }}>
-                        {formatDate(log.date)}
-                      </td>
-                      <td style={{ fontWeight: 600, color: "#475569" }}>
-                        {dayName || "—"}
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 700, color: "#0b1d3a" }}>
-                          Period {log.period}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "#64748b",
-                            marginTop: "2px",
-                          }}
-                        >
-                          {periodTimings[log.period] || ""}
-                        </div>
-                      </td>
-                      <td>
-                        <div className={styles.subCode}>{log.subjectCode}</div>
-                        <div className={styles.subName}>{log.subjectName}</div>
-                      </td>
-                      <td>{log.facultyName}</td>
-                      <td>
-                        <span
-                          className={`${styles.badge} ${styles.badgeDanger}`}
-                          style={{ padding: "4px 10px", fontSize: "12.5px" }}
-                        >
-                          ABSENT
+                          {isSubCritical ? "Ineligible (<70%)" : isSubWarning ? "Warning (<80%)" : "Eligible"}
                         </span>
                       </td>
                     </tr>

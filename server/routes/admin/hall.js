@@ -332,7 +332,7 @@ router.put('/:id', async (req, res) => {
     const updatedHall = await Hall.findByIdAndUpdate(
       id,
       updateData,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     res.status(200).json({

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 // Validation constants (reused from staff)
-const nameRegex = /^[A-Za-z ]+$/;
+const nameRegex = /^[a-zA-Z\s.\-']{1,50}$/;
 const phoneRegex = /^\d{10}$/;
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
 const validGender = ['Male', 'Female', 'Other'];
@@ -29,7 +29,7 @@ const StudentSchema = new mongoose.Schema(
     application_no: { type: String, trim: true, unique: true, required: true },
     admission_no: { type: String, trim: true, unique: true, required: true },
     register_no: { type: String, trim: true, unique: true, required: true },
-    roll_no: { type: String, trim: true, unique: true, required: true },
+    roll_no: { type: String, trim: true, required: true },
 
     // ----- Photo (Google Drive) -----
     photo_file_id: { type: String, default: null },
@@ -159,4 +159,14 @@ StudentSchema.virtual('full_name').get(function () {
 // Indexes for search/filter
 StudentSchema.index({ first_name: 'text', last_name: 'text', email: 'text', student_id: 'text' });
 
-module.exports = mongoose.model('Student', StudentSchema);
+// Compound unique index: Roll Number is unique only within the same department and year
+StudentSchema.index({ department_code: 1, year: 1, roll_no: 1 }, { unique: true, sparse: true });
+
+const Student = mongoose.model('Student', StudentSchema);
+
+// Safely drop old global unique index on roll_no if it exists in MongoDB
+Student.collection.dropIndex('roll_no_1').catch(() => {
+  // Index didn't exist or already dropped
+});
+
+module.exports = Student;

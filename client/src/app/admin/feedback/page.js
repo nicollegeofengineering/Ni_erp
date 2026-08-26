@@ -42,6 +42,10 @@ export default function AdminFeedbackPage() {
   const [activeTab, setActiveTab] = useState("REPORTS"); // "REPORTS" | "STUDENTS"
   const [reportSubView, setReportSubView] = useState("STAFF"); // "STAFF" | "SUBJECT" | "DEPT" | "CRITERIA" | "GRADES"
 
+  // Role & Department States
+  const [isHod, setIsHod] = useState(false);
+  const [hodDepartment, setHodDepartment] = useState("");
+
   // Dynamic Departments
   const [departments, setDepartments] = useState(DEFAULT_DEPARTMENTS);
 
@@ -67,23 +71,40 @@ export default function AdminFeedbackPage() {
   const [clearConfirmationText, setClearConfirmationText] = useState("");
   const [clearing, setClearing] = useState(false);
 
-  // Fetch departments from department route
+  // Fetch departments & detect HOD role
   useEffect(() => {
-    fetchDepartments();
-  }, []);
+    const initRoleAndDepartments = async () => {
+      try {
+        // Try fetching HOD department first to check if current user is HOD
+        try {
+          const hodRes = await api.get("/api/hod/staff/hoddep");
+          const dept = hodRes.data?.department_code;
+          if (dept) {
+            const deptUpper = dept.toUpperCase();
+            setIsHod(true);
+            setHodDepartment(deptUpper);
+            setSelectedDept(deptUpper);
+            setDepartments([deptUpper]);
+            return;
+          }
+        } catch (e) {
+          // Not HOD or error, fallback to Admin flow
+        }
 
-  const fetchDepartments = async () => {
-    try {
-      const res = await api.get("/api/admin/department/all");
-      if (res.data?.success && Array.isArray(res.data?.data)) {
-        const deptCodes = res.data.data.map((d) => d.code?.toUpperCase()).filter(Boolean);
-        const unique = ["ALL", ...new Set(deptCodes)];
-        setDepartments(unique);
+        // Admin flow: load all departments from API
+        const res = await api.get("/api/admin/department/all");
+        if (res.data?.success && Array.isArray(res.data?.data)) {
+          const deptCodes = res.data.data.map((d) => d.code?.toUpperCase()).filter(Boolean);
+          const unique = ["ALL", ...new Set(deptCodes)];
+          setDepartments(unique);
+        }
+      } catch (err) {
+        console.warn("Failed to load departments from API, using fallback list:", err.message);
       }
-    } catch (err) {
-      console.warn("Failed to load departments from API, using fallback list:", err.message);
-    }
-  };
+    };
+
+    initRoleAndDepartments();
+  }, []);
 
   // Load Dashboard Data
   useEffect(() => {
@@ -215,25 +236,30 @@ export default function AdminFeedbackPage() {
       <div className={styles.headerRow}>
         <div>
           <h1 className={styles.pageTitle}>
-            <Award size={28} color="#2563eb" /> Faculty Feedback Management & Analytics
+            <Award size={28} color="#2563eb" />{" "}
+            {isHod ? `${hodDepartment} Department Feedback & Analytics` : "Faculty Feedback Management & Analytics"}
           </h1>
           <p className={styles.pageSubtitle}>
-            Comprehensive evaluation reports, staff-wise & subject-wise analytics, and student submission tracking.
+            {isHod
+              ? `Comprehensive evaluation reports, staff-wise analytics, and student submission tracking for ${hodDepartment} department.`
+              : "Comprehensive evaluation reports, staff-wise & subject-wise analytics, and student submission tracking across all departments."}
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <button
-            type="button"
-            className={styles.btnDanger}
-            onClick={() => {
-              setClearConfirmationText("");
-              setShowClearModal(true);
-            }}
-          >
-            <Trash2 size={16} /> Reset / Clear Responses
-          </button>
-        </div>
+        {!isHod && (
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <button
+              type="button"
+              className={styles.btnDanger}
+              onClick={() => {
+                setClearConfirmationText("");
+                setShowClearModal(true);
+              }}
+            >
+              <Trash2 size={16} /> Reset / Clear Responses
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Tabs */}
@@ -265,6 +291,8 @@ export default function AdminFeedbackPage() {
             className={styles.selectInput}
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
+            disabled={isHod}
+            title={isHod ? `Locked to your department (${hodDepartment})` : "Filter by department"}
           >
             {departments.map((d) => (
               <option key={d} value={d}>
@@ -272,6 +300,11 @@ export default function AdminFeedbackPage() {
               </option>
             ))}
           </select>
+          {isHod && (
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "#2563eb", background: "#eff6ff", padding: "2px 8px", borderRadius: "12px" }}>
+              My Department
+            </span>
+          )}
         </div>
 
         <div className={styles.filterGroup}>

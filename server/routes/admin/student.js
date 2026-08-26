@@ -35,7 +35,7 @@ const buildPhotoUrl = (studentId, photoFileId, photoVersion) =>
   photoFileId ? `/api/admin/student/${studentId}/photo?v=${photoVersion || 0}` : null;
 
 // ----- Validation constants -----
-const nameRegex = /^[A-Za-z ]+$/;
+const nameRegex = /^[a-zA-Z\s.\-']{1,50}$/;
 const phoneRegex = /^\d{10}$/;
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
 const validGender = ['Male', 'Female', 'Other'];
@@ -108,7 +108,7 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     const nullIfEmpty = (val) => (val && val.trim() !== '' ? val.trim() : null);
 
     // ----- Validation constants (same as your existing ones) -----
-    const nameRegex = /^[a-zA-Z\s\-']{2,50}$/;
+    const nameRegex = /^[a-zA-Z\s.\-']{1,50}$/;
     const phoneRegex = /^[6-9]\d{9}$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const validGender = ['Male', 'Female', 'Other'];
@@ -229,6 +229,20 @@ router.post('/add', upload.single('photo'), async (req, res) => {
     if (register_no) {
       const dup = await Student.findOne({ register_no: register_no.trim() });
       if (dup) return res.status(400).json({ emessage: 'Register Number already exists' });
+    }
+
+    // ---- Roll number: check only in that department and year ----
+    if (roll_no && department_code && year) {
+      const dupRoll = await Student.findOne({
+        department_code: new RegExp(`^${department_code.trim()}$`, 'i'),
+        year: Number(year),
+        roll_no: roll_no.trim(),
+      });
+      if (dupRoll) {
+        return res.status(400).json({
+          emessage: `Roll Number "${roll_no.trim()}" already exists in ${department_code.trim()} (Year ${year})`,
+        });
+      }
     }
 
     // ---- Aadhar: only check if provided and non-empty ----
@@ -364,8 +378,32 @@ router.post('/add', upload.single('photo'), async (req, res) => {
 
     // Handle duplicate key errors gracefully
     if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
-      const value = error.keyValue[field];
+      if (error.keyPattern?.roll_no) {
+        return res.status(400).json({
+          success: false,
+          emessage: `Roll Number already exists for this department and year.`,
+        });
+      }
+      if (error.keyPattern?.register_no) {
+        return res.status(400).json({
+          success: false,
+          emessage: `Register Number already exists in the system.`,
+        });
+      }
+      if (error.keyPattern?.application_no) {
+        return res.status(400).json({
+          success: false,
+          emessage: `Application Number already exists in the system.`,
+        });
+      }
+      if (error.keyPattern?.admission_no) {
+        return res.status(400).json({
+          success: false,
+          emessage: `Admission Number already exists in the system.`,
+        });
+      }
+      const field = Object.keys(error.keyPattern || {})[0] || 'Field';
+      const value = error.keyValue ? error.keyValue[field] : '';
       return res.status(400).json({
         success: false,
         emessage: `Duplicate value for ${field}: ${value}. Please ensure it is unique.`,
@@ -943,8 +981,23 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
       if (dup) return res.status(400).json({ emessage: 'Register Number already exists' });
     }
     if (updateFields.roll_no) {
-      const dup = await Student.findOne({ student_id: { $ne: id }, roll_no: updateFields.roll_no });
-      if (dup) return res.status(400).json({ emessage: 'Roll Number already exists' });
+      const currentStudent = await Student.findOne({ student_id: id }).select('department_code year').lean();
+      const targetDept = updateFields.department_code || currentStudent?.department_code;
+      const targetYear = updateFields.year !== undefined ? updateFields.year : currentStudent?.year;
+
+      const rollFilter = {
+        student_id: { $ne: id },
+        roll_no: updateFields.roll_no.trim(),
+      };
+      if (targetDept) rollFilter.department_code = new RegExp(`^${targetDept.trim()}$`, 'i');
+      if (targetYear) rollFilter.year = Number(targetYear);
+
+      const dup = await Student.findOne(rollFilter);
+      if (dup) {
+        return res.status(400).json({
+          emessage: `Roll Number "${updateFields.roll_no}" already exists in ${targetDept || ''} (Year ${targetYear || ''})`,
+        });
+      }
     }
     if (updateFields.aadhar_number) {
       const dup = await Student.findOne({ student_id: { $ne: id }, aadhar_number: updateFields.aadhar_number });

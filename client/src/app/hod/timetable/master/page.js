@@ -277,11 +277,6 @@ export default function TimetablePage() {
     const staff = newStaff !== undefined ? newStaff : prev.staff;
     const hall = newHall !== undefined ? newHall : prev.hall;
 
-    if (subject && isLabSubject(subject) && !hall) {
-      alert("Please select a computer hall for this lab period.");
-      return;
-    }
-
     setEntries((prev) => ({
       ...prev,
       [entryKey]: { ...prev[entryKey], subject, staff, hall, status: "idle", errorMsg: null },
@@ -427,17 +422,20 @@ export default function TimetablePage() {
     setTimeout(() => popupInputRef.current?.focus(), 50);
   };
 
-  const getAdjustedPosition = (rect, popupWidth = 220, popupHeight = 250) => {
+  const getAdjustedPosition = (rect, popupWidth = 240, popupHeight = 250) => {
     let x = rect.left;
-    let y = rect.bottom + window.scrollY + 2;
-    if (x + popupWidth > window.innerWidth) {
-      x = window.innerWidth - popupWidth - 5;
+    if (x + popupWidth > window.innerWidth - 10) {
+      x = Math.max(10, window.innerWidth - popupWidth - 10);
     }
-    if (x < 0) x = 5;
-    if (y + popupHeight > window.innerHeight + window.scrollY) {
-      y = rect.top + window.scrollY - popupHeight - 2;
+    if (x < 10) x = 10;
+
+    let y = rect.bottom + 4;
+    // If not enough space below in viewport, flip popup above the cell
+    if (y + popupHeight > window.innerHeight - 10) {
+      y = Math.max(10, rect.top - popupHeight - 4);
     }
-    if (y < 0) y = 5;
+    if (y < 10) y = 10;
+
     return { x, y };
   };
 

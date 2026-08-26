@@ -206,7 +206,7 @@ router.post("/save", verifyToken, async (req, res) => {
         $set: updateDoc,
         $setOnInsert: { createdBy: req.user.id },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     return res.status(200).json({

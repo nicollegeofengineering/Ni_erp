@@ -10,7 +10,9 @@ const VAPID_PRIVATE_KEY =
   process.env.VAPID_PRIVATE_KEY ||
   '2iPO9YA_gnZ9PdasnWJ6SMO0wYhClCop3TyLLTVFge4';
 
-const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:admin@nicetech.edu';
+const VAPID_EMAIL =
+  process.env.VAPID_EMAIL ||
+  (process.env.EMAIL_USER ? `mailto:${process.env.EMAIL_USER}` : 'mailto:nicetonline@gmail.com');
 
 webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 

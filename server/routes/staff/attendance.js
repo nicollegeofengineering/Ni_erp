@@ -9,6 +9,42 @@ const Student = require('../../models/Student');
 const Attendance = require('../../models/Attendance');
 const Department = require('../../models/Department');
 const mongoose = require('mongoose');
+const { notifyAttendanceAlert } = require('../../services/notificationService');
+
+// ---------- Helper: asynchronous check for low attendance and alert students ----------
+async function checkAndAlertLowAttendance(studentIds, deptCode, semester) {
+  if (!Array.isArray(studentIds) || studentIds.length === 0) return;
+  for (const sId of studentIds) {
+    try {
+      const records = await Attendance.find({
+        department: String(deptCode).toUpperCase(),
+        semester: Number(semester),
+        'students.student_id': String(sId).trim(),
+      }).lean();
+
+      let total = 0;
+      let present = 0;
+      records.forEach((r) => {
+        const entry = (r.students || []).find((s) => String(s.student_id).trim() === String(sId).trim());
+        if (entry) {
+          total++;
+          if (String(entry.status || '').toLowerCase() === 'present') {
+            present++;
+          }
+        }
+      });
+
+      if (total > 0) {
+        const pct = parseFloat(((present / total) * 100).toFixed(1));
+        if (pct < 80) {
+          await notifyAttendanceAlert(sId, pct, semester);
+        }
+      }
+    } catch (e) {
+      console.warn(`[Attendance Alert] Error checking attendance for student ${sId}:`, e.message);
+    }
+  }
+}
 
 // ---------- Helper: format staff full name ----------
 const getStaffFullName = (staff) => {
@@ -559,6 +595,16 @@ router.post('/', async (req, res) => {
     const presentCount = attendanceStudents.filter(s => s.status === 'Present').length;
     const absentCount = attendanceStudents.filter(s => s.status === 'Absent').length;
 
+    // Trigger low attendance alert in background for absent students
+    const absentStudentIds = attendanceStudents
+      .filter((s) => s.status === 'Absent')
+      .map((s) => s.student_id);
+    if (absentStudentIds.length > 0) {
+      checkAndAlertLowAttendance(absentStudentIds, attendance.department, attendance.semester).catch((err) => {
+        console.warn('[Attendance Alert] Background check error:', err.message);
+      });
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Attendance submitted successfully.',
@@ -602,8 +648,18 @@ router.get('/', async (req, res) => {
     if (!staff) return res.status(401).json({ success: false, message: 'User/Staff not found' });
 
     const role = (staff.role || staff.userRole || req.user.role || 'Staff').toLowerCase();
-    const { dateFrom, dateTo, department, year, semester, period, subject, page = 1, limit = 20 } = req.query;
+    let { dateFrom, dateTo, department, year, semester, period, subject, page = 1, limit = 20 } = req.query;
     const filter = {};
+
+    // By default, only get today's attendance if no date is specified
+    if (!dateFrom && !dateTo) {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      dateFrom = `${y}-${m}-${d}`;
+      dateTo = `${y}-${m}-${d}`;
+    }
 
     if (role === 'admin') {
       // Admin can view all attendance across all departments
@@ -633,8 +689,14 @@ router.get('/', async (req, res) => {
 
     if (dateFrom || dateTo) {
       filter.date = {};
-      if (dateFrom) filter.date.$gte = new Date(`${dateFrom}T00:00:00`);
-      if (dateTo) filter.date.$lte = new Date(`${dateTo}T23:59:59`);
+      if (dateFrom) {
+        const fromRange = getNormalizedDateRange(dateFrom);
+        filter.date.$gte = fromRange ? fromRange.start : new Date(`${dateFrom}T00:00:00.000Z`);
+      }
+      if (dateTo) {
+        const toRange = getNormalizedDateRange(dateTo);
+        filter.date.$lte = toRange ? toRange.end : new Date(`${dateTo}T23:59:59.999Z`);
+      }
     }
     if (year) filter.year = parseInt(year);
     if (semester) filter.semester = parseInt(semester);
@@ -967,6 +1029,16 @@ router.put('/:id', async (req, res) => {
 
     attendance.students = updatedStudents;
     await attendance.save();
+
+    // Trigger low attendance alert in background for absent students
+    const absentStudentIds = updatedStudents
+      .filter((s) => s.status === 'Absent')
+      .map((s) => s.student_id);
+    if (absentStudentIds.length > 0) {
+      checkAndAlertLowAttendance(absentStudentIds, attendance.department, attendance.semester).catch((err) => {
+        console.warn('[Attendance Alert] Background check error on edit:', err.message);
+      });
+    }
 
     const updated = await Attendance.findById(attendanceId)
       .populate('staff', 'staff_id first_name last_name prefix')

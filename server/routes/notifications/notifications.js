@@ -125,7 +125,7 @@ router.post('/subscribe', verifyToken, async (req, res) => {
         subscription,
         userAgent: userAgent || '',
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     return res.status(200).json({
