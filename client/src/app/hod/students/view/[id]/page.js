@@ -142,7 +142,7 @@ export default function ViewStudent() {
       <section className={styles.card}>
         <h2 className={styles.cardTitle}>Admission &amp; Academic Information</h2>
         <div className={styles.grid}>
-          {renderField("Academic Year", student.academic_year)}
+          {renderField("Current Academic Year", student.academic_year)}
           {renderField("Admission Date", formatDate(student.admission_date))}
           {renderField("Admission Type", student.admission_type)}
           {renderField("Admission Mode", student.admission_mode)}

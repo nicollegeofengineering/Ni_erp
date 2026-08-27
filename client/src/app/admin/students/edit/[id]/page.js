@@ -411,11 +411,11 @@ export default function EditStudent() {
           <h2 className={styles.cardTitle}>Admission &amp; Academic Information</h2>
           <div className={styles.grid}>
             <div className={styles.fieldWrapper}>
-              <span className={styles.fieldLabel}>Academic Year</span>
+              <span className={styles.fieldLabel}> Current Academic Year</span>
               <input
                 className={styles.formInput}
                 name="academic_year"
-                placeholder="e.g. 2026-27"
+                placeholder="e.g. 2026-2027"
                 value={formData.academic_year}
                 onChange={handleChange}
               />
