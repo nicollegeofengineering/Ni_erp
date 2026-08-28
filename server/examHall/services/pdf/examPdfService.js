@@ -1,4 +1,25 @@
 const PDFDocument = require('pdfkit');
+
+// Statically require standard fonts so serverless bundlers (Vercel NFT, AWS Lambda)
+// detect and include the font files in the production deployment bundle.
+try {
+  require('pdfkit/standard-fonts/Helvetica');
+  require('pdfkit/standard-fonts/HelveticaBold');
+  require('pdfkit/standard-fonts/HelveticaOblique');
+  require('pdfkit/standard-fonts/HelveticaBoldOblique');
+  require('pdfkit/standard-fonts/TimesRoman');
+  require('pdfkit/standard-fonts/TimesBold');
+  require('pdfkit/standard-fonts/TimesItalic');
+  require('pdfkit/standard-fonts/TimesBoldItalic');
+  require('pdfkit/standard-fonts/Courier');
+  require('pdfkit/standard-fonts/CourierBold');
+  require('pdfkit/standard-fonts/CourierOblique');
+  require('pdfkit/standard-fonts/CourierBoldOblique');
+  require('pdfkit/standard-fonts/Symbol');
+  require('pdfkit/standard-fonts/ZapfDingbats');
+} catch (e) {
+  // Ignored if handled by standard font loaders
+}
 const ExamSession = require('../../models/ExamSession');
 const ExamMaster = require('../../models/ExamMaster');
 const ExamSeating = require('../../models/ExamSeating');

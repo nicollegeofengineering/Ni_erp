@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "functions": {
+    "index.js": {
+      "includeFiles": "node_modules/pdfkit/**,assets/**"
+    },
+    "api/**/*.js": {
+      "includeFiles": "node_modules/pdfkit/**,assets/**"
+    }
+  }
+}
