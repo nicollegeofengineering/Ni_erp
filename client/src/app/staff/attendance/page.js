@@ -6,6 +6,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import axios from 'axios';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 import styles from './AttendancePage.module.css';
 
@@ -1028,11 +1029,15 @@ export default function AttendancePage() {
               ).length === 0
             }
           >
-            {submitting
-              ? 'Submitting...'
-              : attendanceExists
-              ? 'Attendance Already Submitted'
-              : 'Submit Attendance'}
+            {submitting ? (
+              <span className="btn-loading">
+                <Loader2 size={16} className="spin-icon" /> Submitting Attendance...
+              </span>
+            ) : attendanceExists ? (
+              'Attendance Already Submitted'
+            ) : (
+              'Submit Attendance'
+            )}
           </button>
         </div>
       )}

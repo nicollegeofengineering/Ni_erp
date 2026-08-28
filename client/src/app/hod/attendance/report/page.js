@@ -173,7 +173,16 @@ export default function SubjectReportPage() {
       const ratio = pdfWidth / canvas.width;
       const pageHeightInCanvasPx = pdfHeight / ratio;
 
-      const footerText = 'Generated via NICETech ERP System';
+      const generatedAtStr = new Date().toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+      const footerText = `Generated via NICETech ERP System on ${generatedAtStr}`;
       const footerFontSize = 7;
       const footerMargin = 8;
 

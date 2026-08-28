@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import styles from "../css/staffadd.module.css";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
 
 export default function AddStaff() {
   const router = useRouter();
   const [preview, setPreview] = useState("/user.png");
   const [imageFile, setImageFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const [Emessage, setEmessage] = useState("");
   const [Smessage, setSmessage] = useState("");
@@ -89,6 +91,7 @@ export default function AddStaff() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const submitData = new FormData();
       if (imageFile) {
@@ -112,6 +115,7 @@ export default function AddStaff() {
       if (response.data.emessage) {
         setEmessage(response.data.emessage);
         setSmessage("");
+        setSubmitting(false);
         return;
       }
 
@@ -166,7 +170,9 @@ export default function AddStaff() {
 
       setEmessage(response.data.message || "Unable to add staff. Please try again.");
       setSmessage("");
+      setSubmitting(false);
     } catch (err) {
+      setSubmitting(false);
       if (handleUnauthorized(err)) return;
 
       const errorMessage =
@@ -201,6 +207,7 @@ export default function AddStaff() {
             className={styles.actionBtn} 
             type="button" 
             onClick={() => router.push("/admin/staff")}
+            disabled={submitting}
           >
             Cancel
           </button>
@@ -208,8 +215,15 @@ export default function AddStaff() {
             className={styles.actionBtn} 
             type="button" 
             onClick={handleSubmit}
+            disabled={submitting}
           >
-            Save Staff Profile
+            {submitting ? (
+              <span className="btn-loading">
+                <Loader2 size={16} className="spin-icon" /> Saving Profile...
+              </span>
+            ) : (
+              "Save Staff Profile"
+            )}
           </button>
         </div>
       </div>

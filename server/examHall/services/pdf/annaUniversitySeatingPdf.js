@@ -98,9 +98,10 @@ function renderAnnaUniversityHallPage(doc, { session, hallData, pageIndex = 1, t
   const centreCode = session.centreCode || master.centreCode || '9640';
   const centreName = session.centreName || master.centreName || 'Noorul Islam College of Engineering and Technology';
   doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000000');
-  doc.text(`College code and name :  ${centreCode} – ${centreName}`, left + 8, infoBoxY + 4.5, {
-    width: contentWidth - 16,
+  doc.text('College code and name :  ', left + 8, infoBoxY + 4.5, {
+    continued: true,
   });
+  doc.font('Helvetica').text(`${centreCode} – ${centreName}`);
 
   // Row 2: Hall No, Date, Session
   const hallNoStr = hallData.hallNumber || 'D401';
@@ -115,10 +116,17 @@ function renderAnnaUniversityHallPage(doc, { session, hallData, pageIndex = 1, t
   doc.moveTo(div1X, infoBoxY + row1Height).lineTo(div1X, infoBoxY + infoBoxHeight).stroke();
   doc.moveTo(div2X, infoBoxY + row1Height).lineTo(div2X, infoBoxY + infoBoxHeight).stroke();
 
-  doc.font('Helvetica-Bold').fontSize(9.5);
-  doc.text(`Hall No.: ${hallNoStr}`, left + 8, infoBoxY + row1Height + 4.5);
-  doc.text(`Date: ${dateStr}`, div1X + 10, infoBoxY + row1Height + 4.5);
-  doc.text(`Session: ${sessionStr}`, div2X + 10, infoBoxY + row1Height + 4.5);
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000000');
+  doc.text('Hall No.: ', left + 8, infoBoxY + row1Height + 4.5, { continued: true });
+  doc.font('Helvetica').text(hallNoStr);
+
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000000');
+  doc.text('Date: ', div1X + 10, infoBoxY + row1Height + 4.5, { continued: true });
+  doc.font('Helvetica').text(dateStr);
+
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000000');
+  doc.text('Session: ', div2X + 10, infoBoxY + row1Height + 4.5, { continued: true });
+  doc.font('Helvetica').text(sessionStr);
 
   currentY = infoBoxY + infoBoxHeight + 8;
 

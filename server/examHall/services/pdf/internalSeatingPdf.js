@@ -84,7 +84,8 @@ function renderInternalHallPage(doc, { session, hallData, pageIndex = 1, totalPa
   // Row 1: Exam Name
   const examName = session.examName || session.examMaster?.examName || 'Internal Examination 1';
   doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000000');
-  doc.text(`Exam Name :  ${examName}`, left + 8, infoBoxY + 4.5, { width: contentWidth - 16 });
+  doc.text('Exam Name :  ', left + 8, infoBoxY + 4.5, { continued: true });
+  doc.font('Helvetica').text(examName);
 
   // Row 2: Hall No, Date, Session
   const hallNoStr = hallData.hallNumber || 'D401';
@@ -99,10 +100,17 @@ function renderInternalHallPage(doc, { session, hallData, pageIndex = 1, totalPa
   doc.moveTo(div1X, infoBoxY + row1Height).lineTo(div1X, infoBoxY + infoBoxHeight).stroke();
   doc.moveTo(div2X, infoBoxY + row1Height).lineTo(div2X, infoBoxY + infoBoxHeight).stroke();
 
-  doc.font('Helvetica-Bold').fontSize(9.5);
-  doc.text(`Hall No.: ${hallNoStr}`, left + 8, infoBoxY + row1Height + 4.5);
-  doc.text(`Date: ${dateStr}`, div1X + 10, infoBoxY + row1Height + 4.5);
-  doc.text(`Session: ${sessionStr}`, div2X + 10, infoBoxY + row1Height + 4.5);
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000000');
+  doc.text('Hall No.: ', left + 8, infoBoxY + row1Height + 4.5, { continued: true });
+  doc.font('Helvetica').text(hallNoStr);
+
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000000');
+  doc.text('Date: ', div1X + 10, infoBoxY + row1Height + 4.5, { continued: true });
+  doc.font('Helvetica').text(dateStr);
+
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000000');
+  doc.text('Session: ', div2X + 10, infoBoxY + row1Height + 4.5, { continued: true });
+  doc.font('Helvetica').text(sessionStr);
 
   currentY = infoBoxY + infoBoxHeight + 8;
 

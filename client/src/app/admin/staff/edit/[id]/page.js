@@ -6,7 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import {
   ArrowLeft, Save, X, User, Phone, Briefcase,
-  GraduationCap, ShieldCheck, Landmark, AlertCircle
+  GraduationCap, ShieldCheck, Landmark, AlertCircle, Loader2
 } from "lucide-react";
 
 export default function EditStaff() {
@@ -325,7 +325,15 @@ export default function EditStaff() {
             onClick={handleSubmit}
             disabled={saving}
           >
-            <Save size={16} /> {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? (
+              <span className="btn-loading">
+                <Loader2 size={16} className="spin-icon" /> Saving...
+              </span>
+            ) : (
+              <>
+                <Save size={16} /> Save Changes
+              </>
+            )}
           </button>
         </div>
       </div>

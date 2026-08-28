@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
 import styles from "../../css/studentadd.module.css";
 
 function getAcademicYearOptions(currentVal) {
@@ -33,6 +34,7 @@ export default function EditStudent() {
   const id = params.id;
 
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState("/user.png");
   const [imageFile, setImageFile] = useState(null);
   const [Emessage, setEmessage] = useState("");
@@ -268,6 +270,7 @@ export default function EditStudent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const submitData = new FormData();
       if (imageFile) {
@@ -293,6 +296,7 @@ export default function EditStudent() {
       if (response.data.emessage) {
         setEmessage(response.data.emessage);
         setSmessage("");
+        setSubmitting(false);
         return;
       }
 
@@ -303,13 +307,16 @@ export default function EditStudent() {
         if (response.data.data?.profile_image) {
           setPreview(`${process.env.NEXT_PUBLIC_BACKEND_URL}${response.data.data.profile_image}`);
         }
+        setSubmitting(false);
         setTimeout(() => router.push(`/admin/students/view/${id}`), 1500);
         return;
       }
 
       setEmessage(response.data.message || "Unable to update student. Please try again.");
       setSmessage("");
+      setSubmitting(false);
     } catch (err) {
+      setSubmitting(false);
       if (handleUnauthorized(err)) return;
       const errorMessage =
         err.response?.data?.emessage ||
@@ -355,11 +362,23 @@ export default function EditStudent() {
             className={styles.actionBtn}
             type="button"
             onClick={() => router.push(`/admin/students/view/${id}`)}
+            disabled={submitting}
           >
             Cancel
           </button>
-          <button className={styles.actionBtn} type="button" onClick={handleSubmit}>
-            Update Student
+          <button 
+            className={styles.actionBtn} 
+            type="button" 
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <span className="btn-loading">
+                <Loader2 size={16} className="spin-icon" /> Updating Student...
+              </span>
+            ) : (
+              "Update Student"
+            )}
           </button>
         </div>
       </div>

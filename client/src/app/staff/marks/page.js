@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { Loader2 } from "lucide-react";
 import styles from "./page.module.css";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
@@ -617,7 +618,13 @@ export default function StaffMarksViewPage() {
               onClick={handleEditSave}
               disabled={savingEdit || totalTheory > 100}
             >
-              {savingEdit ? "Saving..." : "Save Changes"}
+              {savingEdit ? (
+                <span className="btn-loading">
+                  <Loader2 size={15} className="spin-icon" /> Saving...
+                </span>
+              ) : (
+                "Save Changes"
+              )}
             </button>
           </div>
         </div>
@@ -695,7 +702,13 @@ export default function StaffMarksViewPage() {
               onClick={handleAddStudents}
               disabled={selectedAvailable.size === 0 || addingStudents}
             >
-              {addingStudents ? "Adding..." : `Add ${selectedAvailable.size} Student(s)`}
+              {addingStudents ? (
+                <span className="btn-loading">
+                  <Loader2 size={15} className="spin-icon" /> Adding...
+                </span>
+              ) : (
+                `Add ${selectedAvailable.size} Student(s)`
+              )}
             </button>
           </div>
         </div>
@@ -748,7 +761,13 @@ export default function StaffMarksViewPage() {
               onClick={handleDeleteMarks}
               disabled={deletingMarks}
             >
-              {deletingMarks ? "Deleting..." : "Delete Marks"}
+              {deletingMarks ? (
+                <span className="btn-loading">
+                  <Loader2 size={15} className="spin-icon" /> Deleting...
+                </span>
+              ) : (
+                "Delete Marks"
+              )}
             </button>
           </div>
         </div>
@@ -789,7 +808,13 @@ export default function StaffMarksViewPage() {
             onClick={handleDownloadPdf}
             disabled={pdfGenerating || groupedRows.length === 0}
           >
-            {pdfGenerating ? "Generating PDF..." : "📥 Download PDF Report"}
+            {pdfGenerating ? (
+              <span className="btn-loading">
+                <Loader2 size={15} className="spin-icon" /> Generating PDF...
+              </span>
+            ) : (
+              "📥 Download PDF Report"
+            )}
           </button>
         </div>
 

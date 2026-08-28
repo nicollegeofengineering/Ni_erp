@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
 import styles from "./subjects.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -390,11 +391,15 @@ export default function SubjectsPage() {
                   className={styles.saveButton}
                   disabled={submitting}
                 >
-                  {submitting
-                    ? "Saving…"
-                    : modalMode === "add"
-                    ? "Add Subject"
-                    : "Update Subject"}
+                  {submitting ? (
+                    <span className="btn-loading">
+                      <Loader2 size={16} className="spin-icon" /> Saving...
+                    </span>
+                  ) : modalMode === "add" ? (
+                    "Add Subject"
+                  ) : (
+                    "Update Subject"
+                  )}
                 </button>
               </div>
             </form>

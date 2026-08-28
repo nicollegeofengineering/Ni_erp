@@ -815,6 +815,12 @@ export default function MasterExamTimetablePage() {
               </table>
             )}
           </div>
+
+          {/* Printable ERP Footer */}
+          <div className={styles.noticeFooter} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", marginTop: "12px", borderTop: "1px solid #e2e8f0", fontSize: "11px", color: "#64748b" }}>
+            <span>Generated via NICETECH ERP System</span>
+            <span>Generated on: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</span>
+          </div>
         </div>
 
         {/* SUBJECT PICKER MODAL */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
 import styles from "./page.module.css";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
@@ -542,7 +543,13 @@ export default function StaffMarksAddPage() {
             onClick={handleSave}
             disabled={saving || selectedCount === 0}
           >
-            {saving ? "Saving..." : `Save Marks (${selectedCount})`}
+            {saving ? (
+              <span className="btn-loading">
+                <Loader2 size={15} className="spin-icon" /> Saving Marks...
+              </span>
+            ) : (
+              `Save Marks (${selectedCount})`
+            )}
           </button>
         </div>
       </div>

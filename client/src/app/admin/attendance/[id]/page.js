@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import axios from 'axios';
+import { Loader2 } from 'lucide-react';
 import styles from './AttendanceDetail.module.css';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
@@ -199,7 +200,13 @@ export default function AttendanceDetailPage() {
       <div className={styles.actions}>
         {attendance?.canEdit !== false && (
           <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? (
+              <span className="btn-loading">
+                <Loader2 size={16} className="spin-icon" /> Saving...
+              </span>
+            ) : (
+              'Save Changes'
+            )}
           </button>
         )}
         {attendance?.canDelete !== false && (
@@ -232,7 +239,13 @@ export default function AttendanceDetailPage() {
             <div className={styles.modalActions}>
               <button className={styles.modalCancelBtn} onClick={closeDeleteModal}>Cancel</button>
               <button className={styles.modalDeleteBtn} onClick={handleDelete} disabled={deleting}>
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? (
+                  <span className="btn-loading">
+                    <Loader2 size={16} className="spin-icon" /> Deleting...
+                  </span>
+                ) : (
+                  'Delete'
+                )}
               </button>
             </div>
           </div>

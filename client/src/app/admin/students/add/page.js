@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import styles from "../css/studentadd.module.css";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
 
 function getAcademicYearOptions(currentVal) {
   const now = new Date();
@@ -31,6 +32,7 @@ export default function AddStudent() {
   const router = useRouter();
   const [preview, setPreview] = useState("/user.png");
   const [imageFile, setImageFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [Emessage, setEmessage] = useState("");
   const [Smessage, setSmessage] = useState("");
 
@@ -158,6 +160,7 @@ export default function AddStudent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const submitData = new FormData();
       if (imageFile) {
@@ -184,6 +187,7 @@ export default function AddStudent() {
       if (response.data.emessage) {
         setEmessage(response.data.emessage);
         setSmessage("");
+        setSubmitting(false);
         return;
       }
 
@@ -233,16 +237,14 @@ export default function AddStudent() {
           father_name: "",
           father_mobile: "",
           father_occupation: "",
+          father_annual_income: "",
           mother_name: "",
           mother_mobile: "",
           mother_occupation: "",
-          annual_family_income: "",
-          first_graduate: false,
-          seven_point_five:false,
           guardian_name: "",
-          guardian_relationship: "",
           guardian_mobile: "",
           guardian_occupation: "",
+          guardian_relationship: "",
           qualification: {
             emis_number: "",
             institution: "",
@@ -254,6 +256,7 @@ export default function AddStudent() {
             physics_marks: "",
             chemistry_marks: "",
             aggregate: "",
+            eligibility: "",
             umis_number: "",
             diploma_branch: "",
             percentage: "",
@@ -267,13 +270,16 @@ export default function AddStudent() {
         });
         setPreview("/user.png");
         setImageFile(null);
+        setSubmitting(false);
         setTimeout(() => router.push("/admin/students"), 1500);
         return;
       }
 
       setEmessage(response.data.message || "Unable to add student. Please try again.");
       setSmessage("");
+      setSubmitting(false);
     } catch (err) {
+      setSubmitting(false);
       if (handleUnauthorized(err)) return;
       const errorMessage =
         err.response?.data?.emessage ||
@@ -306,11 +312,27 @@ export default function AddStudent() {
           <p className={styles.subtitle}>Fill in student details carefully. Fields with * are required.</p>
         </div>
         <div className={styles.actions}>
-          <button className={styles.actionBtn} type="button" onClick={() => router.push("/admin/students")}>
+          <button 
+            className={styles.actionBtn} 
+            type="button" 
+            onClick={() => router.push("/admin/students")}
+            disabled={submitting}
+          >
             Cancel
           </button>
-          <button className={styles.actionBtn} type="button" onClick={handleSubmit}>
-            Save Student
+          <button 
+            className={styles.actionBtn} 
+            type="button" 
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <span className="btn-loading">
+                <Loader2 size={16} className="spin-icon" /> Saving Student...
+              </span>
+            ) : (
+              "Save Student"
+            )}
           </button>
         </div>
       </div>

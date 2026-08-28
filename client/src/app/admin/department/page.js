@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
 import styles from "./department.module.css";
 
 export default function DepartmentsPage() {
@@ -221,7 +222,15 @@ export default function DepartmentsPage() {
                   Cancel
                 </button>
                 <button type="submit" className={styles.saveButton} disabled={submitting}>
-                  {submitting ? "Saving…" : modalMode === "add" ? "Save Department" : "Update Department"}
+                  {submitting ? (
+                    <span className="btn-loading">
+                      <Loader2 size={16} className="spin-icon" /> Saving...
+                    </span>
+                  ) : modalMode === "add" ? (
+                    "Save Department"
+                  ) : (
+                    "Update Department"
+                  )}
                 </button>
               </div>
             </form>

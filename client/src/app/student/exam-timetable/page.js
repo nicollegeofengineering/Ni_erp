@@ -239,7 +239,7 @@ function StudentTimetableCard({ timetable, studentInfo, isLatest }) {
         {/* Bottom ERP Footer */}
         <div className={styles.noticeFooter}>
           <span>Generated via NICETECH ERP System</span>
-          <span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+          <span>Generated on: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</span>
         </div>
       </div>
     </div>

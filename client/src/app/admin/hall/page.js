@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import styles from "./hall.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -391,11 +392,15 @@ export default function HallsPage() {
                   className={styles.saveButton}
                   disabled={submitting}
                 >
-                  {submitting
-                    ? "Saving…"
-                    : modalMode === "add"
-                    ? "Add Hall"
-                    : "Update Hall"}
+                  {submitting ? (
+                    <span className="btn-loading">
+                      <Loader2 size={16} className="spin-icon" /> Saving...
+                    </span>
+                  ) : modalMode === "add" ? (
+                    "Add Hall"
+                  ) : (
+                    "Update Hall"
+                  )}
                 </button>
               </div>
             </form>
