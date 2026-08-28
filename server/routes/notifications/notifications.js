@@ -8,6 +8,8 @@ const Notification = require('../../models/Notification');
 const User = require('../../models/User');
 const Student = require('../../models/Student');
 const Staff = require('../../models/Staff');
+const InternalMark = require('../../models/InternalMark');
+const Subject = require('../../models/Subject');
 
 // Helper to resolve student / staff department for user
 async function resolveUserDepartment(userId, role) {
@@ -350,7 +352,37 @@ router.post('/notify-marks', verifyToken, async (req, res) => {
 
     const link = '/student/marks';
 
-    // 1. Create In-App Notification document
+    // 0. Update matching InternalMark records to isPublished = true
+    const markFilter = {};
+    if (deptCode !== 'ALL') {
+      markFilter.department = deptCode;
+    }
+    if (year) {
+      markFilter.year = Number(year);
+    }
+    if (semester) {
+      markFilter.semester = Number(semester);
+    }
+    if (subjectCode) {
+      const matchedSub = await Subject.findOne({
+        subjectCode: new RegExp(`^${subjectCode.trim()}$`, 'i'),
+      })
+        .select('_id')
+        .lean();
+      if (matchedSub) {
+        markFilter.subject = matchedSub._id;
+      }
+    }
+
+    const updateRes = await InternalMark.updateMany(markFilter, {
+      $set: {
+        isPublished: true,
+        publishedAt: new Date(),
+        publishedBy: req.user._id,
+      },
+    });
+
+    // 1. Create In-App Notification document for All roles (Students, Staff, Admin)
     const notifDoc = await Notification.create({
       recipient: null,
       role: 'All',
@@ -361,13 +393,19 @@ router.post('/notify-marks', verifyToken, async (req, res) => {
       message,
       type: 'MARK_PUBLISHED',
       link,
-      senderName: `${req.user.role} Management`,
+      senderName: `${req.user.role || 'Admin'} Management`,
     });
 
-    // 2. Query target push subscriptions
+    // 2. Query target push subscriptions for Students, Staff, HOD, and Admin
     const subQuery = {};
     if (deptCode !== 'ALL') {
-      subQuery.$or = [{ department: deptCode }, { department: 'ALL' }, { role: 'Admin' }];
+      subQuery.$or = [
+        { department: deptCode },
+        { department: 'ALL' },
+        { role: 'Admin' },
+        { role: 'Staff' },
+        { role: 'Hod' },
+      ];
     }
 
     const subscriptions = await PushSubscription.find(subQuery).lean();
@@ -388,8 +426,9 @@ router.post('/notify-marks', verifyToken, async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Notifications sent successfully! Delivered push alert to ${pushSentCount} device(s) and logged in-app notifications.`,
+      message: `Internal marks published successfully (${updateRes.modifiedCount || updateRes.matchedCount || 0} records updated) and broadcast notifications delivered to ${pushSentCount} device(s).`,
       notificationId: notifDoc._id,
+      publishedCount: updateRes.modifiedCount || updateRes.matchedCount || 0,
       pushSentCount,
     });
   } catch (error) {

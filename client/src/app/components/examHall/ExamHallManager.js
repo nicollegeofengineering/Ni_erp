@@ -19,28 +19,45 @@ import {
   Settings,
   BookOpen,
   Sparkles,
+  ArrowRight,
+  GraduationCap,
+  FileText,
 } from 'lucide-react';
 import styles from './exam-hall.module.css';
-import { exportHallLandscapePdf, exportAllHallsLandscapePdf } from './examHallPdf';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-// Color palette mapping helper for subject badges
-const SUBJECT_COLORS = [
-  styles.subColor0,
-  styles.subColor1,
-  styles.subColor2,
-  styles.subColor3,
-  styles.subColor4,
-  styles.subColor5,
-  styles.subColor6,
-  styles.subColor7,
+// Curated palette mapping for differentiating subject codes in seating grid
+const SUBJECT_PALETTES = [
+  { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', badgeBg: '#dbeafe', badgeText: '#1e40af' }, // Blue
+  { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', badgeBg: '#dcfce7', badgeText: '#166534' }, // Green
+  { bg: '#faf5ff', border: '#e9d5ff', text: '#7e22ce', badgeBg: '#f3e8ff', badgeText: '#6b21a8' }, // Purple
+  { bg: '#fff7ed', border: '#fed7aa', text: '#c2410c', badgeBg: '#ffedd5', badgeText: '#9a3412' }, // Orange
+  { bg: '#f0fdfa', border: '#99f6e4', text: '#0f766e', badgeBg: '#ccfbf1', badgeText: '#115e59' }, // Teal
+  { bg: '#fefce8', border: '#fef08a', text: '#a16207', badgeBg: '#fef9c3', badgeText: '#854d0e' }, // Amber
+  { bg: '#fff1f2', border: '#fecdd3', text: '#be123c', badgeBg: '#ffe4e6', badgeText: '#9f1239' }, // Rose
+  { bg: '#ecfeff', border: '#a5f3fc', text: '#0e7490', badgeBg: '#cffafe', badgeText: '#155e75' }, // Cyan
 ];
+
+const getSubjectPalette = (subjectCode, allSubjects = []) => {
+  if (!subjectCode) return null;
+  let idx = allSubjects.indexOf(subjectCode);
+  if (idx === -1) {
+    let hash = 0;
+    for (let i = 0; i < subjectCode.length; i++) {
+      hash = subjectCode.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    idx = Math.abs(hash) % SUBJECT_PALETTES.length;
+  } else {
+    idx = idx % SUBJECT_PALETTES.length;
+  }
+  return SUBJECT_PALETTES[idx];
+};
 
 // Presets for Anna University Degrees & Branches
 const ANNA_UNIV_DEGREES = [
-  'B.Tech',
   'B.E.',
+  'B.Tech',
   'M.E.',
   'M.Tech',
   'MBA',
@@ -52,8 +69,8 @@ const ANNA_UNIV_DEGREES = [
 ];
 
 const ANNA_UNIV_BRANCHES = [
-  'Artificial Intelligence and Data Science',
   'Computer Science and Engineering',
+  'Artificial Intelligence and Data Science',
   'Information Technology',
   'Electronics and Communication Engineering',
   'Electrical and Electronics Engineering',
@@ -78,39 +95,38 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
     []
   );
 
-  // ---------- State ----------
-  // Exam Masters (Configurations)
-  const [masters, setMasters] = useState([]);
-  const [showMasterModal, setShowMasterModal] = useState(false);
-  const [editingMaster, setEditingMaster] = useState(null);
-  const [masterForm, setMasterForm] = useState({
-    examCode: '',
-    examName: '',
-    centreCode: '9460',
-    centreName: 'Noorul Islam College of Engineering and Technology',
-  });
+  // ---------- 1. EXAM TYPE SELECTION FLOW STATE ----------
+  const [selectedExamType, setSelectedExamType] = useState('ANNA_UNIVERSITY'); // 'ANNA_UNIVERSITY' | 'INTERNAL'
+  const [flowExamName, setFlowExamName] = useState(
+    'ANNA UNIVERSITY THEORY EXAMINATION NOV–DEC 2026'
+  );
+  const [flowCentreCode, setFlowCentreCode] = useState('9640');
+  const [flowCentreName, setFlowCentreName] = useState(
+    'Noorul Islam College of Engineering and Technology'
+  );
+  const [flowExamDate, setFlowExamDate] = useState(new Date().toISOString().split('T')[0]);
+  const [flowSession, setFlowSession] = useState('FN'); // 'FN' | 'AN'
+  const [flowLoading, setFlowLoading] = useState(false);
 
-  // Sessions / Schedules
+  // ---------- General State ----------
+  const [masters, setMasters] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [loading, setLoading] = useState(true);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [alert, setAlert] = useState({ type: '', message: '' });
 
-  // Printable Refs
-  const singleHallPrintRef = useRef(null);
-  const allHallsContainerRef = useRef(null);
-
   // Candidates state
-  const [candidateTab, setCandidateTab] = useState('range'); // 'range' | 'manual' | 'list'
+  const [candidateTab, setCandidateTab] = useState('range'); // 'range' | 'manual' | 'import' | 'list'
   const [candidates, setCandidates] = useState([]);
   const [candidateSearch, setCandidateSearch] = useState('');
 
-  // 1. Range form (Default Candidate Entry)
+  // 1. Range form
   const [rangeForm, setRangeForm] = useState({
-    programme: 'B.Tech',
-    department: 'Artificial Intelligence and Data Science',
-    departmentCode: 'AI&DS',
+    year: '3',
+    programme: 'B.E.',
+    department: 'Computer Science and Engineering',
+    departmentCode: 'CSE',
     subjectCode: '',
     subjectName: '',
     registerNoFrom: '',
@@ -123,19 +139,35 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
     {
       registerNo: '',
       name: '',
-      programme: 'B.Tech',
-      department: 'Artificial Intelligence and Data Science',
+      programme: 'B.E.',
+      department: 'Computer Science and Engineering',
+      departmentCode: 'CSE',
       subjectCode: '',
       subjectName: '',
     },
   ]);
 
+  // 3. Student DB lookup & import
+  const [lookupFilter, setLookupFilter] = useState({
+    departmentCode: '',
+    year: '',
+    semester: '',
+    section: '',
+    search: '',
+  });
+  const [lookupResult, setLookupResult] = useState({
+    students: [],
+    departments: [],
+    subjects: [],
+  });
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [importSubjectCode, setImportSubjectCode] = useState('');
+  const [importSubjectName, setImportSubjectName] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+
   // Halls state
   const [halls, setHalls] = useState([]);
   const [selectedHallIds, setSelectedHallIds] = useState([]);
-  const [hallSearchQuery, setHallSearchQuery] = useState('');
-  const [hallLayoutFilter, setHallLayoutFilter] = useState('ALL');
-  const [showAddHallForm, setShowAddHallForm] = useState(false);
   const [hallForm, setHallForm] = useState({
     hallNumber: '',
     layoutType: 'FIVE_BY_FIVE',
@@ -151,33 +183,25 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
   const [searchResult, setSearchResult] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // Form Loading States for Animation
+  const [addingRange, setAddingRange] = useState(false);
+  const [addingManual, setAddingManual] = useState(false);
+  const [importingStudents, setImportingStudents] = useState(false);
+  const [hallSubmitting, setHallSubmitting] = useState(false);
+  const [masterSaving, setMasterSaving] = useState(false);
+
   // Modals
-  const [showSessionModal, setShowSessionModal] = useState(false);
-  const [sessionForm, setSessionForm] = useState({
-    examMasterId: '',
-    examName: '',
+  const [showMasterModal, setShowMasterModal] = useState(false);
+  const [editingMaster, setEditingMaster] = useState(null);
+  const [masterForm, setMasterForm] = useState({
+    examType: 'ANNA_UNIVERSITY',
     examCode: '',
-    centreCode: '9460',
+    examName: '',
+    centreCode: '9640',
     centreName: 'Noorul Islam College of Engineering and Technology',
-    examDate: new Date().toISOString().split('T')[0],
-    session: 'FN',
   });
 
-  const [showEditSessionModal, setShowEditSessionModal] = useState(false);
-  const [editSessionForm, setEditSessionForm] = useState({
-    _id: '',
-    examMasterId: '',
-    examName: '',
-    examCode: '',
-    centreCode: '',
-    centreName: '',
-    examDate: '',
-    session: 'FN',
-  });
-  const [showDeleteSessionModal, setShowDeleteSessionModal] = useState(false);
-  const [deleteMasterConfirm, setDeleteMasterConfirm] = useState(null);
   const [showAllExamsModal, setShowAllExamsModal] = useState(false);
-
   const [editingCandidate, setEditingCandidate] = useState(null);
   const [editingHall, setEditingHall] = useState(null);
   const [showRegenerateModal, setShowRegenerateModal] = useState(false);
@@ -190,23 +214,50 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
   };
 
   const activeSession = useMemo(
-    () => sessions.find((s) => String(s._id) === String(selectedSessionId)) || sessions[0] || null,
+    () => sessions.find((s) => String(s._id) === String(selectedSessionId)) || null,
     [sessions, selectedSessionId]
   );
 
-  // Subject color map
-  const subjectColorMap = useMemo(() => {
+  // Active Hall Data for seating matrix / details
+  const activeHallData = useMemo(() => {
+    if (!seatingData?.halls || seatingData.halls.length === 0) return null;
+    if (!activeHallViewId) return seatingData.halls[0];
+    return seatingData.halls.find((h) => String(h.hallId) === String(activeHallViewId)) || seatingData.halls[0];
+  }, [seatingData, activeHallViewId]);
+
+  // Subject color palette mapping
+  const subjectPaletteMap = useMemo(() => {
     const map = {};
     let colorIndex = 0;
+    const allCodes = new Set();
     candidates.forEach((c) => {
-      const code = (c.subjectCode || '').toUpperCase();
-      if (!map[code]) {
-        map[code] = SUBJECT_COLORS[colorIndex % SUBJECT_COLORS.length];
-        colorIndex++;
-      }
+      if (c.subjectCode?.trim()) allCodes.add(c.subjectCode.trim().toUpperCase());
+    });
+    if (seatingData?.halls) {
+      seatingData.halls.forEach((h) => {
+        if (h.seats) {
+          Object.values(h.seats).forEach((st) => {
+            if (st?.subjectCode?.trim()) allCodes.add(st.subjectCode.trim().toUpperCase());
+          });
+        }
+      });
+    }
+    allCodes.forEach((code) => {
+      map[code] = SUBJECT_PALETTES[colorIndex % SUBJECT_PALETTES.length];
+      colorIndex++;
     });
     return map;
-  }, [candidates]);
+  }, [candidates, seatingData]);
+
+  // Unique subjects present in current active hall
+  const activeHallSubjects = useMemo(() => {
+    if (!activeHallData?.seats) return [];
+    const set = new Set();
+    Object.values(activeHallData.seats).forEach((s) => {
+      if (s?.subjectCode?.trim()) set.add(s.subjectCode.trim().toUpperCase());
+    });
+    return Array.from(set);
+  }, [activeHallData]);
 
   // ---------- Data Fetching ----------
   const fetchMasters = useCallback(async () => {
@@ -225,15 +276,11 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
       const res = await api.get('/sessions');
       if (res.data?.success) {
         setSessions(res.data.data);
-        if (res.data.data.length > 0 && !selectedSessionId) {
-          setSelectedSessionId(res.data.data[0]._id);
-        }
       }
     } catch (err) {
       console.error('Error fetching sessions:', err);
-      showAlert('error', err.response?.data?.message || 'Failed to fetch exam sessions.');
     }
-  }, [api, selectedSessionId]);
+  }, [api]);
 
   const fetchHalls = useCallback(async () => {
     try {
@@ -248,319 +295,350 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
   }, [api]);
 
   const fetchSessionDetails = useCallback(async () => {
-    if (!selectedSessionId) return;
+    if (!selectedSessionId) {
+      setCandidates([]);
+      setSeatingData(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const [candRes, seatRes] = await Promise.all([
+      const [candRes, seatRes] = await Promise.allSettled([
         api.get(`/candidates/${selectedSessionId}`),
         api.get(`/seating/${selectedSessionId}`),
       ]);
-      if (candRes.data?.success) {
-        setCandidates(candRes.data.data);
-      }
-      if (seatRes.data?.success) {
-        setSeatingData(seatRes.data);
-        if (seatRes.data.halls && seatRes.data.halls.length > 0) {
-          setActiveHallViewId(seatRes.data.halls[0].hallId);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching session details:', err);
-    }
-  }, [api, selectedSessionId]);
 
-  // Initial load
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const [sessRes, hallsRes, mastersRes] = await Promise.all([
-          api.get('/sessions'),
-          api.get('/halls'),
-          api.get('/masters'),
-        ]);
-        if (active) {
-          if (sessRes.data?.success) {
-            setSessions(sessRes.data.data);
-            if (sessRes.data.data.length > 0) {
-              setSelectedSessionId(sessRes.data.data[0]._id);
-            }
-          }
-          if (hallsRes.data?.success) {
-            setHalls(hallsRes.data.data);
-            setSelectedHallIds(hallsRes.data.data.filter((h) => h.active).map((h) => h._id));
-          }
-          if (mastersRes.data?.success) {
-            setMasters(mastersRes.data.data);
-          }
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('Initial load error:', err);
-        if (active) setLoading(false);
+      if (candRes.status === 'fulfilled' && candRes.value.data?.success) {
+        setCandidates(candRes.value.data.data || []);
+      } else {
+        setCandidates([]);
       }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [api]);
 
-  // Load session candidates/seating when session selection changes
-  useEffect(() => {
-    if (!selectedSessionId) return;
-    let active = true;
-    (async () => {
-      try {
-        const [candRes, seatRes] = await Promise.all([
-          api.get(`/candidates/${selectedSessionId}`),
-          api.get(`/seating/${selectedSessionId}`),
-        ]);
-        if (active) {
-          if (candRes.data?.success) {
-            setCandidates(candRes.data.data);
-          }
-          if (seatRes.data?.success) {
-            setSeatingData(seatRes.data);
-            if (seatRes.data.halls && seatRes.data.halls.length > 0) {
-              setActiveHallViewId(seatRes.data.halls[0].hallId);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Session details load error:', err);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [api, selectedSessionId]);
-
-  // ---------- Exam Master Handlers ----------
-  const handleSaveMaster = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingMaster) {
-        const res = await api.put(`/masters/${editingMaster._id}`, masterForm);
-        if (res.data.success) {
-          showAlert('success', 'Exam Master updated successfully.');
-          setEditingMaster(null);
-          setShowMasterModal(false);
-          await fetchMasters();
-          await fetchSessions();
+      if (seatRes.status === 'fulfilled' && seatRes.value.data?.success) {
+        setSeatingData(seatRes.value.data);
+        if (seatRes.value.data.halls?.length > 0 && !activeHallViewId) {
+          setActiveHallViewId(seatRes.value.data.halls[0].hallId);
         }
       } else {
-        const res = await api.post('/masters', masterForm);
-        if (res.data.success) {
-          showAlert('success', 'Exam Master created successfully.');
-          setShowMasterModal(false);
-          setMasterForm({
-            examCode: '',
-            examName: '',
-            centreCode: '9460',
-            centreName: 'Nagercoil Islam College of Engineering and Technology',
-          });
-          await fetchMasters();
-        }
-      }
-    } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to save Exam Master.');
-    }
-  };
-
-  const handleDeleteMaster = async (masterId, force = false) => {
-    try {
-      const url = force ? `/masters/${masterId}?force=true` : `/masters/${masterId}`;
-      const res = await api.delete(url);
-      if (res.data?.requiresConfirmation) {
-        setDeleteMasterConfirm({
-          masterId,
-          message: res.data.message,
-          sessionCount: res.data.sessionCount,
-          candidateCount: res.data.candidateCount,
-          seatingCount: res.data.seatingCount,
-        });
-        return;
-      }
-      if (res.data?.success) {
-        showAlert('success', res.data.message || 'Exam Master deleted successfully.');
-        setDeleteMasterConfirm(null);
-        await fetchMasters();
-        await fetchSessions();
-      }
-    } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to delete Exam Master.');
-    }
-  };
-
-  // ---------- Session Handlers ----------
-  const handleCreateSession = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await api.post('/sessions', sessionForm);
-      if (res.data.success) {
-        showAlert('success', 'Exam Session created successfully.');
-        setShowSessionModal(false);
-        setSessionForm({
-          examMasterId: '',
-          examName: '',
-          examCode: '',
-          centreCode: '9460',
-          centreName: 'Noorul Islam College of Engineering and Technology',
-          examDate: new Date().toISOString().split('T')[0],
-          session: 'FN',
-        });
-        await fetchSessions();
-        setSelectedSessionId(res.data.data._id);
-      }
-    } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to create session.');
-    }
-  };
-
-  const openEditSession = (sess) => {
-    if (!sess) return;
-    const dStr = sess.examDate ? new Date(sess.examDate).toISOString().split('T')[0] : '';
-    setEditSessionForm({
-      _id: sess._id,
-      examMasterId: sess.examMaster?._id || sess.examMaster || '',
-      examName: sess.examName || '',
-      examCode: sess.examCode || '',
-      centreCode: sess.centreCode || '9460',
-      centreName: sess.centreName || 'Nagercoil Islam College of Engineering and Technology',
-      examDate: dStr,
-      session: sess.session || 'FN',
-    });
-    setShowEditSessionModal(true);
-  };
-
-  const handleUpdateSession = async (e) => {
-    e.preventDefault();
-    if (!editSessionForm._id) return;
-    try {
-      const res = await api.put(`/sessions/${editSessionForm._id}`, editSessionForm);
-      if (res.data.success) {
-        showAlert('success', 'Exam session updated successfully.');
-        setShowEditSessionModal(false);
-        await fetchSessions();
-        await fetchSessionDetails();
-      }
-    } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to update exam session.');
-    }
-  };
-
-  const handleDeleteSession = async () => {
-    if (!selectedSessionId) return;
-    try {
-      const res = await api.delete(`/sessions/${selectedSessionId}`);
-      if (res.data.success) {
-        showAlert('success', 'Exam session and all associated candidates/seating deleted successfully.');
-        setShowDeleteSessionModal(false);
-        setSelectedSessionId('');
-        setCandidates([]);
         setSeatingData(null);
-        await fetchSessions();
       }
     } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to delete exam session.');
+      console.error('Error loading session details:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [api, selectedSessionId, activeHallViewId]);
+
+  useEffect(() => {
+    fetchMasters();
+    fetchSessions();
+    fetchHalls();
+  }, [fetchMasters, fetchSessions, fetchHalls]);
+
+  useEffect(() => {
+    fetchSessionDetails();
+  }, [fetchSessionDetails]);
+
+  // Compute available master exam series strictly from saved masters
+  const availableExamSeries = useMemo(() => {
+    const list = masters
+      .filter((m) => m.examType === selectedExamType)
+      .map((m) => m.examName);
+
+    if (list.length > 0) {
+      return list;
+    }
+
+    // Fallback only if no masters exist in the database yet
+    return selectedExamType === 'ANNA_UNIVERSITY'
+      ? ['ANNA UNIVERSITY THEORY EXAMINATION NOV–DEC 2026']
+      : ['Internal Examination 1', 'Internal Examination 2'];
+  }, [masters, selectedExamType]);
+
+  // Synchronize flow fields when masters or exam type change
+  useEffect(() => {
+    if (availableExamSeries.length > 0 && !availableExamSeries.includes(flowExamName)) {
+      const nextName = availableExamSeries[0];
+      setFlowExamName(nextName);
+      const matched = masters.find(
+        (m) => m.examType === selectedExamType && m.examName === nextName
+      );
+      if (matched) {
+        if (matched.centreCode) setFlowCentreCode(matched.centreCode);
+        if (matched.centreName) setFlowCentreName(matched.centreName);
+      }
+    }
+  }, [availableExamSeries, flowExamName, masters, selectedExamType]);
+
+  // Sync flow inputs when exam type changes
+  const handleExamTypeChange = (type) => {
+    setSelectedExamType(type);
+    const typeMasters = masters.filter((m) => m.examType === type);
+    const defaultName =
+      typeMasters.length > 0
+        ? typeMasters[0].examName
+        : type === 'ANNA_UNIVERSITY'
+        ? 'ANNA UNIVERSITY THEORY EXAMINATION NOV–DEC 2026'
+        : 'Internal Examination 1';
+
+    setFlowExamName(defaultName);
+    const matched = typeMasters.find((m) => m.examName === defaultName);
+    if (matched) {
+      if (matched.centreCode) setFlowCentreCode(matched.centreCode);
+      if (matched.centreName) setFlowCentreName(matched.centreName);
     }
   };
 
-  // ---------- Candidate Handlers ----------
-  // 1. Add via Range (Degree + Branch + Subject Code + Name + Reg Range)
+  // ---------- FLOW: GET DETAILS / CONTINUE ACTION ----------
+  const handleFlowGetDetails = async (e) => {
+    if (e) e.preventDefault();
+    if (!flowExamName?.trim() || !flowExamDate || !flowSession) {
+      showAlert('error', 'Please fill all examination series fields.');
+      return;
+    }
+
+    setFlowLoading(true);
+    try {
+      const res = await api.post('/flow/session', {
+        examType: selectedExamType,
+        examName: flowExamName.trim(),
+        centreCode: flowCentreCode.trim(),
+        centreName: flowCentreName.trim(),
+        examDate: flowExamDate,
+        session: flowSession,
+      });
+
+      if (res.data?.success && res.data.data?._id) {
+        const sessionObj = res.data.data;
+        await fetchSessions();
+        setSelectedSessionId(sessionObj._id);
+        showAlert(
+          'success',
+          res.data.isNew
+            ? `New ${selectedExamType === 'INTERNAL' ? 'Internal' : 'Anna University'} examination schedule created.`
+            : `Loaded active ${selectedExamType === 'INTERNAL' ? 'Internal' : 'Anna University'} examination schedule.`
+        );
+      }
+    } catch (err) {
+      console.error('Error resolving session:', err);
+      showAlert('error', err.response?.data?.message || 'Failed to resolve exam session.');
+    } finally {
+      setFlowLoading(false);
+    }
+  };
+
+  // ---------- DELETE EXAM SCHEDULE (DATE & SESSION) WITH FULL CASCADE ----------
+  const handleDeleteSession = async (sessionId) => {
+    const sessionToDelete = sessions.find((s) => s._id === sessionId) || activeSession;
+    const sName = sessionToDelete
+      ? `[${sessionToDelete.examType === 'INTERNAL' ? 'INTERNAL' : 'ANNA UNIV'}] ${sessionToDelete.examName} (${new Date(sessionToDelete.examDate).toLocaleDateString('en-GB')} - ${sessionToDelete.session})`
+      : 'this schedule';
+
+    if (
+      !window.confirm(
+        `Are you sure you want to delete ${sName}?\n\nWARNING: All registered candidates and seating allocations for this date & session will also be permanently deleted.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/sessions/${sessionId}`);
+      if (res.data?.success) {
+        showAlert('success', 'Exam schedule and all associated candidate/seating data deleted successfully.');
+        if (selectedSessionId === sessionId) {
+          setSelectedSessionId('');
+          setCandidates([]);
+          setSeatingData(null);
+        }
+        await fetchSessions();
+      }
+    } catch (err) {
+      showAlert('error', err.response?.data?.message || 'Failed to delete exam schedule.');
+    }
+  };
+
+  // ---------- Student DB Lookup ----------
+  const handleLookupStudents = async () => {
+    setLookupLoading(true);
+    try {
+      const queryParams = new URLSearchParams();
+      if (lookupFilter.departmentCode) queryParams.append('departmentCode', lookupFilter.departmentCode);
+      if (lookupFilter.year) queryParams.append('year', lookupFilter.year);
+      if (lookupFilter.semester) queryParams.append('semester', lookupFilter.semester);
+      if (lookupFilter.section) queryParams.append('section', lookupFilter.section);
+      if (lookupFilter.search) queryParams.append('search', lookupFilter.search);
+
+      const res = await api.get(`/students/lookup?${queryParams.toString()}`);
+      if (res.data?.success) {
+        setLookupResult({
+          students: res.data.students || [],
+          departments: res.data.departments || [],
+          subjects: res.data.subjects || [],
+        });
+        setSelectedStudentIds(res.data.students.map((s) => s._id));
+      }
+    } catch (err) {
+      showAlert('error', 'Failed to lookup students from database.');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const handleImportStudents = async () => {
+    if (!selectedSessionId) {
+      showAlert('error', 'Please select or continue an exam session first.');
+      return;
+    }
+    if (selectedStudentIds.length === 0) {
+      showAlert('error', 'Please select at least one student to import.');
+      return;
+    }
+    if (!importSubjectCode?.trim()) {
+      showAlert('error', 'Subject Code is required for candidate import.');
+      return;
+    }
+
+    setImportingStudents(true);
+    try {
+      const res = await api.post('/candidates/import-students', {
+        sessionId: selectedSessionId,
+        studentIds: selectedStudentIds,
+        subjectCode: importSubjectCode.trim().toUpperCase(),
+        subjectName: importSubjectName.trim(),
+      });
+      if (res.data?.success) {
+        showAlert('success', res.data.message);
+        setSelectedStudentIds([]);
+        setImportSubjectCode('');
+        setImportSubjectName('');
+        await fetchSessionDetails();
+        setCandidateTab('list');
+      }
+    } catch (err) {
+      showAlert('error', err.response?.data?.message || 'Failed to import students.');
+    } finally {
+      setImportingStudents(false);
+    }
+  };
+
+  // ---------- Range Entry Submission ----------
   const handleAddRangeCandidates = async (e) => {
     e.preventDefault();
     if (!selectedSessionId) {
-      showAlert('error', 'Please select or create an Exam Session first.');
+      showAlert('error', 'Please select or continue an exam session first.');
       return;
     }
+
+    setAddingRange(true);
     try {
+      const isInternal = (activeSession?.examType || selectedExamType) === 'INTERNAL';
+      const yearNum = isInternal && rangeForm.year ? Number(rangeForm.year) : null;
+      const yearLabel = isInternal && rangeForm.year
+        ? rangeForm.year === '1'
+          ? 'I Year'
+          : rangeForm.year === '2'
+            ? 'II Year'
+            : rangeForm.year === '3'
+              ? 'III Year'
+              : rangeForm.year === '4'
+                ? 'IV Year'
+                : `${rangeForm.year} Year`
+        : '';
+
       const res = await api.post('/candidates/range', {
         sessionId: selectedSessionId,
-        ...rangeForm,
+        programme: rangeForm.programme,
+        department: rangeForm.department,
+        departmentCode: rangeForm.departmentCode,
+        year: yearNum,
+        yearString: yearLabel,
+        subjectCode: rangeForm.subjectCode.trim().toUpperCase(),
+        subjectName: rangeForm.subjectName.trim(),
+        registerNoFrom: rangeForm.registerNoFrom.trim(),
+        registerNoTo: rangeForm.registerNoTo.trim(),
+        defaultNamePrefix: rangeForm.defaultNamePrefix.trim(),
       });
-      if (res.data.success) {
+
+      if (res.data?.success) {
         showAlert('success', res.data.message);
-        setRangeForm((prev) => ({
-          ...prev,
+        // Clear all range input fields after successful addition
+        setRangeForm({
+          year: '1',
+          programme: 'B.E.',
+          department: '',
+          departmentCode: '',
+          subjectCode: '',
+          subjectName: '',
           registerNoFrom: '',
           registerNoTo: '',
           defaultNamePrefix: '',
-        }));
+        });
         await fetchSessionDetails();
+        setCandidateTab('list');
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Failed to add range candidates.');
+    } finally {
+      setAddingRange(false);
     }
   };
 
-  // 2. Add via Manual Rows
-  const handleAddManualRow = () => {
-    const lastRow = manualRows[manualRows.length - 1] || {};
-    setManualRows((prev) => [
-      ...prev,
-      {
-        registerNo: '',
-        name: '',
-        programme: lastRow.programme || 'B.Tech',
-        department: lastRow.department || 'Artificial Intelligence and Data Science',
-        subjectCode: lastRow.subjectCode || '',
-        subjectName: lastRow.subjectName || '',
-      },
-    ]);
-  };
-
-  const handleRemoveManualRow = (idx) => {
-    if (manualRows.length === 1) return;
-    setManualRows((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const handleManualRowChange = (idx, field, value) => {
-    setManualRows((prev) => {
-      const copy = [...prev];
-      copy[idx][field] = value;
-      return copy;
-    });
-  };
-
-  const handleSaveManualCandidates = async (e) => {
+  // ---------- Manual Entry Submission ----------
+  const handleAddManualCandidates = async (e) => {
     e.preventDefault();
     if (!selectedSessionId) {
-      showAlert('error', 'Please select or create an Exam Session first.');
+      showAlert('error', 'Please select or continue an exam session first.');
       return;
     }
+
+    const validRows = manualRows.filter((r) => r.registerNo?.trim() && r.subjectCode?.trim());
+    if (validRows.length === 0) {
+      showAlert('error', 'Please provide at least one valid row with Register No and Subject Code.');
+      return;
+    }
+
+    setAddingManual(true);
     try {
       const res = await api.post('/candidates/manual', {
         sessionId: selectedSessionId,
-        candidates: manualRows,
+        candidates: validRows,
       });
-      if (res.data.success) {
+
+      if (res.data?.success) {
         showAlert('success', res.data.message);
+        // Clear all manual rows after successful addition
         setManualRows([
           {
             registerNo: '',
             name: '',
-            programme: 'B.Tech',
-            department: 'Artificial Intelligence and Data Science',
+            programme: 'B.E.',
+            department: '',
+            departmentCode: '',
             subjectCode: '',
             subjectName: '',
           },
         ]);
         await fetchSessionDetails();
+        setCandidateTab('list');
       }
     } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to save manual candidates.');
+      showAlert('error', err.response?.data?.message || 'Failed to add manual candidates.');
+    } finally {
+      setAddingManual(false);
     }
   };
 
   const handleUpdateCandidate = async (e) => {
     e.preventDefault();
     if (!editingCandidate) return;
+
     try {
       const res = await api.put(`/candidates/${editingCandidate._id}`, editingCandidate);
-      if (res.data.success) {
+      if (res.data?.success) {
         showAlert('success', 'Candidate updated successfully.');
         setEditingCandidate(null);
-        await fetchSessionDetails();
+        fetchSessionDetails();
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Failed to update candidate.');
@@ -568,146 +646,140 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
   };
 
   const handleDeleteCandidate = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this candidate?')) return;
     try {
       const res = await api.delete(`/candidates/${id}`);
-      if (res.data.success) {
+      if (res.data?.success) {
         showAlert('success', 'Candidate deleted successfully.');
-        await fetchSessionDetails();
+        fetchSessionDetails();
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Failed to delete candidate.');
     }
   };
 
-  // ---------- Hall Handlers ----------
+  // ---------- Hall Management ----------
   const handleCreateHall = async (e) => {
     e.preventDefault();
+    if (!hallForm.hallNumber?.trim()) {
+      showAlert('error', 'Hall Number is required.');
+      return;
+    }
+
+    setHallSubmitting(true);
     try {
       const res = await api.post('/halls', hallForm);
-      if (res.data.success) {
-        showAlert('success', 'Hall added successfully.');
+      if (res.data?.success) {
+        showAlert('success', `Hall '${res.data.data.hallNumber}' created successfully.`);
         setHallForm({ hallNumber: '', layoutType: 'FIVE_BY_FIVE' });
-        await fetchHalls();
+        fetchHalls();
       }
     } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to add hall.');
+      showAlert('error', err.response?.data?.message || 'Failed to create hall.');
+    } finally {
+      setHallSubmitting(false);
     }
   };
 
   const handleUpdateHall = async (e) => {
     e.preventDefault();
     if (!editingHall) return;
+
+    setHallSubmitting(true);
     try {
       const res = await api.put(`/halls/${editingHall._id}`, editingHall);
-      if (res.data.success) {
+      if (res.data?.success) {
         showAlert('success', 'Hall updated successfully.');
         setEditingHall(null);
-        await fetchHalls();
+        fetchHalls();
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Failed to update hall.');
+    } finally {
+      setHallSubmitting(false);
     }
   };
 
   const handleDeleteHall = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this hall?')) return;
     try {
       const res = await api.delete(`/halls/${id}`);
-      if (res.data.success) {
+      if (res.data?.success) {
         showAlert('success', 'Hall deleted successfully.');
-        await fetchHalls();
+        fetchHalls();
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Failed to delete hall.');
     }
   };
 
-  const handleToggleHallSelection = (hallId) => {
-    setSelectedHallIds((prev) =>
-      prev.includes(hallId) ? prev.filter((id) => id !== hallId) : [...prev, hallId]
-    );
-  };
-
-  // Filtered halls list
-  const filteredHalls = useMemo(() => {
-    return halls.filter((h) => {
-      const matchesSearch =
-        !hallSearchQuery.trim() ||
-        h.hallNumber.toLowerCase().includes(hallSearchQuery.trim().toLowerCase());
-      const matchesLayout = hallLayoutFilter === 'ALL' || h.layoutType === hallLayoutFilter;
-      return matchesSearch && matchesLayout;
-    });
-  }, [halls, hallSearchQuery, hallLayoutFilter]);
-
-  const handleSelectAllFilteredHalls = () => {
-    const allFilteredIds = filteredHalls.map((h) => h._id);
-    setSelectedHallIds((prev) => Array.from(new Set([...prev, ...allFilteredIds])));
-  };
-
-  const handleDeselectAllHalls = () => {
-    setSelectedHallIds([]);
-  };
-
-  const handleSmartAutoSelectHalls = () => {
+  // ---------- Smart Select Halls according to available candidates ----------
+  const handleSmartSelectHalls = () => {
     if (candidates.length === 0) {
-      showAlert('error', 'No candidates registered yet. Please add candidates first.');
-      return;
-    }
-    const neededHallsCount = Math.ceil(candidates.length / 25);
-    const activeHalls = halls.filter((h) => h.active);
-    if (activeHalls.length < neededHallsCount) {
       showAlert(
         'error',
-        `Not enough active halls in ERP (${activeHalls.length} halls available vs ${neededHallsCount} needed for ${candidates.length} candidates). Please add more halls.`
+        'No candidates registered in this exam schedule yet. Please register candidates first to smart select halls.'
       );
-      setSelectedHallIds(activeHalls.map((h) => h._id));
       return;
     }
-    const optimalHalls = activeHalls.slice(0, neededHallsCount).map((h) => h._id);
-    setSelectedHallIds(optimalHalls);
+    if (halls.length === 0) {
+      showAlert('error', 'No exam halls found. Please add halls first.');
+      return;
+    }
+
+    const neededCandidates = candidates.length;
+    let accumulatedCapacity = 0;
+    const selected = [];
+
+    // Sort active halls in natural order (e.g. D401, D402)
+    const sortedHalls = [...halls].sort((a, b) =>
+      a.hallNumber.localeCompare(b.hallNumber, undefined, { numeric: true })
+    );
+
+    for (const hall of sortedHalls) {
+      selected.push(hall._id);
+      accumulatedCapacity += hall.capacity || 25;
+      if (accumulatedCapacity >= neededCandidates) {
+        break;
+      }
+    }
+
+    setSelectedHallIds(selected);
     showAlert(
       'success',
-      `Smart Auto-Selected ${neededHallsCount} halls (${neededHallsCount * 25} capacity) for ${candidates.length} candidates.`
+      `Smart Select: Selected ${selected.length} hall(s) for ${neededCandidates} candidate(s) (${accumulatedCapacity} total seats capacity).`
     );
   };
 
-  // ---------- Allocation Handlers ----------
-  const totalSelectedCapacity = selectedHallIds.length * 25;
-  const isCapacitySufficient = totalSelectedCapacity >= candidates.length;
-
+  // ---------- Allocation Engine Actions ----------
   const handleGenerateAllocation = async () => {
     if (!selectedSessionId) {
-      showAlert('error', 'Please select an Exam Session.');
+      showAlert('error', 'Please select or create an exam schedule first.');
       return;
     }
     if (selectedHallIds.length === 0) {
-      showAlert('error', 'Please select at least one Exam Hall.');
+      showAlert('error', 'Please select at least one hall for allocation.');
       return;
     }
     if (candidates.length === 0) {
-      showAlert('error', 'Please add candidates for this exam date & session before generating seating allocation.');
-      return;
-    }
-    if (!isCapacitySufficient) {
-      showAlert(
-        'error',
-        `Selected halls do not have sufficient seating capacity. (${candidates.length} candidates vs ${totalSelectedCapacity} capacity)`
-      );
+      showAlert('error', 'No candidates registered in this schedule. Please add candidates first.');
       return;
     }
 
+    setAllocating(true);
     try {
-      setAllocating(true);
       const res = await api.post('/allocation/generate', {
         sessionId: selectedSessionId,
         hallIds: selectedHallIds,
       });
-      if (res.data.success) {
+
+      if (res.data?.success) {
         showAlert('success', res.data.message);
         await fetchSessions();
         await fetchSessionDetails();
       }
     } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to generate allocation.');
+      showAlert('error', err.response?.data?.message || 'Allocation failed. Please check capacity.');
     } finally {
       setAllocating(false);
     }
@@ -719,61 +791,46 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
   };
 
   const handleDeleteAllocation = async () => {
-    if (!selectedSessionId) return;
+    setShowDeleteAllocationModal(false);
     try {
       const res = await api.delete(`/allocation/${selectedSessionId}`);
-      if (res.data.success) {
-        showAlert('success', res.data.message);
-        setShowDeleteAllocationModal(false);
-        await fetchSessions();
-        await fetchSessionDetails();
+      if (res.data?.success) {
+        showAlert('success', 'Seating arrangement deleted successfully.');
+        fetchSessions();
+        fetchSessionDetails();
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Failed to delete allocation.');
     }
   };
 
-  // ---------- Candidate Seat Quick Search ----------
-  const handleSearchCandidate = async (e) => {
-    e.preventDefault();
-    if (!searchRegNo.trim()) return;
-    try {
-      setSearchLoading(true);
-      const res = await api.get(
-        `/search?registerNo=${encodeURIComponent(searchRegNo.trim())}&sessionId=${selectedSessionId || ''}`
-      );
-      if (res.data.success) {
-        setSearchResult(res.data.data);
-      }
-    } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Candidate seating not found.');
-      setSearchResult(null);
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
-  // ---------- PDF Export Handlers (Anna University Format) ----------
-  const activeHallData = useMemo(() => {
-    if (!seatingData || !seatingData.halls || seatingData.halls.length === 0) return null;
-    return seatingData.halls.find((h) => h.hallId === activeHallViewId) || seatingData.halls[0];
-  }, [seatingData, activeHallViewId]);
-
+  // ---------- PDF Export Handlers (Official Vector Backend PDF) ----------
   const handleDownloadSinglePdf = async () => {
     if (!activeSession || !activeHallData) {
       showAlert('error', 'No seating data available for PDF export.');
       return;
     }
-    const element = singleHallPrintRef.current;
-    if (!element) return;
 
+    setPdfGenerating(true);
     try {
-      setPdfGenerating(true);
-      const filename = `Exam_Seating_${activeHallData.hallNumber || 'Hall'}_${activeSession.session || 'FN'}.pdf`;
-      await exportHallLandscapePdf(element, filename);
-      showAlert('success', 'Official Anna University Landscape PDF downloaded successfully.');
+      const res = await api.get(`/pdf/${activeSession._id}?hallId=${activeHallData.hallId}`, {
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const typePrefix = (activeSession.examType || 'Exam').replace(/[^a-zA-Z0-9]/g, '_');
+      a.download = `${typePrefix}_Seating_${activeHallData.hallNumber || 'Hall'}_${activeSession.session || 'FN'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      showAlert('success', 'Official Seating PDF downloaded successfully.');
     } catch (err) {
-      console.error('Single Hall PDF error:', err);
+      console.error('PDF error:', err);
       showAlert('error', 'Failed to generate PDF. Please try again.');
     } finally {
       setPdfGenerating(false);
@@ -785,22 +842,51 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
       showAlert('error', 'No seating data available for PDF export.');
       return;
     }
-    const container = allHallsContainerRef.current;
-    if (!container) return;
 
-    const hallSheets = container.querySelectorAll(`.${styles.printSheet}`);
-    if (!hallSheets || hallSheets.length === 0) return;
-
+    setPdfGenerating(true);
     try {
-      setPdfGenerating(true);
-      const filename = `Exam_Seating_ALL_HALLS_${(activeSession.examName || 'Exam').replace(/\s+/g, '_')}_${activeSession.session || 'FN'}.pdf`;
-      await exportAllHallsLandscapePdf(Array.from(hallSheets), filename);
-      showAlert('success', 'All Halls Landscape PDF downloaded successfully.');
+      const res = await api.get(`/pdf/${activeSession._id}`, {
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const typePrefix = (activeSession.examType || 'Exam').replace(/[^a-zA-Z0-9]/g, '_');
+      a.download = `${typePrefix}_Seating_ALL_HALLS_${activeSession.session || 'FN'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      showAlert('success', 'All Halls Seating PDF downloaded successfully.');
     } catch (err) {
       console.error('All Halls PDF error:', err);
       showAlert('error', 'Failed to generate All Halls PDF. Please try again.');
     } finally {
       setPdfGenerating(false);
+    }
+  };
+
+  // Candidate Search
+  const handleSearchCandidate = async (e) => {
+    e.preventDefault();
+    if (!selectedSessionId || !searchRegNo.trim()) return;
+
+    setSearchLoading(true);
+    try {
+      const res = await api.get(
+        `/search?sessionId=${selectedSessionId}&registerNo=${encodeURIComponent(searchRegNo.trim())}`
+      );
+      if (res.data?.success) {
+        setSearchResult(res.data.data);
+      }
+    } catch (err) {
+      showAlert('error', err.response?.data?.message || 'Candidate seating not found.');
+      setSearchResult(null);
+    } finally {
+      setSearchLoading(false);
     }
   };
 
@@ -820,11 +906,11 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
 
   return (
     <div className={styles.container}>
-      {/* Header */}
+      {/* Top Header */}
       <div className={styles.header}>
         <div className={styles.titleArea}>
           <h1>Exam Hall Allocation</h1>
-          <p>Autonomous Examination Seating &amp; Candidate Allocation Engine (Anna University Format)</p>
+          <p>College ERP Seating Arrangement Engine (Anna University &amp; Internal Examinations)</p>
         </div>
 
         <div className={styles.sessionSelectorArea}>
@@ -835,12 +921,12 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
               onChange={(e) => setSelectedSessionId(e.target.value)}
             >
               {sessions.length === 0 ? (
-                <option value="">No Exam Schedules Found</option>
+                <option value="">No Active Exam Schedules Found</option>
               ) : (
                 sessions.map((s) => (
                   <option key={s._id} value={s._id}>
-                    {s.examName} ({new Date(s.examDate).toLocaleDateString('en-GB')} - {s.session}) [
-                    {s.status}]
+                    [{s.examType === 'INTERNAL' ? 'INTERNAL' : 'ANNA UNIV'}] {s.examName} (
+                    {new Date(s.examDate).toLocaleDateString('en-GB')} - {s.session}) [{s.status}]
                   </option>
                 ))
               )}
@@ -848,86 +934,211 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
           </div>
 
           <div className={styles.sessionButtonsRow}>
-            {sessions.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnOutline}`}
-                  onClick={() => openEditSession(activeSession || sessions[0])}
-                  title="Edit Exam Name & Details"
-                >
-                  <Edit2 size={14} /> Edit Exam
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnDanger}`}
-                  onClick={() => setShowDeleteSessionModal(true)}
-                  title="Delete Exam"
-                >
-                  <Trash2 size={14} /> Delete Exam
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnOutline}`}
-                  onClick={() => setShowAllExamsModal(true)}
-                  title="View All Exam Schedules"
-                >
-                  <Calendar size={14} /> All Schedules ({sessions.length})
-                </button>
-              </>
-            )}
-
             <button
               type="button"
               className={`${styles.btn} ${styles.btnOutline}`}
-              onClick={() => {
-                setEditingMaster(null);
-                setMasterForm({
-                  examCode: '',
-                  examName: '',
-                  centreCode: '9460',
-                  centreName: 'Nagercoil Islam College of Engineering and Technology',
-                });
-                setShowMasterModal(true);
-              }}
-              title="Configure Reusable Exam Master Settings"
+              onClick={() => setShowMasterModal(true)}
+              title="Configure Exam Masters"
             >
-              <Settings size={14} /> Exam Masters
+              <Settings size={14} /> Exam Series / Masters
             </button>
-
-            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setShowSessionModal(true)}>
-              <Plus size={15} /> New Schedule
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnOutline}`}
+              onClick={() => setShowAllExamsModal(true)}
+              title="View All Exam Schedules"
+            >
+              <Calendar size={14} /> All Schedules ({sessions.length})
             </button>
           </div>
         </div>
       </div>
 
-      {/* Alert Banner */}
+      {/* Alert Banner - Fixed Floating Toast Notification */}
       {alert.message && (
         <div
-          className={`${styles.alert} ${alert.type === 'success' ? styles.alertSuccess : styles.alertError
-            }`}
+          className={`${styles.alert} ${alert.type === 'success' ? styles.alertSuccess : styles.alertError}`}
         >
-          <span>{alert.message}</span>
-          <button className={styles.modalClose} onClick={() => setAlert({ type: '', message: '' })}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {alert.type === 'success' ? (
+              <CheckCircle size={18} color="#16a34a" />
+            ) : (
+              <AlertCircle size={18} color="#dc2626" />
+            )}
+            <span>{alert.message}</span>
+          </div>
+          <button
+            type="button"
+            className={styles.alertCloseBtn}
+            onClick={() => setAlert({ type: '', message: '' })}
+            title="Dismiss notification"
+          >
             ×
           </button>
         </div>
       )}
 
-      {/* ==================== 1. ADD CANDIDATES (FIRST SECTION) ==================== */}
+      {/* ==================== MAIN REQUIREMENT: EXAM TYPE & SERIES SELECTION FLOW ==================== */}
+      <section className={styles.flowCard}>
+        <div className={styles.flowHeader}>
+          <h2>
+            <GraduationCap size={22} color="#2563eb" /> Examination Configuration Flow
+          </h2>
+          {activeSession && (
+            <span
+              className={`${styles.badge} ${activeSession.status === 'ALLOCATED' ? styles.badgeAllocated : styles.badgeDraft}`}
+            >
+              Current Active: {activeSession.examType} [{activeSession.status}]
+            </span>
+          )}
+        </div>
+
+        {/* Step 1: Exam Type Selection */}
+        <div className={styles.examTypeGrid}>
+          <div
+            className={`${styles.examTypeOption} ${selectedExamType === 'ANNA_UNIVERSITY' ? styles.examTypeOptionActive : ''}`}
+            onClick={() => handleExamTypeChange('ANNA_UNIVERSITY')}
+          >
+            <div className={styles.examTypeIcon}>
+              <GraduationCap size={24} />
+            </div>
+            <div>
+              <div className={styles.examTypeTitle}>Anna University Examination</div>
+              <div className={styles.examTypeDesc}>
+                Official University format with Degree &amp; Branch summary &amp; Anna Univ logo
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={`${styles.examTypeOption} ${selectedExamType === 'INTERNAL' ? styles.examTypeOptionActive : ''}`}
+            onClick={() => handleExamTypeChange('INTERNAL')}
+          >
+            <div className={styles.examTypeIcon}>
+              <FileText size={24} />
+            </div>
+            <div>
+              <div className={styles.examTypeTitle}>Internal Examination</div>
+              <div className={styles.examTypeDesc}>
+                Internal Test format with Year &amp; Branch summary &amp; College logo
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2, 3, 4: Exam Series Name, College Details, Date, Session, and Continue Action */}
+        <form onSubmit={handleFlowGetDetails} className={styles.flowFieldsGrid}>
+          <div className={`${styles.formGroup} ${styles.flowExamNameGroup}`}>
+            <label>
+              <strong>Exam Name / Master Series *</strong>
+            </label>
+            <select
+              className={styles.select}
+              value={flowExamName}
+              onChange={(e) => {
+                const name = e.target.value;
+                setFlowExamName(name);
+                const matched = masters.find(
+                  (m) => m.examType === selectedExamType && m.examName === name
+                );
+                if (matched) {
+                  if (matched.centreCode) setFlowCentreCode(matched.centreCode);
+                  if (matched.centreName) setFlowCentreName(matched.centreName);
+                }
+              }}
+              required
+            >
+              {availableExamSeries.map((sName) => (
+                <option key={sName} value={sName}>
+                  {sName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={`${styles.formGroup} ${styles.flowCollegeCodeGroup}`}>
+            <label>
+              <strong>College Code</strong>
+            </label>
+            <input
+              className={styles.input}
+              placeholder="e.g. 9640"
+              value={flowCentreCode}
+              onChange={(e) => setFlowCentreCode(e.target.value)}
+            />
+          </div>
+
+          <div className={`${styles.formGroup} ${styles.flowCollegeNameGroup}`}>
+            <label>
+              <strong>College Name</strong>
+            </label>
+            <input
+              className={styles.input}
+              placeholder="e.g. Noorul Islam College of Engineering and Technology"
+              value={flowCentreName}
+              onChange={(e) => setFlowCentreName(e.target.value)}
+            />
+          </div>
+
+          <div className={`${styles.formGroup} ${styles.flowDateGroup}`}>
+            <label>
+              <strong>Exam Date *</strong>
+            </label>
+            <input
+              type="date"
+              className={styles.input}
+              value={flowExamDate}
+              onChange={(e) => setFlowExamDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className={`${styles.formGroup} ${styles.flowSessionGroup}`}>
+            <label>
+              <strong>Session *</strong>
+            </label>
+            <div className={styles.sessionToggleGroup}>
+              <button
+                type="button"
+                className={`${styles.sessionToggleBtn} ${flowSession === 'FN' ? styles.sessionToggleBtnActive : ''}`}
+                onClick={() => setFlowSession('FN')}
+              >
+                FN
+              </button>
+              <button
+                type="button"
+                className={`${styles.sessionToggleBtn} ${flowSession === 'AN' ? styles.sessionToggleBtnActive : ''}`}
+                onClick={() => setFlowSession('AN')}
+              >
+                AN
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className={`${styles.btn} ${styles.btnPrimary} ${styles.flowSubmitBtn}`}
+            disabled={flowLoading}
+          >
+            {flowLoading ? <RefreshCw size={15} className="spin" /> : <ArrowRight size={16} />}
+            Get Details / Continue
+          </button>
+        </form>
+      </section>
+
+      {/* ==================== 1. CANDIDATE ENTRY ==================== */}
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <h2>
-            <Users size={20} /> 1. Candidate Entry (Internal &amp; External Candidates)
+            <Users size={20} /> 1. Candidate Entry (Students Registration)
           </h2>
           <span className={`${styles.badge} ${styles.badgeDraft}`}>
-            Total Registered: {candidates.length}
+            Registered Candidates: {candidates.length}
           </span>
         </div>
 
-        {/* Active Exam Overview Banner */}
-        {activeSession && (
+        {/* Active Schedule Banner */}
+        {activeSession ? (
           <div
             style={{
               background: '#f8fafc',
@@ -943,269 +1154,297 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
             }}
           >
             <div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  color: '#64748b',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                }}
+              >
                 Active Examination Schedule:{' '}
               </span>
               <strong style={{ fontSize: '15px', color: '#0f172a', marginRight: '8px' }}>
                 {activeSession.examName}
               </strong>
-              <span style={{ margin: '0 6px', color: '#cbd5e1' }}>•</span>
               <span style={{ fontSize: '13px', color: '#475569' }}>
-                Centre: {activeSession.centreCode || '9460'} – {activeSession.centreName || 'Nagercoil Islam College of Engineering and Technology'}
+                ({new Date(activeSession.examDate).toLocaleDateString('en-GB')} -{' '}
+                <strong>{activeSession.session}</strong>)
               </span>
-              <span style={{ margin: '0 6px', color: '#cbd5e1' }}>•</span>
-              <span style={{ fontSize: '13px', color: '#475569' }}>
-                Date: {activeSession.examDate ? new Date(activeSession.examDate).toLocaleDateString('en-GB') : 'N/A'}
-              </span>
-              <span style={{ margin: '0 6px', color: '#cbd5e1' }}>•</span>
-              <span style={{ fontSize: '13px', color: '#475569' }}>Session: {activeSession.session}</span>
-              <span style={{ margin: '0 6px', color: '#cbd5e1' }}>•</span>
-              <span
-                className={`${styles.badge} ${activeSession.status === 'ALLOCATED' ? styles.badgeAllocated : styles.badgeDraft
-                  }`}
-              >
-                {activeSession.status}
-              </span>
+              {activeSession.centreCode && (
+                <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>
+                  [{activeSession.centreCode} – {activeSession.centreName}]
+                </span>
+              )}
             </div>
-
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button
-                className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
-                onClick={() => openEditSession(activeSession)}
-                title="Edit Exam Name & Date"
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                className={`${styles.badge} ${activeSession.status === 'ALLOCATED' ? styles.badgeAllocated : styles.badgeDraft}`}
               >
-                <Edit2 size={13} /> Edit
-              </button>
+                Status: {activeSession.status}
+              </span>
               <button
+                type="button"
                 className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
-                onClick={() => setShowDeleteSessionModal(true)}
-                title="Delete Exam"
+                onClick={() => handleDeleteSession(activeSession._id)}
+                title="Delete this exam schedule, candidates, and seatings"
               >
-                <Trash2 size={13} /> Delete
+                <Trash2 size={13} /> Delete Schedule
               </button>
             </div>
           </div>
+        ) : (
+          <div
+            style={{
+              padding: '16px',
+              background: '#fffbeb',
+              border: '1px solid #fef3c7',
+              borderRadius: '8px',
+              marginBottom: '18px',
+              color: '#92400e',
+              fontSize: '14px',
+            }}
+          >
+            Please click <strong>Get Details / Continue</strong> in the configuration box above to
+            activate an examination schedule.
+          </div>
         )}
 
+        {/* Tab Navigation */}
         <div className={styles.tabsNav}>
           <button
             className={`${styles.tabBtn} ${candidateTab === 'range' ? styles.tabBtnActive : ''}`}
             onClick={() => setCandidateTab('range')}
           >
-            A. Register Range Entry (Batch)
+            <Layers size={14} /> Register Number Range
           </button>
           <button
             className={`${styles.tabBtn} ${candidateTab === 'manual' ? styles.tabBtnActive : ''}`}
             onClick={() => setCandidateTab('manual')}
           >
-            B. Manual Candidate Entry Rows
+            <Plus size={14} /> Manual Candidate Entry
+          </button>
+          <button
+            className={`${styles.tabBtn} ${candidateTab === 'import' ? styles.tabBtnActive : ''}`}
+            onClick={() => setCandidateTab('import')}
+          >
+            <BookOpen size={14} /> Import from Student Database
           </button>
           <button
             className={`${styles.tabBtn} ${candidateTab === 'list' ? styles.tabBtnActive : ''}`}
             onClick={() => setCandidateTab('list')}
           >
-            Candidate List ({candidates.length})
+            <Users size={14} /> Candidate List ({candidates.length})
           </button>
         </div>
 
-        {/* Tab 1: Range Entry (With Degree & Branch presets) */}
+        {/* Tab 1: Range Entry */}
         {candidateTab === 'range' && (
           <form onSubmit={handleAddRangeCandidates}>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#1e293b' }}>
-                <BookOpen size={15} style={{ display: 'inline', marginRight: '6px' }} /> Academic &amp; Subject Details
-              </h4>
-              <div className={styles.formGrid}>
+            <div className={styles.formGrid}>
+              {(activeSession?.examType || selectedExamType) === 'INTERNAL' && (
                 <div className={styles.formGroup}>
-                  <label>Degree (Programme) *</label>
+                  <label>Academic Year *</label>
                   <select
                     className={styles.select}
-                    value={rangeForm.programme}
-                    onChange={(e) => setRangeForm({ ...rangeForm, programme: e.target.value })}
+                    value={rangeForm.year || '3'}
+                    onChange={(e) => setRangeForm({ ...rangeForm, year: e.target.value })}
                   >
-                    {ANNA_UNIV_DEGREES.map((deg) => (
-                      <option key={deg} value={deg}>
-                        {deg}
-                      </option>
-                    ))}
+                    <option value="1">1st Year (I Year)</option>
+                    <option value="2">2nd Year (II Year)</option>
+                    <option value="3">3rd Year (III Year)</option>
+                    <option value="4">4th Year (IV Year)</option>
                   </select>
                 </div>
+              )}
 
-                <div className={styles.formGroup}>
-                  <label>Branch / Department *</label>
-                  <input
-                    list="branch-suggestions"
-                    className={styles.input}
-                    placeholder="Type or pick Branch Name"
-                    value={rangeForm.department}
-                    onChange={(e) => setRangeForm({ ...rangeForm, department: e.target.value })}
-                    required
-                  />
-                  <datalist id="branch-suggestions">
-                    {ANNA_UNIV_BRANCHES.map((br) => (
-                      <option key={br} value={br} />
-                    ))}
-                  </datalist>
-                </div>
+              <div className={styles.formGroup}>
+                <label>Degree Programme *</label>
+                <select
+                  className={styles.select}
+                  value={rangeForm.programme}
+                  onChange={(e) => setRangeForm({ ...rangeForm, programme: e.target.value })}
+                >
+                  {ANNA_UNIV_DEGREES.map((deg) => (
+                    <option key={deg} value={deg}>
+                      {deg}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                <div className={styles.formGroup}>
-                  <label>Subject Code *</label>
-                  <input
-                    className={styles.input}
-                    placeholder="e.g. MA3391 or PH25C01"
-                    value={rangeForm.subjectCode}
-                    onChange={(e) => setRangeForm({ ...rangeForm, subjectCode: e.target.value })}
-                    required
-                  />
-                </div>
+              <div className={styles.formGroup}>
+                <label>Branch / Department *</label>
+                <input
+                  list="branch-suggestions"
+                  className={styles.input}
+                  placeholder="e.g. Computer Science and Engineering"
+                  value={rangeForm.department}
+                  onChange={(e) => setRangeForm({ ...rangeForm, department: e.target.value })}
+                  required
+                />
+                <datalist id="branch-suggestions">
+                  {ANNA_UNIV_BRANCHES.map((br) => (
+                    <option key={br} value={br} />
+                  ))}
+                </datalist>
+              </div>
 
-                <div className={styles.formGroup}>
-                  <label>Subject Name</label>
-                  <input
-                    className={styles.input}
-                    placeholder="e.g. Transforms and Partial Differential Equations"
-                    value={rangeForm.subjectName}
-                    onChange={(e) => setRangeForm({ ...rangeForm, subjectName: e.target.value })}
-                  />
-                </div>
+              <div className={styles.formGroup}>
+                <label>Subject Code *</label>
+                <input
+                  className={styles.input}
+                  placeholder="e.g. CS3451"
+                  value={rangeForm.subjectCode}
+                  onChange={(e) => setRangeForm({ ...rangeForm, subjectCode: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Subject Name</label>
+                <input
+                  className={styles.input}
+                  placeholder="e.g. Operating Systems"
+                  value={rangeForm.subjectName}
+                  onChange={(e) => setRangeForm({ ...rangeForm, subjectName: e.target.value })}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Register No From *</label>
+                <input
+                  className={styles.input}
+                  placeholder="e.g. 23CSE001"
+                  value={rangeForm.registerNoFrom}
+                  onChange={(e) => setRangeForm({ ...rangeForm, registerNoFrom: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Register No To *</label>
+                <input
+                  className={styles.input}
+                  placeholder="e.g. 23CSE025"
+                  value={rangeForm.registerNoTo}
+                  onChange={(e) => setRangeForm({ ...rangeForm, registerNoTo: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Default Name Prefix (Optional)</label>
+                <input
+                  className={styles.input}
+                  placeholder="e.g. Student"
+                  value={rangeForm.defaultNamePrefix}
+                  onChange={(e) => setRangeForm({ ...rangeForm, defaultNamePrefix: e.target.value })}
+                />
               </div>
             </div>
 
-            <div style={{ background: '#eff6ff', padding: '16px', borderRadius: '8px', border: '1px solid #bfdbfe', marginBottom: '16px' }}>
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#1e3a8a' }}>
-                Register Number Range (Any Alphanumeric Format)
-              </h4>
-              <div className={styles.formGrid}>
-                <div className={styles.formGroup}>
-                  <label>Register No From *</label>
-                  <input
-                    className={styles.input}
-                    placeholder="e.g. 946023AIDS001 or 23ABC001"
-                    value={rangeForm.registerNoFrom}
-                    onChange={(e) => setRangeForm({ ...rangeForm, registerNoFrom: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Register No To *</label>
-                  <input
-                    className={styles.input}
-                    placeholder="e.g. 946023AIDS025 or 23ABC025"
-                    value={rangeForm.registerNoTo}
-                    onChange={(e) => setRangeForm({ ...rangeForm, registerNoTo: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Candidate Name Prefix (Optional)</label>
-                  <input
-                    className={styles.input}
-                    placeholder="e.g. Candidate"
-                    value={rangeForm.defaultNamePrefix}
-                    onChange={(e) => setRangeForm({ ...rangeForm, defaultNamePrefix: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-              <Plus size={16} /> Save Range Candidates
+            <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={addingRange}>
+              {addingRange ? <RefreshCw size={15} className="spin" /> : <Plus size={15} />}
+              {addingRange ? 'Adding Candidates...' : 'Add Range Batch'}
             </button>
           </form>
         )}
 
-        {/* Tab 2: Manual Entry Rows */}
+        {/* Tab 2: Manual Rows Entry */}
         {candidateTab === 'manual' && (
-          <form onSubmit={handleSaveManualCandidates}>
+          <form onSubmit={handleAddManualCandidates}>
             <div className={styles.tableWrapper}>
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Register No *</th>
-                    <th>Name</th>
-                    <th>Degree *</th>
-                    <th>Branch / Department *</th>
-                    <th>Subject Code *</th>
-                    <th>Subject Name</th>
-                    <th>Action</th>
+                    <th style={{ width: '18%' }}>Register No *</th>
+                    <th style={{ width: '22%' }}>Candidate Name</th>
+                    <th style={{ width: '15%' }}>Degree</th>
+                    <th style={{ width: '25%' }}>Branch / Department</th>
+                    <th style={{ width: '15%' }}>Subject Code *</th>
+                    <th style={{ width: '5%' }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {manualRows.map((row, idx) => (
                     <tr key={idx}>
-                      <td style={{ width: '30px' }}>{idx + 1}</td>
                       <td>
                         <input
                           className={styles.input}
-                          placeholder="e.g. 946023CSE001"
+                          placeholder="23CSE001"
                           value={row.registerNo}
-                          onChange={(e) => handleManualRowChange(idx, 'registerNo', e.target.value)}
+                          onChange={(e) => {
+                            const updated = [...manualRows];
+                            updated[idx].registerNo = e.target.value;
+                            setManualRows(updated);
+                          }}
                           required
                         />
                       </td>
                       <td>
                         <input
                           className={styles.input}
-                          placeholder="Candidate Name"
+                          placeholder="Student Name"
                           value={row.name}
-                          onChange={(e) => handleManualRowChange(idx, 'name', e.target.value)}
+                          onChange={(e) => {
+                            const updated = [...manualRows];
+                            updated[idx].name = e.target.value;
+                            setManualRows(updated);
+                          }}
                         />
                       </td>
                       <td>
                         <select
                           className={styles.select}
-                          value={row.programme}
-                          onChange={(e) => handleManualRowChange(idx, 'programme', e.target.value)}
+                          value={row.programme || 'B.E.'}
+                          onChange={(e) => {
+                            const updated = [...manualRows];
+                            updated[idx].programme = e.target.value;
+                            setManualRows(updated);
+                          }}
                         >
-                          {ANNA_UNIV_DEGREES.map((deg) => (
-                            <option key={deg} value={deg}>
-                              {deg}
+                          {ANNA_UNIV_DEGREES.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
                             </option>
                           ))}
                         </select>
                       </td>
                       <td>
                         <input
-                          list="branch-suggestions-manual"
                           className={styles.input}
-                          placeholder="e.g. Computer Science and Engineering"
-                          value={row.department}
-                          onChange={(e) => handleManualRowChange(idx, 'department', e.target.value)}
-                          required
+                          value={row.department || ''}
+                          onChange={(e) => {
+                            const updated = [...manualRows];
+                            updated[idx].department = e.target.value;
+                            setManualRows(updated);
+                          }}
                         />
-                        <datalist id="branch-suggestions-manual">
-                          {ANNA_UNIV_BRANCHES.map((br) => (
-                            <option key={br} value={br} />
-                          ))}
-                        </datalist>
                       </td>
                       <td>
                         <input
                           className={styles.input}
-                          placeholder="e.g. MA3391"
+                          placeholder="CS3451"
                           value={row.subjectCode}
-                          onChange={(e) => handleManualRowChange(idx, 'subjectCode', e.target.value)}
+                          onChange={(e) => {
+                            const updated = [...manualRows];
+                            updated[idx].subjectCode = e.target.value;
+                            setManualRows(updated);
+                          }}
                           required
                         />
                       </td>
                       <td>
-                        <input
-                          className={styles.input}
-                          placeholder="Subject Name"
-                          value={row.subjectName}
-                          onChange={(e) => handleManualRowChange(idx, 'subjectName', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
-                          onClick={() => handleRemoveManualRow(idx)}
-                          disabled={manualRows.length === 1}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {manualRows.length > 1 && (
+                          <button
+                            type="button"
+                            className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
+                            onClick={() => setManualRows(manualRows.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1213,36 +1452,209 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
               </table>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
                 className={`${styles.btn} ${styles.btnOutline}`}
-                onClick={handleAddManualRow}
+                onClick={() =>
+                  setManualRows([
+                    ...manualRows,
+                    {
+                      registerNo: '',
+                      name: '',
+                      programme: 'B.E.',
+                      department: 'Computer Science and Engineering',
+                      departmentCode: 'CSE',
+                      subjectCode: manualRows[0]?.subjectCode || '',
+                      subjectName: manualRows[0]?.subjectName || '',
+                    },
+                  ])
+                }
               >
-                <Plus size={15} /> Add Another Row
+                <Plus size={14} /> Add Row
               </button>
-              <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-                <CheckCircle size={15} /> Save Candidates
+              <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={addingManual}>
+                {addingManual ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
+                {addingManual ? 'Saving Candidates...' : 'Save Candidates'}
               </button>
             </div>
           </form>
         )}
 
-        {/* Tab 3: Candidate List */}
-        {candidateTab === 'list' && (
+        {/* Tab 3: Import from Student Database */}
+        {candidateTab === 'import' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ width: '340px' }}>
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>Department Code</label>
                 <input
                   className={styles.input}
-                  placeholder="Search by Reg No, Name, Subject, Branch..."
-                  value={candidateSearch}
-                  onChange={(e) => setCandidateSearch(e.target.value)}
+                  placeholder="e.g. CSE"
+                  value={lookupFilter.departmentCode}
+                  onChange={(e) =>
+                    setLookupFilter({ ...lookupFilter, departmentCode: e.target.value })
+                  }
                 />
               </div>
-              <div style={{ fontSize: '13px', color: '#64748b', alignSelf: 'center' }}>
-                Showing {filteredCandidates.length} of {candidates.length} candidates
+              <div className={styles.formGroup}>
+                <label>Year</label>
+                <input
+                  type="number"
+                  className={styles.input}
+                  placeholder="e.g. 3"
+                  value={lookupFilter.year}
+                  onChange={(e) => setLookupFilter({ ...lookupFilter, year: e.target.value })}
+                />
               </div>
+              <div className={styles.formGroup}>
+                <label>Section</label>
+                <input
+                  className={styles.input}
+                  placeholder="e.g. A"
+                  value={lookupFilter.section}
+                  onChange={(e) => setLookupFilter({ ...lookupFilter, section: e.target.value })}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Search Query</label>
+                <input
+                  className={styles.input}
+                  placeholder="Name or Register No"
+                  value={lookupFilter.search}
+                  onChange={(e) => setLookupFilter({ ...lookupFilter, search: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnOutline}`}
+              onClick={handleLookupStudents}
+              disabled={lookupLoading}
+              style={{ marginBottom: '16px' }}
+            >
+              {lookupLoading ? <RefreshCw size={14} className="spin" /> : <Search size={14} />} Fetch
+              Active Students
+            </button>
+
+            {lookupResult.students.length > 0 && (
+              <div>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '14px',
+                    borderRadius: '8px',
+                    marginBottom: '14px',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div className={styles.formGrid}>
+                    <div className={styles.formGroup}>
+                      <label>
+                        <strong>Assign Subject Code *</strong>
+                      </label>
+                      <input
+                        className={styles.input}
+                        placeholder="e.g. CS3451"
+                        value={importSubjectCode}
+                        onChange={(e) => setImportSubjectCode(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>Subject Name</label>
+                      <input
+                        className={styles.input}
+                        placeholder="e.g. Operating Systems"
+                        value={importSubjectName}
+                        onChange={(e) => setImportSubjectName(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.tableWrapper} style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '5%' }}>
+                          <input
+                            type="checkbox"
+                            checked={
+                              selectedStudentIds.length === lookupResult.students.length &&
+                              lookupResult.students.length > 0
+                            }
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedStudentIds(lookupResult.students.map((s) => s._id));
+                              } else {
+                                setSelectedStudentIds([]);
+                              }
+                            }}
+                          />
+                        </th>
+                        <th>Register No</th>
+                        <th>Student Name</th>
+                        <th>Year</th>
+                        <th>Degree &amp; Branch</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lookupResult.students.map((st) => (
+                        <tr key={st._id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedStudentIds.includes(st._id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedStudentIds([...selectedStudentIds, st._id]);
+                                } else {
+                                  setSelectedStudentIds(
+                                    selectedStudentIds.filter((id) => id !== st._id)
+                                  );
+                                }
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <strong>{st.register_no}</strong>
+                          </td>
+                          <td>{st.name}</td>
+                          <td>{st.yearString || `${st.year} Year`}</td>
+                          <td>
+                            {st.programme} {st.department_name}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  onClick={handleImportStudents}
+                  disabled={importingStudents || selectedStudentIds.length === 0}
+                >
+                  {importingStudents ? <RefreshCw size={15} className="spin" /> : <Plus size={15} />}
+                  {importingStudents ? 'Importing Selected Students...' : `Import Selected (${selectedStudentIds.length}) Students`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 4: Candidate List */}
+        {candidateTab === 'list' && (
+          <div>
+            <div style={{ marginBottom: '14px', maxWidth: '350px' }}>
+              <input
+                className={styles.input}
+                placeholder="Search candidates..."
+                value={candidateSearch}
+                onChange={(e) => setCandidateSearch(e.target.value)}
+              />
             </div>
 
             <div className={styles.tableWrapper} style={{ maxHeight: '420px', overflowY: 'auto' }}>
@@ -1251,44 +1663,56 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
                   <tr>
                     <th>#</th>
                     <th>Register No</th>
-                    <th>Candidate Name</th>
+                    <th>Name</th>
                     <th>Degree &amp; Branch</th>
-                    <th>Subject Code</th>
-                    <th>Subject Name</th>
+                    <th>Subject</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredCandidates.length === 0 ? (
                     <tr>
-                      <td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
-                        No candidates registered for this exam session.
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                        No candidates found in this exam schedule.
                       </td>
                     </tr>
                   ) : (
-                    filteredCandidates.map((cand, idx) => (
-                      <tr key={cand._id}>
-                        <td>{idx + 1}</td>
-                        <td style={{ fontWeight: 700 }}>{cand.registerNo}</td>
-                        <td>{cand.name}</td>
+                    filteredCandidates.map((c, i) => (
+                      <tr key={c._id}>
+                        <td>{i + 1}</td>
                         <td>
-                          <span style={{ fontWeight: 600 }}>{cand.programme || 'B.Tech'}</span> {cand.department || cand.departmentCode || '-'}
+                          <strong>{c.registerNo}</strong>
+                        </td>
+                        <td>{c.name}</td>
+                        <td>
+                          {c.programme} {c.department || c.departmentCode}
                         </td>
                         <td>
-                          <span className={styles.pillBadge}>{cand.subjectCode}</span>
+                          <span
+                            className={styles.badge}
+                            style={{
+                              background: '#eff6ff',
+                              color: '#1e40af',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {c.subjectCode}
+                          </span>{' '}
+                          {c.subjectName}
                         </td>
-                        <td>{cand.subjectName || '-'}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <button
+                              type="button"
                               className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
-                              onClick={() => setEditingCandidate(cand)}
+                              onClick={() => setEditingCandidate(c)}
                             >
                               <Edit2 size={12} />
                             </button>
                             <button
+                              type="button"
                               className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
-                              onClick={() => handleDeleteCandidate(cand._id)}
+                              onClick={() => handleDeleteCandidate(c._id)}
                             >
                               <Trash2 size={12} />
                             </button>
@@ -1304,499 +1728,507 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
         )}
       </section>
 
-      {/* ==================== 2. HALL SELECTION & CAPACITY ==================== */}
+      {/* ==================== 2. HALL MANAGEMENT ==================== */}
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <h2>
-            <Building2 size={20} /> 2. Exam Hall Selection &amp; Capacity Planner
+            <Building2 size={20} /> 2. Exam Hall Management (25-Seat Capacity)
           </h2>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span className={`${styles.badge} ${styles.badgeDraft}`}>
-              {halls.length} Total Halls
-            </span>
-            <span className={`${styles.badge} ${isCapacitySufficient ? styles.badgeAllocated : styles.badgeWarning}`}>
-              {selectedHallIds.length} Selected ({totalSelectedCapacity} Seats)
-            </span>
-          </div>
-        </div>
-
-        {/* Real-time Interactive Capacity Visualizer Bar */}
-        <div className={styles.capacityBarContainer}>
-          <div className={styles.capacityBarTop}>
-            <div className={styles.capacityBarStats}>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: 600, textTransform: 'uppercase' }}>
-                  REGISTERED CANDIDATES
-                </span>
-                <strong style={{ fontSize: '18px', color: '#0f172a' }}>{candidates.length}</strong>
-              </div>
-              <div style={{ color: '#cbd5e1', fontSize: '20px' }}>/</div>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: 600, textTransform: 'uppercase' }}>
-                  SELECTED HALL CAPACITY
-                </span>
-                <strong style={{ fontSize: '18px', color: '#2563eb' }}>
-                  {totalSelectedCapacity} Seats ({selectedHallIds.length} Halls)
-                </strong>
-              </div>
-              <div style={{ color: '#cbd5e1', fontSize: '20px' }}>•</div>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '11px', display: 'block', fontWeight: 600, textTransform: 'uppercase' }}>
-                  CAPACITY STATUS
-                </span>
-                {candidates.length === 0 ? (
-                  <span style={{ color: '#64748b', fontSize: '13.5px', fontWeight: 600 }}>0 Candidates</span>
-                ) : isCapacitySufficient ? (
-                  <span style={{ color: '#16a34a', fontSize: '13.5px', fontWeight: 700 }}>
-                    ✓ Sufficient (+{totalSelectedCapacity - candidates.length} Extra Seats)
-                  </span>
-                ) : (
-                  <span style={{ color: '#dc2626', fontSize: '13.5px', fontWeight: 700 }}>
-                    ⚠️ Need {candidates.length - totalSelectedCapacity} More Seats
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.hallQuickButtons}>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSmall}`}
-                onClick={handleSmartAutoSelectHalls}
-                title="Automatically select the exact optimal number of halls required"
-              >
-                <Sparkles size={13} /> Smart Auto-Select
-              </button>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
-                onClick={handleSelectAllFilteredHalls}
-              >
-                Select All
-              </button>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
-                onClick={handleDeselectAllHalls}
-              >
-                Clear All
-              </button>
-            </div>
-          </div>
-
-          {/* Progress Bar Track */}
-          <div className={styles.capacityProgressTrack}>
-            <div
-              className={`${styles.capacityProgressFill} ${isCapacitySufficient ? styles.capacityProgressSufficient : styles.capacityProgressDeficit
-                }`}
-              style={{
-                width: `${totalSelectedCapacity > 0
-                  ? Math.min(100, Math.round((candidates.length / totalSelectedCapacity) * 100))
-                  : 0
-                  }%`,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Hall Controls & Filter Row */}
-        <div className={styles.hallControlsRow}>
-          <div style={{ display: 'flex', gap: '10px', flex: 1, flexWrap: 'wrap' }}>
-            <input
-              className={`${styles.input} ${styles.hallSearchInput}`}
-              placeholder="Search Hall Number (e.g. D401)..."
-              value={hallSearchQuery}
-              onChange={(e) => setHallSearchQuery(e.target.value)}
-            />
-            <select
-              className={styles.select}
-              value={hallLayoutFilter}
-              onChange={(e) => setHallLayoutFilter(e.target.value)}
-              style={{ width: '200px' }}
-            >
-              <option value="ALL">All Layouts</option>
-              <option value="FIVE_BY_FIVE">5 × 5 Grid (25 Seats)</option>
-              <option value="FOUR_BY_SIX_PLUS_ONE">4 × 6 + 1 Grid (25 Seats)</option>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            className={`${styles.btn} ${showAddHallForm ? styles.btnOutline : styles.btnPrimary} ${styles.btnSmall}`}
-            onClick={() => setShowAddHallForm(!showAddHallForm)}
-          >
-            {showAddHallForm ? 'Hide Form' : '+ Add New Exam Hall'}
-          </button>
-        </div>
-
-        {/* Add New Hall Card Form (when expanded) */}
-        {showAddHallForm && (
-          <form onSubmit={handleCreateHall} className={styles.addHallCard} style={{ marginBottom: '20px' }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#0f172a' }}>
-              Create New Examination Hall (Capacity: 25 Seats)
-            </h4>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div className={styles.formGroup} style={{ flex: '1 1 200px' }}>
-                <label>Hall Number *</label>
-                <input
-                  className={styles.input}
-                  placeholder="e.g. D401B or HALL-12"
-                  value={hallForm.hallNumber}
-                  onChange={(e) => setHallForm({ ...hallForm, hallNumber: e.target.value })}
-                  required
-                />
-              </div>
-              <div className={styles.formGroup} style={{ flex: '1 1 220px' }}>
-                <label>Physical Layout Type *</label>
-                <select
-                  className={styles.select}
-                  value={hallForm.layoutType}
-                  onChange={(e) => setHallForm({ ...hallForm, layoutType: e.target.value })}
-                >
-                  <option value="FIVE_BY_FIVE">5 × 5 Grid (25 Seats)</option>
-                  <option value="FOUR_BY_SIX_PLUS_ONE">4 × 6 + 1 Grid (25 Seats)</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-                  <Plus size={15} /> Save Hall
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnOutline}`}
-                  onClick={() => setShowAddHallForm(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-
-        {/* Interactive Hall Cards Grid */}
-        <div className={styles.hallGrid}>
-          {filteredHalls.length === 0 ? (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px', color: '#64748b' }}>
-              No examination halls match the filter criteria.
-            </div>
-          ) : (
-            filteredHalls.map((hall) => {
-              const isSelected = selectedHallIds.includes(hall._id);
-              return (
-                <div
-                  key={hall._id}
-                  className={`${styles.hallCard} ${isSelected ? styles.hallCardSelected : ''}`}
-                  onClick={() => handleToggleHallSelection(hall._id)}
-                >
-                  <div>
-                    <div className={styles.hallCardHeader}>
-                      <div className={styles.hallIconBadge}>
-                        <Building2 size={18} />
-                      </div>
-                      <span className={styles.hallNumber}>{hall.hallNumber}</span>
-                      <input
-                        type="checkbox"
-                        className={styles.hallCheckbox}
-                        checked={isSelected}
-                        onChange={() => handleToggleHallSelection(hall._id)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-
-                    <div className={styles.hallDetailsBody}>
-                      <span className={styles.hallCapacityTag}>
-                        <Users size={12} /> 25 Seats
-                      </span>
-                      <span className={styles.hallLayoutTag}>
-                        <Grid size={11} /> {hall.layoutType === 'FOUR_BY_SIX_PLUS_ONE' ? '4 × 6 + 1' : '5 × 5'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className={styles.hallCardFooter} onClick={(e) => e.stopPropagation()}>
-                    <span className={styles.hallStatusIndicator}>
-                      <CheckCircle size={12} /> {isSelected ? 'Included' : 'Available'}
-                    </span>
-                    <div className={styles.hallCardActions}>
-                      <button
-                        type="button"
-                        className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
-                        onClick={() => setEditingHall(hall)}
-                        title="Edit Hall Details"
-                      >
-                        <Edit2 size={11} />
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
-                        onClick={() => handleDeleteHall(hall._id)}
-                        title="Delete Hall"
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      {/* ==================== 3. ALLOCATION METRICS & GENERATION ==================== */}
-      <section className={styles.card}>
-        <div className={styles.cardHeader}>
-          <h2>
-            <Layers size={20} /> 3. Seating Allocation for {activeSession?.examDate ? new Date(activeSession.examDate).toLocaleDateString('en-GB') : 'Selected Date'} ({activeSession?.session || 'FN'})
-          </h2>
-          <span
-            className={`${styles.badge} ${activeSession?.status === 'ALLOCATED' ? styles.badgeAllocated : styles.badgeDraft
-              }`}
-          >
-            Status: {activeSession?.status || 'DRAFT'}
+          <span className={`${styles.badge} ${styles.badgeDraft}`}>
+            Selected Halls: {selectedHallIds.length} ({selectedHallIds.length * 25} Total Seats)
           </span>
         </div>
 
-        <div className={styles.metricsGrid}>
-          <div className={styles.metricBox}>
-            <div className={styles.metricValue}>{candidates.length}</div>
-            <div className={styles.metricLabel}>Total Registered Students</div>
-          </div>
-          <div className={styles.metricBox}>
-            <div className={styles.metricValue}>{totalSelectedCapacity}</div>
-            <div className={styles.metricLabel}>Selected Hall Capacity ({selectedHallIds.length} Halls)</div>
-          </div>
-          <div className={styles.metricBox}>
-            <div
-              className={styles.metricValue}
-              style={{ color: isCapacitySufficient ? '#16a34a' : '#dc2626' }}
-            >
-              {isCapacitySufficient
-                ? totalSelectedCapacity - candidates.length
-                : `Deficit (${candidates.length - totalSelectedCapacity})`}
+        {/* Add New Hall Form */}
+        <form
+          onSubmit={handleCreateHall}
+          style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '14px 18px',
+            marginBottom: '18px',
+          }}
+        >
+          <div className={styles.formGrid} style={{ alignItems: 'flex-end', marginBottom: 0 }}>
+            <div className={styles.formGroup}>
+              <label>Hall Number *</label>
+              <input
+                className={styles.input}
+                placeholder="e.g. D401"
+                value={hallForm.hallNumber}
+                onChange={(e) => setHallForm({ ...hallForm, hallNumber: e.target.value })}
+                required
+              />
             </div>
-            <div className={styles.metricLabel}>Remaining Capacity</div>
+            <div className={styles.formGroup}>
+              <label>Layout Geometry *</label>
+              <select
+                className={styles.select}
+                value={hallForm.layoutType}
+                onChange={(e) => setHallForm({ ...hallForm, layoutType: e.target.value })}
+              >
+                <option value="FIVE_BY_FIVE">5 × 5 Grid (25 Seats)</option>
+                <option value="FOUR_BY_SIX_PLUS_ONE">4 × 6 + 1 Grid (25 Seats)</option>
+              </select>
+            </div>
+            <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={hallSubmitting}>
+              {hallSubmitting ? (
+                <RefreshCw size={15} className="spin" />
+              ) : editingHall ? (
+                <CheckCircle size={15} />
+              ) : (
+                <Plus size={15} />
+              )}
+              {hallSubmitting ? 'Saving Hall...' : editingHall ? 'Update Hall' : 'Add Hall'}
+            </button>
           </div>
+        </form>
+
+        {/* Hall Selection Action Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSmall}`}
+              onClick={handleSmartSelectHalls}
+              title="Automatically select the required halls based on currently registered candidates"
+            >
+              <Sparkles size={13} /> Smart Select ({Math.ceil((candidates.length || 0) / 25)} Hall{Math.ceil((candidates.length || 0) / 25) !== 1 ? 's' : ''} for {candidates.length} Candidate{candidates.length !== 1 ? 's' : ''})
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
+              onClick={() => setSelectedHallIds(halls.map((h) => h._id))}
+            >
+              <CheckCircle size={13} /> Select All ({halls.length})
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
+              onClick={() => setSelectedHallIds([])}
+            >
+              Deselect All
+            </button>
+          </div>
+          <span style={{ fontSize: '13px', color: '#64748b' }}>
+            Selected: <strong>{selectedHallIds.length} Hall{selectedHallIds.length !== 1 ? 's' : ''}</strong> ({selectedHallIds.length * 25} Seats) | Needed: <strong>{candidates.length} Candidate{candidates.length !== 1 ? 's' : ''}</strong>
+          </span>
         </div>
 
-        {!isCapacitySufficient && (
-          <div className={`${styles.alert} ${styles.alertError}`} style={{ marginBottom: '16px' }}>
-            <span>
-              ⚠️ Selected halls do not have sufficient seating capacity. Total Candidates ({candidates.length}) exceed Selected Capacity ({totalSelectedCapacity}). Please select or add more halls.
-            </span>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {activeSession?.status === 'ALLOCATED' ? (
-            <>
-              <button
-                className={`${styles.btn} ${styles.btnWarning}`}
-                onClick={() => setShowRegenerateModal(true)}
-                disabled={allocating}
+        {/* Halls Grid Selection */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: '12px',
+          }}
+        >
+          {halls.map((h) => {
+            const isSelected = selectedHallIds.includes(h._id);
+            return (
+              <div
+                key={h._id}
+                style={{
+                  border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                  background: isSelected ? '#eff6ff' : '#ffffff',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+                onClick={() => {
+                  if (isSelected) {
+                    setSelectedHallIds(selectedHallIds.filter((id) => id !== h._id));
+                  } else {
+                    setSelectedHallIds([...selectedHallIds, h._id]);
+                  }
+                }}
               >
-                <RefreshCw size={16} /> Regenerate Allocation
-              </button>
-              <button
-                className={`${styles.btn} ${styles.btnDanger}`}
-                onClick={() => setShowDeleteAllocationModal(true)}
-              >
-                <Trash2 size={16} /> Delete Allocation
-              </button>
-            </>
-          ) : (
-            <button
-              className={`${styles.btn} ${styles.btnSuccess}`}
-              onClick={handleGenerateAllocation}
-              disabled={allocating || !isCapacitySufficient || candidates.length === 0}
-            >
-              <CheckCircle size={16} /> {allocating ? 'Allocating…' : 'Generate Seat Allocation'}
-            </button>
-          )}
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '15px', color: '#0f172a' }}>
+                    Hall {h.hallNumber}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    {h.layoutType === 'FOUR_BY_SIX_PLUS_ONE' ? '4 × 6 + 1' : '5 × 5'} (25 Seats)
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => { }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+              </div>
+            );
+          })}
         </div>
       </section>
 
-      {/* ==================== 4. COLORFUL HALL VIEW & OFFICIAL SUMMARY ==================== */}
-      {seatingData && seatingData.halls && seatingData.halls.length > 0 && (
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <h2>
-              <Building2 size={20} /> 4. Physical Seating Arrangement (Hall View)
-            </h2>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                className={`${styles.btn} ${styles.btnPrimary}`}
-                onClick={handleDownloadSinglePdf}
-                disabled={pdfGenerating}
-              >
-                <Download size={15} /> {pdfGenerating ? 'Generating PDF...' : 'Download Hall PDF'}
-              </button>
-              <button
-                className={`${styles.btn} ${styles.btnSuccess}`}
-                onClick={handleDownloadAllPdf}
-                disabled={pdfGenerating}
-              >
-                <Download size={15} /> {pdfGenerating ? 'Generating All...' : 'Download All Halls PDF'}
-              </button>
-            </div>
-          </div>
-
-          {/* Hall Tabs */}
-          <div className={styles.hallTabs}>
-            {seatingData.halls.map((h) => {
-              const isActive = h.hallId === (activeHallData?.hallId || '');
-              return (
-                <button
-                  key={h.hallId}
-                  className={`${styles.hallTab} ${isActive ? styles.hallTabActive : ''}`}
-                  onClick={() => setActiveHallViewId(h.hallId)}
-                >
-                  <strong>{h.hallNumber}</strong>
-                  <span>({h.occupiedCount} / 25)</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {activeHallData && (
-            <div className={styles.seatingContainer}>
-              <div
-                className={`${styles.seatingGrid} ${activeHallData.layoutType === 'FOUR_BY_SIX_PLUS_ONE'
-                  ? styles.grid4x6
-                  : styles.grid5x5
-                  }`}
-              >
-                {Array.from({ length: 25 }, (_, i) => i + 1).map((seatNum) => {
-                  const seatRecord = activeHallData.seats ? activeHallData.seats[seatNum] : null;
-
-                  if (seatRecord) {
-                    const colorClass = subjectColorMap[(seatRecord.subjectCode || '').toUpperCase()] || '';
-                    return (
-                      <div key={seatNum} className={`${styles.seatBox} ${styles.seatOccupied} ${colorClass}`}>
-                        <div className={styles.seatNumberBadge}>
-                          Seat {String(seatNum).padStart(2, '0')}
-                        </div>
-                        <div className={styles.seatCandidateReg}>{seatRecord.registerNo}</div>
-                        <div className={styles.seatSubjectBadge}>{seatRecord.subjectCode}</div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={seatNum} className={`${styles.seatBox} ${styles.seatEmpty}`}>
-                      <div className={styles.seatNumberBadge} style={{ color: '#94a3b8' }}>
-                        Seat {String(seatNum).padStart(2, '0')}
-                      </div>
-                      <div style={{ height: '24px' }} />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Dynamic Anna University Degree & Branch Summary Table */}
-              <div style={{ width: '100%', maxWidth: '1000px', marginTop: '16px' }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#1e293b' }}>
-                  Hall {activeHallData.hallNumber} - Degree &amp; Branch Seating Summary:
-                </h4>
-                <div className={styles.tableWrapper}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>Hall No</th>
-                        <th>Degree &amp; Branch</th>
-                        <th>Subject Code</th>
-                        <th>Register Numbers</th>
-                        <th style={{ textAlign: 'center' }}>No of Candidates</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeHallData.summaryList?.map((s, idx) => (
-                        <tr key={idx}>
-                          <td style={{ fontWeight: 700 }}>{activeHallData.hallNumber}</td>
-                          <td>
-                            <span
-                              className={
-                                s.degreeBranch === 'Common Sub'
-                                  ? `${styles.badge} ${styles.badgeDraft}`
-                                  : ''
-                              }
-                              style={{ fontWeight: 600 }}
-                            >
-                              {s.degreeBranch}
-                            </span>
-                          </td>
-                          <td style={{ fontWeight: 700 }}>{s.subjectCode}</td>
-                          <td style={{ fontSize: '12px', maxWidth: '420px', wordBreak: 'break-word' }}>
-                            {s.registerNumbers}
-                          </td>
-                          <td style={{ textAlign: 'center', fontWeight: 800 }}>{s.count}</td>
-                        </tr>
-                      ))}
-                      <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
-                        <td colSpan="4" style={{ textAlign: 'right' }}>TOTAL</td>
-                        <td style={{ textAlign: 'center' }}>{activeHallData.occupiedCount}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ==================== 5. QUICK CANDIDATE SEAT SEARCH ==================== */}
+      {/* ==================== 3. ALLOCATION & SEATING ARRANGEMENT ==================== */}
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <h2>
-            <Search size={20} /> 5. Candidate Seat Quick Search
+            <Grid size={20} /> 3. Seating Allocation &amp; Arrangement
+          </h2>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {activeSession?.status === 'ALLOCATED' ? (
+              <>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnWarning}`}
+                  onClick={() => setShowRegenerateModal(true)}
+                  disabled={allocating}
+                >
+                  {allocating ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
+                  {allocating ? 'Regenerating...' : 'Regenerate Allocation'}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnDanger}`}
+                  onClick={() => setShowDeleteAllocationModal(true)}
+                  disabled={allocating}
+                >
+                  <Trash2 size={14} /> Delete Allocation
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnPrimary}`}
+                onClick={handleGenerateAllocation}
+                disabled={allocating || candidates.length === 0 || selectedHallIds.length === 0}
+              >
+                {allocating ? <RefreshCw size={15} className="spin" /> : <Sparkles size={15} />}
+                {allocating ? 'Allocating & Arranging Seats...' : 'Generate Seating Allocation'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {seatingData?.halls?.length > 0 ? (
+          <div>
+            {/* Allocation Metrics Bar */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '12px',
+                marginBottom: '20px',
+              }}
+            >
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>TOTAL CANDIDATES</div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>{candidates.length}</div>
+              </div>
+              <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600 }}>ALLOCATED SEATS</div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#16a34a' }}>{seatingData.totalAllocated}</div>
+              </div>
+              <div style={{ background: '#eff6ff', padding: '12px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                <div style={{ fontSize: '11px', color: '#1e40af', fontWeight: 600 }}>ASSIGNED HALLS</div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#2563eb' }}>{seatingData.halls.length}</div>
+              </div>
+            </div>
+
+            {/* Hall Selector Tabs */}
+            <div className={styles.hallTabs}>
+              {seatingData.halls.map((h) => {
+                const isActive = activeHallData?.hallId === h.hallId;
+                return (
+                  <button
+                    key={h.hallId}
+                    className={`${styles.hallTab} ${isActive ? styles.hallTabActive : ''}`}
+                    onClick={() => setActiveHallViewId(h.hallId)}
+                  >
+                    Hall {h.hallNumber} ({h.occupiedCount} Seats)
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 4-BLOCK VERTICAL SEATING TABLE (Exact Match to Reference Layout) */}
+            {activeHallData && (
+              <div style={{ background: '#ffffff', border: '1.5px solid #0f172a', borderRadius: '10px', padding: '18px', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>
+                    Hall {activeHallData.hallNumber} Seating Grid ({activeHallData.layoutType === 'FOUR_BY_SIX_PLUS_ONE' ? '4 Vertical Blocks' : '5 Columns'})
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#64748b' }}>
+                    Layout: <strong>{activeHallData.layoutType === 'FOUR_BY_SIX_PLUS_ONE' ? '4 × 6 + 1' : '5 × 5'}</strong> | Occupied: <strong>{activeHallData.occupiedCount} / 25</strong>
+                  </div>
+                </div>
+
+                {/* Subject Color Differentiation Legend */}
+                {activeHallSubjects.length > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '10px',
+                      flexWrap: 'wrap',
+                      marginBottom: '16px',
+                      alignItems: 'center',
+                      background: '#f8fafc',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+                      Subjects in Hall {activeHallData.hallNumber}:
+                    </span>
+                    {activeHallSubjects.map((subCode) => {
+                      const pal = subjectPaletteMap[subCode] || SUBJECT_PALETTES[0];
+                      return (
+                        <span
+                          key={subCode}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            background: pal.badgeBg,
+                            color: pal.badgeText,
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            border: `1.5px solid ${pal.border}`,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '9px',
+                              height: '9px',
+                              borderRadius: '50%',
+                              background: pal.text,
+                            }}
+                          />
+                          {subCode}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Dynamic Columns / Blocks across page based on Hall Layout */}
+                <div className={styles.blocksPreviewArea}>
+                  {(activeHallData.layoutType === 'FOUR_BY_SIX_PLUS_ONE'
+                    ? [
+                      [1, 5, 9, 13, 17, 21, 25],
+                      [2, 6, 10, 14, 18, 22],
+                      [3, 7, 11, 15, 19, 23],
+                      [4, 8, 12, 16, 20, 24],
+                    ]
+                    : [
+                      [1, 6, 11, 16, 21],
+                      [2, 7, 12, 17, 22],
+                      [3, 8, 13, 18, 23],
+                      [4, 9, 14, 19, 24],
+                      [5, 10, 15, 20, 25],
+                    ]
+                  ).map((seatNums, bIdx) => (
+                    <table key={bIdx} className={styles.blockTable}>
+                      <thead>
+                        <tr>
+                          <th className={styles.blockSeatNo}>Seat No</th>
+                          <th className={styles.blockRegNo}>Register No</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {seatNums.map((sNum) => {
+                          const seat = activeHallData.seats ? activeHallData.seats[sNum] : null;
+                          const subCode = seat?.subjectCode?.trim()?.toUpperCase();
+                          const pal = subCode ? (subjectPaletteMap[subCode] || SUBJECT_PALETTES[0]) : null;
+                          return (
+                            <tr
+                              key={sNum}
+                              style={{
+                                background: pal ? pal.bg : '#ffffff',
+                              }}
+                            >
+                              <td
+                                className={styles.blockSeatNo}
+                                style={{
+                                  fontWeight: 700,
+                                  borderLeft: pal ? `3.5px solid ${pal.text}` : 'none',
+                                  color: pal ? pal.text : '#64748b',
+                                }}
+                              >
+                                {sNum}
+                              </td>
+                              <td className={styles.blockRegNo}>
+                                {seat ? (
+                                  <div>
+                                    <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '13px' }}>
+                                      {seat.registerNo}
+                                    </span>
+                                    <span
+                                      style={{
+                                        display: 'inline-block',
+                                        marginLeft: '6px',
+                                        padding: '1.5px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '10.5px',
+                                        fontWeight: 700,
+                                        background: pal.badgeBg,
+                                        color: pal.badgeText,
+                                        border: `1px solid ${pal.border}`,
+                                      }}
+                                    >
+                                      {seat.subjectCode}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: '#94a3b8' }}>-</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ))}
+                </div>
+
+                {/* Hall Summary Table (No Common Sub, Merged Hall No) */}
+                <div style={{ marginTop: '16px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px', color: '#0f172a' }}>
+                    {activeSession?.examType === 'INTERNAL'
+                      ? 'Internal Examination Summary (Year & Branch)'
+                      : 'Anna University Degree & Branch Summary'}
+                  </div>
+
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '12%', textAlign: 'center' }}>Hall No</th>
+                          {activeSession?.examType === 'INTERNAL' ? (
+                            <>
+                              <th style={{ width: '38%' }}>Year &amp; Branch</th>
+                              <th style={{ width: '38%' }}>Register Number of Candidates</th>
+                              <th style={{ width: '12%', textAlign: 'center' }}>No of Candidates</th>
+                            </>
+                          ) : (
+                            <>
+                              <th style={{ width: '30%' }}>Degree &amp; Branch</th>
+                              <th style={{ width: '15%', textAlign: 'center' }}>Subject Code</th>
+                              <th style={{ width: '33%' }}>Register Number of Candidates</th>
+                              <th style={{ width: '10%', textAlign: 'center' }}>No of Candidates</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeHallData.summaryList?.map((s, idx) => (
+                          <tr key={idx}>
+                            {idx === 0 && (
+                              <td
+                                rowSpan={activeHallData.summaryList.length}
+                                style={{
+                                  textAlign: 'center',
+                                  fontWeight: 800,
+                                  fontSize: '15px',
+                                  verticalAlign: 'middle',
+                                  background: '#f8fafc',
+                                  borderRight: '1px solid #e2e8f0',
+                                }}
+                              >
+                                {activeHallData.hallNumber}
+                              </td>
+                            )}
+                            {activeSession?.examType === 'INTERNAL' ? (
+                              <>
+                                <td style={{ fontWeight: 700 }}>{s.yearBranch}</td>
+                                <td style={{ fontSize: '12px' }}>{s.registerNumbers}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.count}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td style={{ fontWeight: 700 }}>{s.degreeBranch}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.subjectCode}</td>
+                                <td style={{ fontSize: '12px' }}>{s.registerNumbers}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.count}</td>
+                              </>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* PDF Action Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                  <button
+                    type="button"
+                    className={`${styles.btn} ${styles.btnPrimary}`}
+                    onClick={handleDownloadSinglePdf}
+                    disabled={pdfGenerating}
+                  >
+                    {pdfGenerating ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
+                    {pdfGenerating ? 'Generating PDF...' : `Download Hall ${activeHallData.hallNumber} PDF`}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.btn} ${styles.btnSuccess}`}
+                    onClick={handleDownloadAllPdf}
+                    disabled={pdfGenerating}
+                  >
+                    {pdfGenerating ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
+                    {pdfGenerating ? 'Generating All PDFs...' : 'Download All Halls PDF'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+            No seating allocation generated yet for this exam schedule. Click <strong>Generate Seating Allocation</strong> above.
+          </div>
+        )}
+      </section>
+
+      {/* ==================== 4. CANDIDATE SEAT SEARCH ==================== */}
+      <section className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h2>
+            <Search size={20} /> 4. Candidate Seat Lookup
           </h2>
         </div>
 
-        <form onSubmit={handleSearchCandidate} className={styles.searchBar}>
+        <form onSubmit={handleSearchCandidate} style={{ display: 'flex', gap: '10px', maxWidth: '450px', marginBottom: '14px' }}>
           <input
             className={styles.input}
-            placeholder="Enter Student Register Number (e.g. 946023AIDS001)"
+            placeholder="Enter Register Number (e.g. 23CSE001)"
             value={searchRegNo}
             onChange={(e) => setSearchRegNo(e.target.value)}
             required
-            style={{ flex: 1 }}
           />
           <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={searchLoading}>
-            <Search size={15} /> {searchLoading ? 'Searching...' : 'Search Candidate'}
+            {searchLoading ? <RefreshCw size={14} className="spin" /> : <Search size={14} />} Search
           </button>
         </form>
 
         {searchResult && (
-          <div className={styles.searchResultBox}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#166534', fontSize: '15px' }}>
-              Candidate Allocated Successfully
-            </h4>
-            <div className={styles.searchResultGrid}>
-              <div>
-                <strong>Candidate:</strong> {searchResult.name} ({searchResult.registerNo})
-              </div>
-              <div>
-                <strong>Degree &amp; Branch:</strong> {searchResult.programme || 'B.Tech'} {searchResult.department || searchResult.departmentCode || '-'}
-              </div>
-              <div>
-                <strong>Subject:</strong> {searchResult.subjectCode} {searchResult.subjectName ? `(${searchResult.subjectName})` : ''}
-              </div>
-              <div>
-                <strong>Hall Number:</strong>{' '}
-                <span style={{ fontSize: '16px', fontWeight: 800, color: '#166534' }}>
-                  {searchResult.hallNumber}
-                </span>
-              </div>
-              <div>
-                <strong>Seat Number:</strong>{' '}
-                <span style={{ fontSize: '16px', fontWeight: 800, color: '#166534' }}>
-                  Seat {String(searchResult.seatNo).padStart(2, '0')}
-                </span>
-              </div>
-              <div>
-                <strong>Row / Column:</strong> Row {searchResult.row}, Col {searchResult.column}
-              </div>
+          <div
+            style={{
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '8px',
+              padding: '16px',
+              maxWidth: '520px',
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: '16px', color: '#166534', marginBottom: '8px' }}>
+              Seat Assigned: Hall {searchResult.hallNumber} - Seat #{String(searchResult.seatNo).padStart(2, '0')}
+            </div>
+            <div style={{ fontSize: '13.5px', color: '#14532d', lineHeight: '1.6' }}>
+              <strong>Candidate:</strong> {searchResult.name} ({searchResult.registerNo})<br />
+              <strong>Subject:</strong> {searchResult.subjectCode} - {searchResult.subjectName}<br />
+              <strong>Schedule:</strong> {searchResult.examName} (Session: {searchResult.session})
             </div>
           </div>
         )}
@@ -1804,45 +2236,61 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
 
       {/* ==================== MODALS ==================== */}
 
-      {/* Exam Master Setup Modal */}
+      {/* Exam Masters Modal */}
       {showMasterModal && (
         <div className={styles.modalOverlay} onClick={() => setShowMasterModal(false)}>
-          <div className={styles.modal} style={{ maxWidth: '780px', width: '95%' }} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '680px' }}>
             <div className={styles.modalHeader}>
-              <h3>{editingMaster ? 'Edit Exam Master' : 'Exam Master Configuration'}</h3>
+              <h3>Exam Masters / Reusable Series</h3>
               <button className={styles.modalClose} onClick={() => setShowMasterModal(false)}>
                 ×
               </button>
             </div>
 
-            {/* Master Form */}
-            <form onSubmit={handleSaveMaster} style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '18px', border: '1px solid #e2e8f0' }}>
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#0f172a' }}>
-                {editingMaster ? 'Update Configuration' : 'Create New Exam Configuration (e.g. Anna University)'}
-              </h4>
+            {/* Create / Edit Master Form */}
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setMasterSaving(true);
+                try {
+                  if (editingMaster) {
+                    await api.put(`/masters/${editingMaster._id}`, masterForm);
+                    showAlert('success', 'Exam Master updated successfully.');
+                  } else {
+                    await api.post('/masters', masterForm);
+                    showAlert('success', 'Exam Master saved successfully.');
+                  }
+                  setEditingMaster(null);
+                  setMasterForm({
+                    examType: 'ANNA_UNIVERSITY',
+                    examCode: '',
+                    examName: '',
+                    centreCode: '9640',
+                    centreName: 'Noorul Islam College of Engineering and Technology',
+                  });
+                  await fetchMasters();
+                } catch (err) {
+                  showAlert('error', err.response?.data?.message || 'Failed to save Exam Master.');
+                } finally {
+                  setMasterSaving(false);
+                }
+              }}
+              style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', marginBottom: '16px' }}
+            >
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
-                  <label>Exam Code (Unique Identifier) *</label>
-                  <input
-                    className={styles.input}
-                    placeholder="e.g. AU-ND-2026"
-                    value={masterForm.examCode}
-                    onChange={(e) => setMasterForm({ ...masterForm, examCode: e.target.value })}
-                    required
-                  />
+                  <label>Exam Type *</label>
+                  <select
+                    className={styles.select}
+                    value={masterForm.examType}
+                    onChange={(e) => setMasterForm({ ...masterForm, examType: e.target.value })}
+                  >
+                    <option value="ANNA_UNIVERSITY">Anna University Examination</option>
+                    <option value="INTERNAL">Internal Examination</option>
+                  </select>
                 </div>
                 <div className={styles.formGroup}>
-                  <label>Centre Code *</label>
-                  <input
-                    className={styles.input}
-                    placeholder="e.g. 9460"
-                    value={masterForm.centreCode}
-                    onChange={(e) => setMasterForm({ ...masterForm, centreCode: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
-                  <label>Examination Name (Primary PDF Heading) *</label>
+                  <label>Exam Name / Series Title *</label>
                   <input
                     className={styles.input}
                     placeholder="e.g. ANNA UNIVERSITY THEORY EXAMINATION NOV–DEC 2026"
@@ -1851,21 +2299,27 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
                     required
                   />
                 </div>
-                <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
-                  <label>Centre Name *</label>
+                <div className={styles.formGroup}>
+                  <label>College Code</label>
                   <input
                     className={styles.input}
-                    placeholder="e.g. Nagercoil Islam College of Engineering and Technology"
+                    placeholder="e.g. 9640"
+                    value={masterForm.centreCode}
+                    onChange={(e) => setMasterForm({ ...masterForm, centreCode: e.target.value })}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>College Name</label>
+                  <input
+                    className={styles.input}
+                    placeholder="e.g. Noorul Islam College of Engineering and Technology"
                     value={masterForm.centreName}
                     onChange={(e) => setMasterForm({ ...masterForm, centreName: e.target.value })}
-                    required
                   />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-                  {editingMaster ? 'Update Master' : 'Save Master Configuration'}
-                </button>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 {editingMaster && (
                   <button
                     type="button"
@@ -1873,490 +2327,183 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
                     onClick={() => {
                       setEditingMaster(null);
                       setMasterForm({
+                        examType: 'ANNA_UNIVERSITY',
                         examCode: '',
                         examName: '',
-                        centreCode: '9460',
-                        centreName: 'Nagercoil Islam College of Engineering and Technology',
+                        centreCode: '9640',
+                        centreName: 'Noorul Islam College of Engineering and Technology',
                       });
                     }}
                   >
-                    Cancel Edit
+                    Cancel
                   </button>
                 )}
+                <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={masterSaving}>
+                  {masterSaving ? (
+                    <RefreshCw size={14} className="spin" />
+                  ) : editingMaster ? (
+                    <CheckCircle size={14} />
+                  ) : (
+                    <Plus size={14} />
+                  )}
+                  {masterSaving ? 'Saving...' : editingMaster ? 'Update Master' : 'Save Master Series'}
+                </button>
               </div>
             </form>
 
-            {/* Masters Table */}
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '13.5px', color: '#475569' }}>Existing Exam Masters</h4>
-            <div className={styles.tableWrapper} style={{ maxHeight: '240px', overflowY: 'auto' }}>
+            {/* Masters List */}
+            <div className={styles.tableWrapper} style={{ maxHeight: '280px', overflowY: 'auto' }}>
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Code</th>
-                    <th>Exam Name</th>
-                    <th>Centre Code &amp; Name</th>
+                    <th>Type</th>
+                    <th>Series Name</th>
+                    <th>College Code &amp; Name</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {masters.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: '#64748b' }}>
-                        No exam masters configured yet.
+                  {masters.map((m) => (
+                    <tr key={m._id}>
+                      <td>
+                        <span
+                          className={styles.badge}
+                          style={{
+                            background: m.examType === 'INTERNAL' ? '#f3e8ff' : '#eff6ff',
+                            color: m.examType === 'INTERNAL' ? '#6b21a8' : '#1e40af',
+                          }}
+                        >
+                          {m.examType}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{m.examName}</strong>
+                      </td>
+                      <td style={{ fontSize: '12px', color: '#64748b' }}>
+                        {m.centreCode} – {m.centreName}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
+                            onClick={() => {
+                              setEditingMaster(m);
+                              setMasterForm({
+                                examType: m.examType || 'ANNA_UNIVERSITY',
+                                examCode: m.examCode || '',
+                                examName: m.examName,
+                                centreCode: m.centreCode || '9640',
+                                centreName: m.centreName || 'Noorul Islam College of Engineering and Technology',
+                              });
+                            }}
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
+                            onClick={async () => {
+                              if (!window.confirm('Delete this exam master configuration?')) return;
+                              try {
+                                await api.delete(`/masters/${m._id}`);
+                                showAlert('success', 'Exam master deleted.');
+                                fetchMasters();
+                              } catch (err) {
+                                showAlert('error', err.response?.data?.message || 'Failed to delete.');
+                              }
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    masters.map((m) => (
-                      <tr key={m._id}>
-                        <td style={{ fontWeight: 700 }}>{m.examCode}</td>
-                        <td>{m.examName}</td>
-                        <td>{m.centreCode} - {m.centreName}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button
-                              type="button"
-                              className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
-                              onClick={() => {
-                                setEditingMaster(m);
-                                setMasterForm({
-                                  examCode: m.examCode,
-                                  examName: m.examName,
-                                  centreCode: m.centreCode || '9460',
-                                  centreName: m.centreName || 'Nagercoil Islam College of Engineering and Technology',
-                                });
-                              }}
-                            >
-                              <Edit2 size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
-                              onClick={() => handleDeleteMaster(m._id)}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
-
-            <div className={styles.modalActions} style={{ marginTop: '16px' }}>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnOutline}`}
-                onClick={() => setShowMasterModal(false)}
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
 
-      {/* New Session Modal */}
-      {showSessionModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowSessionModal(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>Create New Exam Schedule</h3>
-              <button className={styles.modalClose} onClick={() => setShowSessionModal(false)}>
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleCreateSession}>
-              {masters.length > 0 && (
-                <div className={styles.formGroup} style={{ marginBottom: '14px' }}>
-                  <label>Select Exam Master (Optional)</label>
-                  <select
-                    className={styles.select}
-                    value={sessionForm.examMasterId}
-                    onChange={(e) => {
-                      const mId = e.target.value;
-                      const selectedM = masters.find((m) => m._id === mId);
-                      if (selectedM) {
-                        setSessionForm({
-                          ...sessionForm,
-                          examMasterId: mId,
-                          examName: selectedM.examName,
-                          examCode: selectedM.examCode,
-                          centreCode: selectedM.centreCode,
-                          centreName: selectedM.centreName,
-                        });
-                      } else {
-                        setSessionForm({ ...sessionForm, examMasterId: '' });
-                      }
-                    }}
-                  >
-                    <option value="">Custom Examination</option>
-                    {masters.map((m) => (
-                      <option key={m._id} value={m._id}>
-                        {m.examCode} - {m.examName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className={styles.formGroup} style={{ marginBottom: '14px' }}>
-                <label>Exam Name (Primary PDF Header) *</label>
-                <input
-                  className={styles.input}
-                  placeholder="e.g. ANNA UNIVERSITY THEORY EXAMINATION NOV–DEC 2026"
-                  value={sessionForm.examName}
-                  onChange={(e) => setSessionForm({ ...sessionForm, examName: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className={styles.formGrid} style={{ marginBottom: '14px' }}>
-                <div className={styles.formGroup}>
-                  <label>Centre Code</label>
-                  <input
-                    className={styles.input}
-                    value={sessionForm.centreCode}
-                    onChange={(e) => setSessionForm({ ...sessionForm, centreCode: e.target.value })}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Centre Name</label>
-                  <input
-                    className={styles.input}
-                    value={sessionForm.centreName}
-                    onChange={(e) => setSessionForm({ ...sessionForm, centreName: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.formGrid} style={{ marginBottom: '20px' }}>
-                <div className={styles.formGroup}>
-                  <label>Exam Date *</label>
-                  <input
-                    type="date"
-                    className={styles.input}
-                    value={sessionForm.examDate}
-                    onChange={(e) => setSessionForm({ ...sessionForm, examDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Session *</label>
-                  <select
-                    className={styles.select}
-                    value={sessionForm.session}
-                    onChange={(e) => setSessionForm({ ...sessionForm, session: e.target.value })}
-                  >
-                    <option value="FN">FN (Forenoon / Morning)</option>
-                    <option value="AN">AN (Afternoon)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnOutline}`}
-                  onClick={() => setShowSessionModal(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-                  Create Schedule
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Session Modal */}
-      {showEditSessionModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowEditSessionModal(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>Edit Exam Schedule</h3>
-              <button className={styles.modalClose} onClick={() => setShowEditSessionModal(false)}>
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleUpdateSession}>
-              <div className={styles.formGroup} style={{ marginBottom: '14px' }}>
-                <label>Exam Name (Primary PDF Header) *</label>
-                <input
-                  className={styles.input}
-                  placeholder="e.g. ANNA UNIVERSITY THEORY EXAMINATION NOV–DEC 2026"
-                  value={editSessionForm.examName}
-                  onChange={(e) => setEditSessionForm({ ...editSessionForm, examName: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className={styles.formGrid} style={{ marginBottom: '14px' }}>
-                <div className={styles.formGroup}>
-                  <label>Centre Code</label>
-                  <input
-                    className={styles.input}
-                    value={editSessionForm.centreCode}
-                    onChange={(e) => setEditSessionForm({ ...editSessionForm, centreCode: e.target.value })}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Centre Name</label>
-                  <input
-                    className={styles.input}
-                    value={editSessionForm.centreName}
-                    onChange={(e) => setEditSessionForm({ ...editSessionForm, centreName: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.formGrid} style={{ marginBottom: '20px' }}>
-                <div className={styles.formGroup}>
-                  <label>Exam Date *</label>
-                  <input
-                    type="date"
-                    className={styles.input}
-                    value={editSessionForm.examDate}
-                    onChange={(e) => setEditSessionForm({ ...editSessionForm, examDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Session *</label>
-                  <select
-                    className={styles.select}
-                    value={editSessionForm.session}
-                    onChange={(e) => setEditSessionForm({ ...editSessionForm, session: e.target.value })}
-                  >
-                    <option value="FN">FN (Forenoon / Morning)</option>
-                    <option value="AN">AN (Afternoon)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnOutline}`}
-                  onClick={() => setShowEditSessionModal(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Exam Session Confirmation Modal */}
-      {showDeleteSessionModal && activeSession && (
-        <div className={styles.modalOverlay} onClick={() => setShowDeleteSessionModal(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>Delete Exam Session</h3>
-              <button className={styles.modalClose} onClick={() => setShowDeleteSessionModal(false)}>
-                ×
-              </button>
-            </div>
-            <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.5' }}>
-              Are you sure you want to delete the examination schedule{' '}
-              <strong style={{ color: '#0f172a' }}>&ldquo;{activeSession.examName}&rdquo;</strong>?
-              <br />
-              <br />
-              <strong style={{ color: '#dc2626' }}>Warning:</strong> This will permanently delete this
-              exam schedule, all candidate enrollments in it, and any existing seating allocations.
-            </p>
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnOutline}`}
-                onClick={() => setShowDeleteSessionModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnDanger}`}
-                onClick={handleDeleteSession}
-              >
-                Delete Exam
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Force Delete Exam Master with Cascade Warning Modal Popup */}
-      {deleteMasterConfirm && (
-        <div className={styles.modalOverlay} onClick={() => setDeleteMasterConfirm(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3 style={{ color: '#dc2626' }}>Force Delete Exam &amp; All Linked Data</h3>
-              <button className={styles.modalClose} onClick={() => setDeleteMasterConfirm(null)}>
-                ×
-              </button>
-            </div>
-            <div style={{ color: '#334155', fontSize: '14px', lineHeight: '1.6', margin: '14px 0' }}>
-              <p style={{ margin: '0 0 10px 0' }}>{deleteMasterConfirm.message}</p>
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', color: '#991b1b', fontSize: '13px' }}>
-                <strong>⚠️ Warning:</strong> Deleting this exam will permanently remove:
-                <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px' }}>
-                  <li>{deleteMasterConfirm.sessionCount} Exam Schedule(s)</li>
-                  <li>{deleteMasterConfirm.candidateCount} Registered Student(s)</li>
-                  <li>{deleteMasterConfirm.seatingCount} Hall Seating Allocation(s)</li>
-                </ul>
-              </div>
-            </div>
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnOutline}`}
-                onClick={() => setDeleteMasterConfirm(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnDanger}`}
-                onClick={() => handleDeleteMaster(deleteMasterConfirm.masterId, true)}
-              >
-                Delete All Data
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* All Exam Sessions List & Management Modal */}
+      {/* All Exam Schedules Modal */}
       {showAllExamsModal && (
         <div className={styles.modalOverlay} onClick={() => setShowAllExamsModal(false)}>
-          <div className={styles.modal} style={{ maxWidth: '840px', width: '95%' }} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '780px' }}>
             <div className={styles.modalHeader}>
-              <h3>All Exam Schedules ({sessions.length})</h3>
+              <h3>All Examination Schedules ({sessions.length})</h3>
               <button className={styles.modalClose} onClick={() => setShowAllExamsModal(false)}>
                 ×
               </button>
             </div>
 
-            <div style={{ maxHeight: '420px', overflowY: 'auto', marginBottom: '16px' }}>
-              {sessions.length === 0 ? (
-                <p style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>No exam schedules found.</p>
-              ) : (
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Exam Name</th>
-                      <th>Date</th>
-                      <th>Session</th>
-                      <th>Status</th>
-                      <th>Candidates</th>
-                      <th style={{ textAlign: 'center' }}>Actions</th>
+            <div className={styles.tableWrapper} style={{ maxHeight: '420px', overflowY: 'auto' }}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Exam Series Name</th>
+                    <th>Date &amp; Session</th>
+                    <th>Candidates</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((s) => (
+                    <tr key={s._id}>
+                      <td>
+                        <span
+                          className={styles.badge}
+                          style={{
+                            background: s.examType === 'INTERNAL' ? '#f3e8ff' : '#eff6ff',
+                            color: s.examType === 'INTERNAL' ? '#6b21a8' : '#1e40af',
+                          }}
+                        >
+                          {s.examType === 'INTERNAL' ? 'INTERNAL' : 'ANNA UNIV'}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{s.examName}</strong>
+                      </td>
+                      <td>
+                        {new Date(s.examDate).toLocaleDateString('en-GB')} - <strong>{s.session}</strong>
+                      </td>
+                      <td>{s.candidateCount || 0}</td>
+                      <td>
+                        <span
+                          className={`${styles.badge} ${s.status === 'ALLOCATED' ? styles.badgeAllocated : styles.badgeDraft}`}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSmall}`}
+                            onClick={() => {
+                              setSelectedSessionId(s._id);
+                              setShowAllExamsModal(false);
+                            }}
+                          >
+                            Select
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
+                            onClick={() => handleDeleteSession(s._id)}
+                            title="Delete Schedule"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {sessions.map((sess) => {
-                      const isCurrent = sess._id === selectedSessionId;
-                      return (
-                        <tr key={sess._id} style={isCurrent ? { background: '#f0fdf4' } : {}}>
-                          <td style={{ fontWeight: 600 }}>
-                            {sess.examName}
-                            {isCurrent && (
-                              <span style={{ marginLeft: '8px', fontSize: '11px', color: '#16a34a', fontWeight: 700 }}>
-                                (Active)
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            {sess.examDate ? new Date(sess.examDate).toLocaleDateString('en-GB') : 'N/A'}
-                          </td>
-                          <td>
-                            <span className={styles.pillBadge}>{sess.session}</span>
-                          </td>
-                          <td>
-                            <span
-                              className={`${styles.badge} ${sess.status === 'ALLOCATED' ? styles.badgeAllocated : styles.badgeDraft
-                                }`}
-                            >
-                              {sess.status}
-                            </span>
-                          </td>
-                          <td>{sess.candidateCount || 0}</td>
-                          <td style={{ textAlign: 'center' }}>
-                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                              {!isCurrent ? (
-                                <button
-                                  type="button"
-                                  className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSmall}`}
-                                  onClick={() => {
-                                    setSelectedSessionId(sess._id);
-                                    setShowAllExamsModal(false);
-                                  }}
-                                  title="Select this Exam"
-                                >
-                                  Select
-                                </button>
-                              ) : (
-                                <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600, padding: '4px 8px' }}>
-                                  Selected
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                className={`${styles.btn} ${styles.btnOutline} ${styles.btnSmall}`}
-                                onClick={() => {
-                                  setShowAllExamsModal(false);
-                                  openEditSession(sess);
-                                }}
-                                title="Edit Exam Schedule"
-                              >
-                                <Edit2 size={12} /> Edit
-                              </button>
-                              <button
-                                type="button"
-                                className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
-                                onClick={() => {
-                                  setSelectedSessionId(sess._id);
-                                  setShowAllExamsModal(false);
-                                  setShowDeleteSessionModal(true);
-                                }}
-                                title="Delete Exam"
-                              >
-                                <Trash2 size={12} /> Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnOutline}`}
-                onClick={() => setShowAllExamsModal(false)}
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnPrimary}`}
-                onClick={() => {
-                  setShowAllExamsModal(false);
-                  setShowSessionModal(true);
-                }}
-              >
-                <Plus size={15} /> Create New Schedule
-              </button>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -2378,7 +2525,9 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
                 <input
                   className={styles.input}
                   value={editingCandidate.registerNo}
-                  onChange={(e) => setEditingCandidate({ ...editingCandidate, registerNo: e.target.value })}
+                  onChange={(e) =>
+                    setEditingCandidate({ ...editingCandidate, registerNo: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -2393,11 +2542,13 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
               </div>
               <div className={styles.formGrid} style={{ marginBottom: '12px' }}>
                 <div className={styles.formGroup}>
-                  <label>Degree (Programme) *</label>
+                  <label>Degree Programme *</label>
                   <select
                     className={styles.select}
-                    value={editingCandidate.programme || 'B.Tech'}
-                    onChange={(e) => setEditingCandidate({ ...editingCandidate, programme: e.target.value })}
+                    value={editingCandidate.programme || 'B.E.'}
+                    onChange={(e) =>
+                      setEditingCandidate({ ...editingCandidate, programme: e.target.value })
+                    }
                   >
                     {ANNA_UNIV_DEGREES.map((deg) => (
                       <option key={deg} value={deg}>
@@ -2412,7 +2563,9 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
                     list="branch-suggestions-edit"
                     className={styles.input}
                     value={editingCandidate.department || ''}
-                    onChange={(e) => setEditingCandidate({ ...editingCandidate, department: e.target.value })}
+                    onChange={(e) =>
+                      setEditingCandidate({ ...editingCandidate, department: e.target.value })
+                    }
                     required
                   />
                   <datalist id="branch-suggestions-edit">
@@ -2427,16 +2580,20 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
                 <input
                   className={styles.input}
                   value={editingCandidate.subjectCode}
-                  onChange={(e) => setEditingCandidate({ ...editingCandidate, subjectCode: e.target.value })}
+                  onChange={(e) =>
+                    setEditingCandidate({ ...editingCandidate, subjectCode: e.target.value })
+                  }
                   required
                 />
               </div>
-              <div className={styles.formGroup} style={{ marginBottom: '20px' }}>
+              <div className={styles.formGroup} style={{ marginBottom: '16px' }}>
                 <label>Subject Name</label>
                 <input
                   className={styles.input}
                   value={editingCandidate.subjectName || ''}
-                  onChange={(e) => setEditingCandidate({ ...editingCandidate, subjectName: e.target.value })}
+                  onChange={(e) =>
+                    setEditingCandidate({ ...editingCandidate, subjectName: e.target.value })
+                  }
                 />
               </div>
               <div className={styles.modalActions}>
@@ -2456,54 +2613,6 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
         </div>
       )}
 
-      {/* Edit Hall Modal */}
-      {editingHall && (
-        <div className={styles.modalOverlay} onClick={() => setEditingHall(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>Edit Hall</h3>
-              <button className={styles.modalClose} onClick={() => setEditingHall(null)}>
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleUpdateHall}>
-              <div className={styles.formGroup} style={{ marginBottom: '12px' }}>
-                <label>Hall Number *</label>
-                <input
-                  className={styles.input}
-                  value={editingHall.hallNumber}
-                  onChange={(e) => setEditingHall({ ...editingHall, hallNumber: e.target.value })}
-                  required
-                />
-              </div>
-              <div className={styles.formGroup} style={{ marginBottom: '12px' }}>
-                <label>Layout Type *</label>
-                <select
-                  className={styles.select}
-                  value={editingHall.layoutType}
-                  onChange={(e) => setEditingHall({ ...editingHall, layoutType: e.target.value })}
-                >
-                  <option value="FIVE_BY_FIVE">5 × 5 (25 Seats)</option>
-                  <option value="FOUR_BY_SIX_PLUS_ONE">4 × 6 + 1 (25 Seats)</option>
-                </select>
-              </div>
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnOutline}`}
-                  onClick={() => setEditingHall(null)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-                  Update Hall
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Regenerate Confirmation Modal */}
       {showRegenerateModal && (
         <div className={styles.modalOverlay} onClick={() => setShowRegenerateModal(false)}>
@@ -2515,8 +2624,8 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
               </button>
             </div>
             <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.5' }}>
-              An allocation already exists for this examination. Regenerating will replace the current
-              seating arrangement across all selected halls for this date and session.
+              An allocation already exists for this examination schedule. Regenerating will replace
+              the current seating arrangement across all selected halls for this date and session.
             </p>
             <div className={styles.modalActions}>
               <button
@@ -2525,7 +2634,10 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
               >
                 Cancel
               </button>
-              <button className={`${styles.btn} ${styles.btnWarning}`} onClick={handleRegenerateAllocation}>
+              <button
+                className={`${styles.btn} ${styles.btnWarning}`}
+                onClick={handleRegenerateAllocation}
+              >
                 Regenerate
               </button>
             </div>
@@ -2539,7 +2651,10 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h3>Delete Seating Arrangement</h3>
-              <button className={styles.modalClose} onClick={() => setShowDeleteAllocationModal(false)}>
+              <button
+                className={styles.modalClose}
+                onClick={() => setShowDeleteAllocationModal(false)}
+              >
                 ×
               </button>
             </div>
@@ -2557,229 +2672,16 @@ export default function ExamHallManager({ userRole = 'Admin' }) {
               >
                 Cancel
               </button>
-              <button className={`${styles.btn} ${styles.btnDanger}`} onClick={handleDeleteAllocation}>
+              <button
+                className={`${styles.btn} ${styles.btnDanger}`}
+                onClick={handleDeleteAllocation}
+              >
                 Delete Allocation
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* ==================== 6. HIDDEN OFFICIAL ANNA UNIVERSITY FORMAT PRINTABLE SHEETS ==================== */}
-      <div className={styles.printableContainer}>
-        {/* Single Active Hall Sheet */}
-        {activeHallData && activeSession && (
-          <div ref={singleHallPrintRef} className={styles.printSheet}>
-            <div className={styles.printCollegeHeader}>
-              <h2 className={styles.printExamHeading}>
-                {activeSession.examName || 'ANNA UNIVERSITY THEORY EXAMINATION NOV–DEC 2026'}
-              </h2>
-              <h3 className={styles.printSeatingTitle}>Seating Arrangement</h3>
-            </div>
-
-            <div className={styles.printOfficialMetaBox}>
-              <div className={styles.printCentreRow}>
-                <strong>Centre code and name :</strong>
-                <span>{activeSession.centreCode || '9460'} - {activeSession.centreName || 'Nagercoil Islam College of Engineering and Technology'}.</span>
-              </div>
-              <div className={styles.printMetaRow3}>
-                <div className={styles.printMetaCol}>
-                  <strong>Hall NO :</strong> <span>{activeHallData.hallNumber}.</span>
-                </div>
-                <div className={styles.printMetaCol}>
-                  <strong>Date :</strong> <span>{activeSession.examDate ? new Date(activeSession.examDate).toLocaleDateString('en-GB') : 'N/A'}.</span>
-                </div>
-                <div className={styles.printMetaCol}>
-                  <strong>Session :</strong> <span>{activeSession.session}.</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Physical Seat Grid Box */}
-            <div className={styles.printGridArea}>
-              <div
-                className={
-                  activeHallData.layoutType === 'FOUR_BY_SIX_PLUS_ONE'
-                    ? styles.printGrid4x6
-                    : styles.printGrid5x5
-                }
-              >
-                {Array.from({ length: 25 }, (_, i) => i + 1).map((seatNum) => {
-                  const seatRecord = activeHallData.seats ? activeHallData.seats[seatNum] : null;
-
-                  if (seatRecord) {
-                    return (
-                      <div key={seatNum} className={styles.printSeatBox}>
-                        <div className={styles.printSeatNo}>{String(seatNum).padStart(2, '0')}</div>
-                        <div className={styles.printRegNo}>{seatRecord.registerNo}</div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={seatNum} className={styles.printSeatEmpty}>
-                      <span className={styles.printSeatNo} style={{ color: '#64748b' }}>
-                        {String(seatNum).padStart(2, '0')}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Anna University Summary Table */}
-            <div className={styles.printSummaryArea}>
-              <table className={styles.printSummaryTable}>
-                <thead>
-                  <tr>
-                    <th style={{ width: '12%', textAlign: 'center' }}>Hall No</th>
-                    <th style={{ width: '25%' }}>Degree &amp; Branch</th>
-                    <th style={{ width: '15%', textAlign: 'center' }}>Subject code</th>
-                    <th style={{ width: '38%' }}>Register number of candidates</th>
-                    <th style={{ width: '10%', textAlign: 'center' }}>No of candidates</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeHallData.summaryList?.map((s, idx) => (
-                    <tr key={idx}>
-                      <td style={{ textAlign: 'center', fontWeight: 700 }}>{activeHallData.hallNumber}</td>
-                      <td style={{ fontWeight: 600 }}>{s.degreeBranch}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.subjectCode}</td>
-                      <td style={{ fontSize: '9px', lineHeight: '1.4' }}>{s.registerNumbers}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.count}</td>
-                    </tr>
-                  ))}
-                  <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
-                    <td colSpan="4" style={{ textAlign: 'right', paddingRight: '12px' }}>TOTAL</td>
-                    <td style={{ textAlign: 'center' }}>{activeHallData.occupiedCount}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Anna University Official Footer & Signatures */}
-            <div className={styles.printFooterSignatures}>
-              <div>
-                Name &amp; Signature of Hall<br />superintendent
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                Signature of chief Superintendent
-              </div>
-            </div>
-
-            <div className={styles.printPageNoContainer}>
-              <span className={styles.printPageNoBox}>Page No: 1</span>
-            </div>
-          </div>
-        )}
-
-        {/* All Halls Container Sheet (for Multi-hall batch export) */}
-        {seatingData?.halls?.length > 0 && activeSession && (
-          <div ref={allHallsContainerRef}>
-            {seatingData.halls.map((hData, hIndex) => (
-              <div key={hData.hallId} className={styles.printSheet}>
-                <div className={styles.printCollegeHeader}>
-                  <h2 className={styles.printExamHeading}>
-                    {activeSession.examName || 'ANNA UNIVERSITY THEORY EXAMINATION NOV–DEC 2026'}
-                  </h2>
-                  <h3 className={styles.printSeatingTitle}>Seating Arrangement</h3>
-                </div>
-
-                <div className={styles.printOfficialMetaBox}>
-                  <div className={styles.printCentreRow}>
-                    <strong>Centre code and name :</strong>
-                    <span>{activeSession.centreCode || '9460'} - {activeSession.centreName || 'Nagercoil Islam College of Engineering and Technology'}.</span>
-                  </div>
-                  <div className={styles.printMetaRow3}>
-                    <div className={styles.printMetaCol}>
-                      <strong>Hall NO :</strong> <span>{hData.hallNumber}.</span>
-                    </div>
-                    <div className={styles.printMetaCol}>
-                      <strong>Date :</strong> <span>{activeSession.examDate ? new Date(activeSession.examDate).toLocaleDateString('en-GB') : 'N/A'}.</span>
-                    </div>
-                    <div className={styles.printMetaCol}>
-                      <strong>Session :</strong> <span>{activeSession.session}.</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.printGridArea}>
-                  <div
-                    className={
-                      hData.layoutType === 'FOUR_BY_SIX_PLUS_ONE'
-                        ? styles.printGrid4x6
-                        : styles.printGrid5x5
-                    }
-                  >
-                    {Array.from({ length: 25 }, (_, i) => i + 1).map((seatNum) => {
-                      const seatRecord = hData.seats ? hData.seats[seatNum] : null;
-
-                      if (seatRecord) {
-                        return (
-                          <div key={seatNum} className={styles.printSeatBox}>
-                            <div className={styles.printSeatNo}>{String(seatNum).padStart(2, '0')}</div>
-                            <div className={styles.printRegNo}>{seatRecord.registerNo}</div>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div key={seatNum} className={styles.printSeatEmpty}>
-                          <span className={styles.printSeatNo} style={{ color: '#64748b' }}>
-                            {String(seatNum).padStart(2, '0')}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className={styles.printSummaryArea}>
-                  <table className={styles.printSummaryTable}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '12%', textAlign: 'center' }}>Hall No</th>
-                        <th style={{ width: '25%' }}>Degree &amp; Branch</th>
-                        <th style={{ width: '15%', textAlign: 'center' }}>Subject code</th>
-                        <th style={{ width: '38%' }}>Register number of candidates</th>
-                        <th style={{ width: '10%', textAlign: 'center' }}>No of candidates</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hData.summaryList?.map((s, idx) => (
-                        <tr key={idx}>
-                          <td style={{ textAlign: 'center', fontWeight: 700 }}>{hData.hallNumber}</td>
-                          <td style={{ fontWeight: 600 }}>{s.degreeBranch}</td>
-                          <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.subjectCode}</td>
-                          <td style={{ fontSize: '9px', lineHeight: '1.4' }}>{s.registerNumbers}</td>
-                          <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.count}</td>
-                        </tr>
-                      ))}
-                      <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
-                        <td colSpan="4" style={{ textAlign: 'right', paddingRight: '12px' }}>TOTAL</td>
-                        <td style={{ textAlign: 'center' }}>{hData.occupiedCount}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className={styles.printFooterSignatures}>
-                  <div>
-                    Name &amp; Signature of Hall<br />superintendent
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    Signature of chief Superintendent
-                  </div>
-                </div>
-
-                <div className={styles.printPageNoContainer}>
-                  <span className={styles.printPageNoBox}>Page No: {hIndex + 1}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

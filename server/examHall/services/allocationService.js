@@ -3,6 +3,64 @@ const ExamSeating = require('../models/ExamSeating');
 const ExamSession = require('../models/ExamSession');
 
 /**
+ * Helper to convert year number/string to Roman numeral year label (e.g. "III Year")
+ */
+function getRomanYearLabel(year, yearString) {
+  if (yearString && yearString.trim()) {
+    const ys = yearString.trim();
+    if (/year/i.test(ys)) return ys;
+    return `${ys} Year`;
+  }
+  const yNum = Number(year);
+  if (yNum === 1) return 'I Year';
+  if (yNum === 2) return 'II Year';
+  if (yNum === 3) return 'III Year';
+  if (yNum === 4) return 'IV Year';
+  if (yNum === 5) return 'V Year';
+  if (yNum === 6) return 'VI Year';
+  return '';
+}
+
+/**
+ * Formats Degree & Branch string (e.g. "B.E. Computer Science and Engineering")
+ */
+function formatDegreeBranch(prog = '', dept = '', deptCode = '') {
+  const p = (prog || '').trim() || 'B.E.';
+  const d = (dept || deptCode || '').trim();
+  if (!d) return p;
+  // If dept already includes the degree prefix (e.g. "B.E. CSE"), return as is
+  if (d.startsWith(p) || /^b\.?e\.?/i.test(d) || /^b\.?tech\.?/i.test(d) || /^m\.?e\.?/i.test(d) || /^m\.?tech\.?/i.test(d)) {
+    return d;
+  }
+  return `${p} ${d}`;
+}
+
+/**
+ * Formats Year & Branch string for Internal exams (e.g. "III Year – B.E. Computer Science and Engineering")
+ */
+function formatYearBranch(year, yearString, prog, dept, deptCode, regNo = '') {
+  let yearLabel = getRomanYearLabel(year, yearString);
+  if (!yearLabel && regNo) {
+    // Infer year from register number prefix (e.g. 23CSE001 -> 23 -> III Year in 2026)
+    const match = String(regNo).match(/^([A-Za-z0-9]*?)(\d{2})([A-Za-z]+)/);
+    if (match && match[2]) {
+      const batch2Digits = parseInt(match[2], 10);
+      const batchYear = 2000 + batch2Digits;
+      const currentYear = new Date().getFullYear();
+      const diff = currentYear - batchYear + 1;
+      if (diff >= 1 && diff <= 6) {
+        yearLabel = getRomanYearLabel(diff);
+      }
+    }
+  }
+  const degreeBranch = formatDegreeBranch(prog, dept, deptCode);
+  if (yearLabel) {
+    return `${yearLabel} – ${degreeBranch}`;
+  }
+  return degreeBranch;
+}
+
+/**
  * Backend Exam Hall Allocation Service
  */
 class AllocationService {
@@ -40,7 +98,6 @@ class AllocationService {
     }
 
     // 2. Distribute candidate pools across halls
-    // Allocate candidate batches per hall roughly proportionally to subject sizes
     const hallAllocations = [];
     const availableHalls = [...halls];
 
@@ -130,6 +187,8 @@ class AllocationService {
           programme: candidate.programme || 'B.Tech',
           department: candidate.department || '',
           departmentCode: candidate.departmentCode || '',
+          year: candidate.year || null,
+          yearString: candidate.yearString || '',
           subjectCode: candidate.subjectCode,
           subjectName: candidate.subjectName || '',
         });
@@ -152,21 +211,27 @@ class AllocationService {
     if (!regNos || regNos.length === 0) return '';
     if (regNos.length === 1) return regNos[0];
 
+    const sorted = [...regNos].sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true })
+    );
+
     const ranges = [];
-    let rangeStart = regNos[0];
-    let prevReg = regNos[0];
+    let rangeStart = sorted[0];
+    let prevReg = sorted[0];
 
     const parseReg = (r) => {
       const match = String(r).match(/^(.*?)([0-9]+)$/);
-      if (!match) return { prefix: String(r), num: null };
+      if (!match) return { prefix: String(r), num: null, raw: String(r) };
       return {
         prefix: match[1],
-        num: parseInt(match[2], 10),
+        num: BigInt(match[2]),
+        digits: match[2].length,
+        raw: String(r),
       };
     };
 
-    for (let i = 1; i < regNos.length; i++) {
-      const curr = regNos[i];
+    for (let i = 1; i < sorted.length; i++) {
+      const curr = sorted[i];
       const prevParsed = parseReg(prevReg);
       const currParsed = parseReg(curr);
 
@@ -174,7 +239,7 @@ class AllocationService {
         prevParsed.num !== null &&
         currParsed.num !== null &&
         prevParsed.prefix === currParsed.prefix &&
-        currParsed.num === prevParsed.num + 1
+        currParsed.num === prevParsed.num + 1n
       ) {
         prevReg = curr;
       } else {
@@ -198,53 +263,117 @@ class AllocationService {
   }
 
   /**
-   * Computes the official Degree & Branch summary for a hall's seating according to Anna University rules.
-   * If students for a subject come from >1 branch -> "Common Sub", else specific "Degree & Branch"
+   * Computes the official summary for a hall's seating according to exam type.
+   * Completely REMOVES "Common Sub".
+   * For ANNA_UNIVERSITY: Groups by (Degree & Branch, Subject Code).
+   * For INTERNAL: Groups by (Year & Branch).
    */
-  static computeDegreeBranchSummary(seats = []) {
-    const subMap = new Map();
+  static computeDegreeBranchSummary(seats = [], examType = 'ANNA_UNIVERSITY') {
+    if (!seats || seats.length === 0) return [];
+
+    const isInternal = String(examType).toUpperCase() === 'INTERNAL';
+
+    if (isInternal) {
+      // Group by Year & Branch
+      const groupMap = new Map();
+
+      seats.forEach((s) => {
+        const yearBranch = formatYearBranch(
+          s.year,
+          s.yearString,
+          s.programme,
+          s.department,
+          s.departmentCode,
+          s.registerNo
+        );
+        const groupKey = yearBranch;
+
+        if (!groupMap.has(groupKey)) {
+          groupMap.set(groupKey, {
+            yearBranch,
+            subjectCode: (s.subjectCode || '').trim().toUpperCase(),
+            subjectName: s.subjectName || '',
+            seats: [],
+          });
+        }
+        groupMap.get(groupKey).seats.push(s);
+      });
+
+      const summaryList = [];
+
+      for (const [key, group] of groupMap.entries()) {
+        const sortedSeats = group.seats.sort((a, b) =>
+          a.registerNo.localeCompare(b.registerNo, undefined, { numeric: true })
+        );
+
+        const registerNumbers = AllocationService.formatRegisterNumberRanges(
+          sortedSeats.map((st) => st.registerNo)
+        );
+
+        summaryList.push({
+          yearBranch: group.yearBranch,
+          degreeBranch: group.yearBranch,
+          subjectCode: group.subjectCode,
+          subjectName: group.subjectName,
+          registerNumbers,
+          count: sortedSeats.length,
+        });
+      }
+
+      // Sort deterministically by yearBranch
+      summaryList.sort((a, b) => a.yearBranch.localeCompare(b.yearBranch));
+      return summaryList;
+    }
+
+    // ANNA_UNIVERSITY: Group by (Degree & Branch, Subject Code)
+    const groupMap = new Map();
 
     seats.forEach((s) => {
-      const code = (s.subjectCode || '').trim().toUpperCase();
-      if (!subMap.has(code)) {
-        subMap.set(code, {
-          subjectCode: code,
+      const degreeBranch = formatDegreeBranch(
+        s.programme,
+        s.department,
+        s.departmentCode
+      );
+      const subCode = (s.subjectCode || '').trim().toUpperCase();
+      const groupKey = `${degreeBranch}___${subCode}`;
+
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {
+          degreeBranch,
+          subjectCode: subCode,
           subjectName: s.subjectName || '',
           seats: [],
         });
       }
-      subMap.get(code).seats.push(s);
+      groupMap.get(groupKey).seats.push(s);
     });
 
     const summaryList = [];
 
-    for (const [code, group] of subMap.entries()) {
+    for (const [key, group] of groupMap.entries()) {
       const sortedSeats = group.seats.sort((a, b) =>
         a.registerNo.localeCompare(b.registerNo, undefined, { numeric: true })
       );
 
-      // Determine unique Degree + Branch combinations
-      const branchSet = new Set();
-      sortedSeats.forEach((st) => {
-        const prog = (st.programme || '').trim() || 'B.Tech';
-        const dept = (st.department || st.departmentCode || '').trim();
-        const branchStr = dept ? `${prog} ${dept}` : prog;
-        branchSet.add(branchStr);
-      });
-
-      const degreeBranch = branchSet.size > 1 ? 'Common Sub' : Array.from(branchSet)[0] || 'Common Sub';
       const registerNumbers = AllocationService.formatRegisterNumberRanges(
         sortedSeats.map((st) => st.registerNo)
       );
 
       summaryList.push({
-        subjectCode: code,
+        degreeBranch: group.degreeBranch,
+        subjectCode: group.subjectCode,
         subjectName: group.subjectName,
-        degreeBranch,
         registerNumbers,
         count: sortedSeats.length,
       });
     }
+
+    // Sort deterministically by degreeBranch, then subjectCode
+    summaryList.sort((a, b) => {
+      const dbCmp = a.degreeBranch.localeCompare(b.degreeBranch);
+      if (dbCmp !== 0) return dbCmp;
+      return a.subjectCode.localeCompare(b.subjectCode);
+    });
 
     return summaryList;
   }

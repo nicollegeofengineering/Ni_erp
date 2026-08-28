@@ -18,6 +18,28 @@ import styles from "../examTimetable.module.css";
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 const api = axios.create({ baseURL: BASE_URL, withCredentials: true });
 
+function getAcademicYearOptions(currentVal) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  const years = [];
+  for (let i = startYear - 5; i <= startYear + 5; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  if (currentVal && !years.includes(currentVal)) {
+    years.push(currentVal);
+    years.sort();
+  }
+  return years;
+}
+
+function getDefaultAcademicYear() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
 export default function ClassWiseExamTimetablePage() {
   const router = useRouter();
   const pdfContainerRef = useRef(null);
@@ -25,7 +47,7 @@ export default function ClassWiseExamTimetablePage() {
   // ---------- FILTERS STATE ----------
   const [examName, setExamName] = useState("");
   const [examList, setExamList] = useState([]);
-  const [academicYear, setAcademicYear] = useState("2026-2027");
+  const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
   const [departments, setDepartments] = useState([]);
   const [selectedDept, setSelectedDept] = useState("");
   const [selectedYear, setSelectedYear] = useState(1);
@@ -356,15 +378,11 @@ export default function ClassWiseExamTimetablePage() {
                 value={academicYear}
                 onChange={(e) => setAcademicYear(e.target.value)}
               >
-                {[-1, 0, 1].map((offset) => {
-                  const y = new Date().getFullYear() + offset;
-                  const label = `${y}-${y + 1}`;
-                  return (
-                    <option key={label} value={label}>
-                      {label}
-                    </option>
-                  );
-                })}
+                {getAcademicYearOptions(academicYear).map((ay) => (
+                  <option key={ay} value={ay}>
+                    {ay}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

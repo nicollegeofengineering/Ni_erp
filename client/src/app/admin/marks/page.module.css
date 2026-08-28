@@ -426,6 +426,86 @@
   font-style: italic;
 }
 
+.badgePublished {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.badgeDraft {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btnPublish {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.btnPublish:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.btnPublish:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btnUnpublish {
+  background: #ffffff;
+  color: #d97706;
+  border: 1px solid #fbbf24;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lockedTag {
+  font-size: 11.5px;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .emptyBox {
   text-align: center;
   padding: 40px 20px;

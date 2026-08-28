@@ -8,10 +8,11 @@ router.post('/masters', examHallController.createMaster);
 router.put('/masters/:id', examHallController.updateMaster);
 router.delete('/masters/:id', examHallController.deleteMaster);
 
-// 1. Sessions / Schedules
+// 1. Sessions / Schedules & Exam Selection Flow
 router.get('/sessions', examHallController.getSessions);
 router.get('/sessions/:id', examHallController.getSessionById);
 router.post('/sessions', examHallController.createSession);
+router.post('/flow/session', examHallController.getOrCreateSessionFromFlow);
 router.put('/sessions/:id', examHallController.updateSession);
 router.delete('/sessions/:id', examHallController.deleteSession);
 
@@ -38,5 +39,8 @@ router.get('/seating/:sessionId', examHallController.getSeatingArrangement);
 
 // 5. Candidate Seat Search
 router.get('/search', examHallController.searchCandidateSeating);
+
+// 6. PDF Export
+router.get('/pdf/:sessionId', examHallController.generatePdf);
 
 module.exports = router;

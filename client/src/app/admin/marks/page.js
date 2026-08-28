@@ -21,14 +21,26 @@ function handleUnauthorized(err) {
   return false;
 }
 
-function currentAcademicYears() {
-  const current = new Date().getFullYear();
+function currentAcademicYears(currentVal) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
   const years = [];
-  for (let i = 0; i < 6; i++) {
-    const start = current - i;
-    years.push(`${start}-${start + 1}`);
+  for (let i = startYear - 5; i <= startYear + 5; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  if (currentVal && !years.includes(currentVal)) {
+    years.push(currentVal);
+    years.sort();
   }
   return years;
+}
+
+function getDefaultAcademicYear() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  return `${startYear}-${startYear + 1}`;
 }
 
 function getCategoryLabel(cat) {
@@ -43,7 +55,7 @@ export default function StaffMarksViewPage() {
   const [department, setDepartment] = useState("");
   const [year, setYear] = useState("");
   const [semester, setSemester] = useState("");
-  const [academicYear, setAcademicYear] = useState("");
+  const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
 
   const [subjects, setSubjects] = useState([]);
   const [subjectId, setSubjectId] = useState("");
@@ -81,9 +93,65 @@ export default function StaffMarksViewPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingMarks, setDeletingMarks] = useState(false);
 
+  // Publish Modal State
+  const [publishTarget, setPublishTarget] = useState(null);
+  const [publishing, setPublishing] = useState(false);
+
   // Notify Modal State
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const [notifying, setNotifying] = useState(false);
+
+  const handlePublishMarks = async (exam) => {
+    try {
+      setPublishing(true);
+      setError("");
+      setSuccess("");
+
+      const res = await api.post("/api/mark/publish", {
+        department,
+        year,
+        semester,
+        academicYear,
+        subjectId,
+        internalExam: exam || undefined,
+      });
+
+      setSuccess(res.data?.message || "Internal marks published successfully! Marks are now visible to students and editing is locked.");
+      setPublishTarget(null);
+      await refreshMarks();
+    } catch (err) {
+      if (handleUnauthorized(err)) return;
+      setError(err.response?.data?.message || err.message || "Failed to publish marks.");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleUnpublishMarks = async (exam) => {
+    if (!window.confirm(`Are you sure you want to unpublish Internal Exam ${exam} marks? Students will no longer see them and faculty can resume editing.`)) return;
+    try {
+      setPublishing(true);
+      setError("");
+      setSuccess("");
+
+      const res = await api.post("/api/mark/unpublish", {
+        department,
+        year,
+        semester,
+        academicYear,
+        subjectId,
+        internalExam: exam,
+      });
+
+      setSuccess(res.data?.message || "Internal marks unpublished successfully. Editing unlocked.");
+      await refreshMarks();
+    } catch (err) {
+      if (handleUnauthorized(err)) return;
+      setError(err.response?.data?.message || err.message || "Failed to unpublish marks.");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const handleNotifyMarks = async () => {
     try {
@@ -97,6 +165,21 @@ export default function StaffMarksViewPage() {
           ? `Internal Assessment ${marksData.exams.join(" & ")}`
           : "Internal Assessment";
 
+      // If a specific subject is loaded, also explicitly trigger publish endpoint to ensure marksData is updated
+      if (subjectId) {
+        try {
+          await api.post("/api/mark/publish", {
+            department,
+            year,
+            semester,
+            academicYear,
+            subjectId,
+          });
+        } catch (e) {
+          // continue with notification broadcast
+        }
+      }
+
       const res = await api.post("/api/notifications/notify-marks", {
         department,
         year,
@@ -106,11 +189,15 @@ export default function StaffMarksViewPage() {
         examName: examNameStr,
       });
 
-      setSuccess(res.data?.message || "Notifications sent to students and faculty successfully!");
+      setSuccess(
+        res.data?.message ||
+          "Internal marks published and broadcast notifications sent successfully to students, staff, and administrators!"
+      );
       setShowNotifyModal(false);
+      await refreshMarks();
     } catch (err) {
       if (handleUnauthorized(err)) return;
-      setError(err.response?.data?.message || err.message || "Failed to broadcast notifications.");
+      setError(err.response?.data?.message || err.message || "Failed to publish marks and broadcast notifications.");
     } finally {
       setNotifying(false);
     }
@@ -257,7 +344,27 @@ export default function StaffMarksViewPage() {
   }
 
   async function refreshMarks() {
-    await handleViewMarks();
+    if (!subjectId) return;
+    try {
+      setLoadingMarks(true);
+      const params = new URLSearchParams({
+        department,
+        year,
+        semester,
+        academicYear,
+        subjectId,
+      });
+
+      const res = await api.get(`/api/mark?${params.toString()}`);
+      const data = res.data?.data ?? res.data;
+      setMarksData(data);
+      setGroupedRows(groupMarks(data.marks || []));
+    } catch (err) {
+      if (handleUnauthorized(err)) return;
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoadingMarks(false);
+    }
   }
 
   // ---------- PDF Export Handler ----------
@@ -304,9 +411,20 @@ export default function StaffMarksViewPage() {
       const ratio = pdfWidth / canvas.width;
       const pageHeightInCanvasPx = pdfHeight / ratio;
 
-      const footerText = "Generated via NICETech ERP System. Developed by students of NICETECH";
-      const footerFontSize = 7;
-      const footerMargin = 8;
+      const generatedAtStr = new Date().toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+
+      const footerLeftText = `Report Generated on: ${generatedAtStr}`;
+      const footerRightText = "Generated via NICETech ERP System";
+      const footerFontSize = 7.5;
+      const footerMargin = 7;
 
       let renderedHeight = 0;
       let pageNum = 0;
@@ -338,11 +456,10 @@ export default function StaffMarksViewPage() {
         pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, renderHeight * ratio);
 
         pdf.setFontSize(footerFontSize);
-        pdf.setTextColor(150, 150, 150);
-        const textWidth = pdf.getTextWidth(footerText);
-        const x = (pdfWidth - textWidth) / 2;
-        const y = pdfHeight - footerMargin;
-        pdf.text(footerText, x, y);
+        pdf.setTextColor(110, 110, 110);
+        pdf.text(footerLeftText, 14, pdfHeight - footerMargin);
+        const rightWidth = pdf.getTextWidth(footerRightText);
+        pdf.text(footerRightText, pdfWidth - rightWidth - 14, pdfHeight - footerMargin);
 
         renderedHeight += renderHeight;
         pageNum++;
@@ -700,13 +817,16 @@ export default function StaffMarksViewPage() {
     if (!deleteTarget) return null;
 
     const exam = deleteTarget.exam;
+    const isPublished = deleteTarget.isPublished;
     const count = groupedRows.filter((row) => row.exams[exam]).length;
 
     return (
       <div className={styles.modalOverlay}>
         <div className={styles.modal}>
           <div className={styles.modalHeader}>
-            <h2>Delete Complete Mark Entry</h2>
+            <h2 style={{ color: isPublished ? "#b91c1c" : "inherit" }}>
+              {isPublished ? "⚠️ Delete Published Mark Entry" : "Delete Complete Mark Entry"}
+            </h2>
             <button
               className={styles.closeBtn}
               onClick={() => setDeleteTarget(null)}
@@ -716,6 +836,25 @@ export default function StaffMarksViewPage() {
           </div>
 
           <div className={styles.modalBody}>
+            {isPublished && (
+              <div
+                style={{
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  borderRadius: "8px",
+                  padding: "12px 14px",
+                  color: "#991b1b",
+                  marginBottom: "14px",
+                  fontSize: "13.5px",
+                  lineHeight: "1.5",
+                  fontWeight: 600,
+                }}
+              >
+                ⚠️ <strong>CRITICAL WARNING:</strong> Internal Exam {exam} marks are currently <strong>PUBLISHED</strong>.
+                Deleting them will permanently remove all published marks from student and faculty records.
+              </div>
+            )}
+
             <p className={styles.deleteText}>
               Delete all Internal Exam {exam} marks?
             </p>
@@ -741,7 +880,59 @@ export default function StaffMarksViewPage() {
               onClick={handleDeleteMarks}
               disabled={deletingMarks}
             >
-              {deletingMarks ? "Deleting..." : "Delete Marks"}
+              {deletingMarks ? "Deleting..." : isPublished ? "Confirm Delete Published Marks" : "Delete Marks"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderPublishModal() {
+    if (!publishTarget) return null;
+    const exam = publishTarget.exam;
+
+    return (
+      <div className={styles.modalOverlay}>
+        <div className={styles.modal} style={{ maxWidth: "520px" }}>
+          <div className={styles.modalHeader}>
+            <h2>📢 Publish Internal Exam {exam} Marks</h2>
+            <button
+              className={styles.closeBtn}
+              onClick={() => setPublishTarget(null)}
+            >
+              ×
+            </button>
+          </div>
+
+          <div className={styles.modalBody} style={{ fontSize: "14px", lineHeight: "1.6", color: "#334155" }}>
+            <p style={{ margin: "0 0 14px 0" }}>
+              Are you sure you want to officially publish <strong>Internal Exam {exam}</strong> marks for <strong>{subject?.subjectCode} - {subject?.subjectName}</strong> ({department}, Year {year}, Sem {semester})?
+            </p>
+
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "12px 14px", marginBottom: "14px", color: "#166534", fontSize: "13px" }}>
+              ✓ <strong>Student Visibility:</strong> All enrolled students will immediately be able to view their marks in the Student Portal.<br />
+              🔒 <strong>Edit Lock:</strong> Entered marks will become locked and cannot be edited by faculty or HOD.<br />
+              🛡️ <strong>Admin Security:</strong> Only an Administrator can delete published marks after confirmation.
+            </div>
+          </div>
+
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() => setPublishTarget(null)}
+              disabled={publishing}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.btnPublish}
+              onClick={() => handlePublishMarks(exam)}
+              disabled={publishing}
+            >
+              {publishing ? "Publishing..." : `Confirm & Publish Internal ${exam}`}
             </button>
           </div>
         </div>
@@ -765,14 +956,36 @@ export default function StaffMarksViewPage() {
 
     return (
       <>
-        {/* Top bar with exam badges and download button */}
+        {/* Top bar with exam badges, publish actions, and download button */}
         <div className={styles.topActionBar}>
           <div className={styles.examBadges}>
-            {exams.map((exam) => (
-              <span key={exam} className={styles.examBadge}>
-                Internal Exam {exam}
-              </span>
-            ))}
+            {exams.map((exam) => {
+              const isPub = marksData.isPublishedByExam?.[exam] === true;
+              return (
+                <div key={exam} style={{ display: "inline-flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <span className={isPub ? styles.badgePublished : styles.badgeDraft}>
+                    {isPub ? "🟢" : "🟡"} Internal Exam {exam} ({isPub ? "Published" : "Draft"})
+                  </span>
+                  {!isPub ? (
+                    <button
+                      className={styles.btnPublish}
+                      onClick={() => setPublishTarget({ exam })}
+                      title={`Publish Internal Exam ${exam} marks to students and lock editing`}
+                    >
+                      📢 Publish I{exam}
+                    </button>
+                  ) : (
+                    <button
+                      className={styles.btnUnpublish}
+                      onClick={() => handleUnpublishMarks(exam)}
+                      title={`Unpublish Internal Exam ${exam} marks`}
+                    >
+                      Unpublish I{exam}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <button
             className={styles.pdfBtn}
@@ -800,7 +1013,7 @@ export default function StaffMarksViewPage() {
             <h2 className={styles.reportTitle}>Internal Mark Report</h2>
             <div className={styles.reportMetaGrid}>
               <div className={styles.metaItem}>
-                <span className={styles.metaLabel}>Sub Name</span>
+                <span className={styles.metaLabel}>Sub Name </span>
                 <span className={styles.metaValue}>{subject?.subjectName || "—"}</span>
               </div>
               <div className={styles.metaItem}>
@@ -820,13 +1033,14 @@ export default function StaffMarksViewPage() {
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Year / Sem :</span>
                 <span className={styles.metaValue}>
-                  Year {year} / Sem {semester}
+                  {year} / {semester}
                 </span>
               </div>
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Academic Year :</span>
                 <span className={styles.metaValue}>{academicYear || "—"}</span>
               </div>
+
             </div>
           </div>
 
@@ -915,16 +1129,30 @@ export default function StaffMarksViewPage() {
                           className={`${styles.actionsCell} ${styles.noPrint}`}
                           data-html2canvas-ignore="true"
                         >
-                          {exams.map((exam) => (
-                            <button
-                              key={exam}
-                              className={styles.btnSm}
-                              onClick={() => openEdit(exam, row)}
-                              disabled={!row.exams[exam]}
-                            >
-                              Edit I{exam}
-                            </button>
-                          ))}
+                          {exams.map((exam) => {
+                            const isPub = marksData.isPublishedByExam?.[exam] === true;
+                            if (isPub) {
+                              return (
+                                <span
+                                  key={exam}
+                                  className={styles.lockedTag}
+                                  title="Marks are published to students. Editing is locked."
+                                >
+                                  🔒 I{exam} Locked
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                key={exam}
+                                className={styles.btnSm}
+                                onClick={() => openEdit(exam, row)}
+                                disabled={!row.exams[exam]}
+                              >
+                                Edit I{exam}
+                              </button>
+                            );
+                          })}
                         </td>
                       )}
                     </tr>
@@ -995,16 +1223,30 @@ export default function StaffMarksViewPage() {
                           className={`${styles.actionsCell} ${styles.noPrint}`}
                           data-html2canvas-ignore="true"
                         >
-                          {exams.map((exam) => (
-                            <button
-                              key={exam}
-                              className={styles.btnSm}
-                              onClick={() => openEdit(exam, row)}
-                              disabled={!row.exams[exam]}
-                            >
-                              Edit I{exam}
-                            </button>
-                          ))}
+                          {exams.map((exam) => {
+                            const isPub = marksData.isPublishedByExam?.[exam] === true;
+                            if (isPub) {
+                              return (
+                                <span
+                                  key={exam}
+                                  className={styles.lockedTag}
+                                  title="Marks are published to students. Editing is locked."
+                                >
+                                  🔒 I{exam} Locked
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                key={exam}
+                                className={styles.btnSm}
+                                onClick={() => openEdit(exam, row)}
+                                disabled={!row.exams[exam]}
+                              >
+                                Edit I{exam}
+                              </button>
+                            );
+                          })}
                         </td>
                       )}
                     </tr>
@@ -1104,16 +1346,30 @@ export default function StaffMarksViewPage() {
                           className={`${styles.actionsCell} ${styles.noPrint}`}
                           data-html2canvas-ignore="true"
                         >
-                          {exams.map((exam) => (
-                            <button
-                              key={exam}
-                              className={styles.btnSm}
-                              onClick={() => openEdit(exam, row)}
-                              disabled={!row.exams[exam]}
-                            >
-                              Edit I{exam}
-                            </button>
-                          ))}
+                          {exams.map((exam) => {
+                            const isPub = marksData.isPublishedByExam?.[exam] === true;
+                            if (isPub) {
+                              return (
+                                <span
+                                  key={exam}
+                                  className={styles.lockedTag}
+                                  title="Marks are published to students. Editing is locked."
+                                >
+                                  🔒 I{exam} Locked
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                key={exam}
+                                className={styles.btnSm}
+                                onClick={() => openEdit(exam, row)}
+                                disabled={!row.exams[exam]}
+                              >
+                                Edit I{exam}
+                              </button>
+                            );
+                          })}
                         </td>
                       )}
                     </tr>
@@ -1129,26 +1385,34 @@ export default function StaffMarksViewPage() {
               className={`${styles.tableActions} ${styles.noPrint}`}
               data-html2canvas-ignore="true"
             >
-              {exams.map((exam) => (
-                <div key={exam} className={styles.examActionGroup}>
-                  {canEdit && (
-                    <button
-                      className={styles.btnGold}
-                      onClick={() => handleOpenAddStudents(exam)}
-                    >
-                      + Add Students (I{exam})
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      className={styles.btnDanger}
-                      onClick={() => openDeleteConfirm(exam)}
-                    >
-                      Delete Internal {exam}
-                    </button>
-                  )}
-                </div>
-              ))}
+              {exams.map((exam) => {
+                const isPub = marksData.isPublishedByExam?.[exam] === true;
+                return (
+                  <div key={exam} className={styles.examActionGroup}>
+                    {canEdit && !isPub && (
+                      <button
+                        className={styles.btnGold}
+                        onClick={() => handleOpenAddStudents(exam)}
+                      >
+                        + Add Students (I{exam})
+                      </button>
+                    )}
+                    {isPub && (
+                      <span className={styles.lockedTag}>
+                        🔒 Internal {exam} Published (Editing Locked)
+                      </span>
+                    )}
+                    {canDelete && (
+                      <button
+                        className={styles.btnDanger}
+                        onClick={() => openDeleteConfirm(exam)}
+                      >
+                        {isPub ? `Delete Published I${exam}` : `Delete Internal ${exam}`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1158,9 +1422,13 @@ export default function StaffMarksViewPage() {
 
   function renderNotifyModal() {
     if (!showNotifyModal) return null;
-    const targetDept = department || "All Departments";
+    const activeSubject = subjects.find((s) => String(s._id) === String(subjectId));
+    const targetDept = department || "All Departments (Campus-wide)";
     const targetYear = year ? `Year ${year}` : "All Years";
     const targetSem = semester ? `Semester ${semester}` : "All Semesters";
+    const targetSubjectStr = activeSubject
+      ? `${activeSubject.subjectCode} — ${activeSubject.subjectName}`
+      : "All Entered Subjects in Scope";
 
     return (
       <div
@@ -1169,12 +1437,12 @@ export default function StaffMarksViewPage() {
       >
         <div
           className={styles.modal}
-          style={{ maxWidth: "520px" }}
+          style={{ maxWidth: "560px" }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className={styles.modalHeader}>
             <h2 style={{ fontSize: "19px", color: "#0b1d3a", margin: 0 }}>
-              📢 Broadcast Internal Marks Published
+              📢 Publish Internal Marks & Send Notifications
             </h2>
             <button
               className={styles.modalClose}
@@ -1186,26 +1454,31 @@ export default function StaffMarksViewPage() {
 
           <div className={styles.modalBody} style={{ fontSize: "14px", lineHeight: "1.6", color: "#334155" }}>
             <p style={{ margin: "0 0 14px 0" }}>
-              Send instant Web Push notifications and in-app alerts to students and staff announcing that internal marks are published:
+              Publish all internal marks currently in draft and broadcast instant notifications to students, staff, and administrators:
             </p>
 
-            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "14px", marginBottom: "16px" }}>
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "14px", marginBottom: "14px" }}>
               <div style={{ marginBottom: "6px" }}>
                 <strong>Department Scope:</strong> <span style={{ color: "#2563eb", fontWeight: 700 }}>{targetDept}</span>
               </div>
               <div style={{ marginBottom: "6px" }}>
                 <strong>Class Scope:</strong> {targetYear} {semester ? `| ${targetSem}` : ""}
               </div>
+              <div style={{ marginBottom: "6px" }}>
+                <strong>Subject Scope:</strong> <span style={{ color: "#0f766e", fontWeight: 600 }}>{targetSubjectStr}</span>
+              </div>
               <div>
                 <strong>Broadcast Message:</strong>
                 <div style={{ fontStyle: "italic", color: "#475569", marginTop: "4px", background: "#ffffff", padding: "8px 12px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
-                  &ldquo;📢 Internal marks {department ? `for ${department} ` : ''}have been officially published. Check your marks portal now to view your assessment scores.&rdquo;
+                  &ldquo;📢 Internal marks {activeSubject ? `for ${activeSubject.subjectCode} - ${activeSubject.subjectName} ` : department ? `for ${department} ` : ''}have been officially published. Check your marks portal now.&rdquo;
                 </div>
               </div>
             </div>
 
-            <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#1e40af" }}>
-              💡 All enrolled students and faculty will receive a push notification banner on their devices and an unread badge on their dashboard.
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "12px 14px", fontSize: "13px", color: "#166534", lineHeight: "1.5" }}>
+              ✓ <strong>Publish Draft Marks:</strong> All matching draft marks will be set to <strong>Published</strong> and mark editing will be locked.<br />
+              👥 <strong>Student Visibility:</strong> All enrolled students will immediately be able to view their marks in their student portal.<br />
+              🔔 <strong>Multi-Channel Broadcast:</strong> Delivers instant Web Push notifications and in-app alerts to students, faculty, and administrators.
             </div>
           </div>
 
@@ -1220,12 +1493,12 @@ export default function StaffMarksViewPage() {
             </button>
             <button
               type="button"
-              className={styles.btnPrimary}
-              style={{ background: "#2563eb", borderColor: "#1d4ed8" }}
+              className={styles.btnPublish}
+              style={{ padding: "10px 18px", fontSize: "14px" }}
               onClick={handleNotifyMarks}
               disabled={notifying}
             >
-              {notifying ? "Broadcasting..." : "Confirm & Send Notifications"}
+              {notifying ? "Publishing & Broadcasting..." : "Confirm, Publish All & Broadcast"}
             </button>
           </div>
         </div>
@@ -1239,7 +1512,7 @@ export default function StaffMarksViewPage() {
         <div>
           <h1 className={styles.title}>Internal Mark Management</h1>
           <p className={styles.subtitle}>
-            View, edit, add missing students, and broadcast mark publication notifications.
+            View, edit, add missing students, and publish marks with instant student & staff notifications.
           </p>
         </div>
 
@@ -1247,22 +1520,23 @@ export default function StaffMarksViewPage() {
           type="button"
           className={styles.btnPrimary}
           style={{
-            background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+            background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
             color: "#ffffff",
             border: "none",
-            padding: "11px 18px",
+            padding: "11px 20px",
             borderRadius: "10px",
             fontWeight: 700,
             fontSize: "14px",
             cursor: "pointer",
-            boxShadow: "0 4px 14px rgba(37, 99, 235, 0.25)",
+            boxShadow: "0 4px 14px rgba(22, 163, 74, 0.3)",
             display: "flex",
             alignItems: "center",
             gap: "8px",
+            transition: "transform 0.15s, opacity 0.15s",
           }}
           onClick={() => setShowNotifyModal(true)}
         >
-          📢 Notify Internal Marks Published
+          📢 Publish Internal Marks & Send Notifications
         </button>
       </div>
 
@@ -1384,6 +1658,7 @@ export default function StaffMarksViewPage() {
       {renderEditModal()}
       {renderAddStudentsModal()}
       {renderDeleteModal()}
+      {renderPublishModal()}
       {renderNotifyModal()}
     </div>
   );

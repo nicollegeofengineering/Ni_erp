@@ -94,6 +94,10 @@ async function getMarksByFilters({
 
   const marks = await InternalMark.find(query)
     .populate("student", "student_id register_no first_name last_name")
+    .populate("lastEditedBy", "prefix first_name last_name staff_id role")
+    .populate("publishedBy", "prefix first_name last_name staff_id role")
+    .populate("theory.enteredBy", "prefix first_name last_name staff_id")
+    .populate("practical.enteredBy", "prefix first_name last_name staff_id")
     .lean();
 
   return marks;
@@ -104,6 +108,7 @@ async function getMarksByFilters({
  * - Blank/empty values default to 0
  * - Theory total = assignment + writtenExam (validated <= 100)
  * - Only allowed components are written; others are preserved
+ * - Blocks update if marks for this exam are already published
  */
 async function saveMarks({
   staffId,
@@ -119,6 +124,24 @@ async function saveMarks({
 }) {
   const normalizedDept = String(department || "").trim().toUpperCase();
   const normalizedCategory = normalizeCategory(category);
+
+  // Check if marks are already published
+  const publishedCheck = await InternalMark.findOne({
+    academicYear: String(academicYear || "").trim(),
+    department: normalizedDept,
+    year: Number(year),
+    semester: Number(semester),
+    subject: subjectId,
+    internalExam: Number(internalExam),
+    isPublished: true,
+  });
+
+  if (publishedCheck) {
+    throw new Error(
+      "Internal marks for this exam have been published by Admin and cannot be edited."
+    );
+  }
+
   let savedCount = 0;
 
   for (const studentEntry of students) {
@@ -138,6 +161,8 @@ async function saveMarks({
     const update = {
       $set: {
         category: normalizedCategory,
+        lastEditedBy: staffId,
+        lastEditedAt: new Date(),
       },
     };
 
@@ -207,10 +232,17 @@ async function saveMarks({
 /**
  * Update a single mark record by ID.
  * Only updates allowed components; preserves the other component.
+ * Blocks edit if mark is already published.
  */
-async function updateMarkById(markId, body, allowedComponents) {
+async function updateMarkById(markId, body, allowedComponents, staffId = null) {
   const mark = await InternalMark.findById(markId);
   if (!mark) throw new Error("Mark record not found");
+
+  if (mark.isPublished) {
+    throw new Error(
+      "Internal marks for this exam have been published by Admin and cannot be edited."
+    );
+  }
 
   if (allowedComponents.includes("theory")) {
     if (body.assignment !== undefined || body.writtenExam !== undefined) {
@@ -255,6 +287,11 @@ async function updateMarkById(markId, body, allowedComponents) {
 
       mark.practical.mark = practical;
     }
+  }
+
+  if (staffId) {
+    mark.lastEditedBy = staffId;
+    mark.lastEditedAt = new Date();
   }
 
   await mark.save();
@@ -305,6 +342,7 @@ async function getAvailableStudents({
 
 /**
  * Add new students with default 0 marks.
+ * Blocks addition if marks for this exam are already published.
  */
 async function addStudents({
   staffId,
@@ -320,6 +358,24 @@ async function addStudents({
 }) {
   const normalizedDept = String(department || "").trim().toUpperCase();
   const normalizedCategory = normalizeCategory(category);
+
+  // Check if marks are already published
+  const publishedCheck = await InternalMark.findOne({
+    academicYear: String(academicYear || "").trim(),
+    department: normalizedDept,
+    year: Number(year),
+    semester: Number(semester),
+    subject: subjectId,
+    internalExam: Number(internalExam),
+    isPublished: true,
+  });
+
+  if (publishedCheck) {
+    throw new Error(
+      "Cannot add students because internal marks for this exam are already published."
+    );
+  }
+
   let addedCount = 0;
 
   for (const studentId of studentIds) {
@@ -332,6 +388,8 @@ async function addStudents({
       student: studentId,
       internalExam: Number(internalExam),
       category: normalizedCategory,
+      lastEditedBy: staffId,
+      lastEditedAt: new Date(),
     };
 
     if (allowedComponents.includes("theory")) {
@@ -360,6 +418,80 @@ async function addStudents({
   }
 
   return addedCount;
+}
+
+/**
+ * Publish marks for a specific subject + internal exam combination.
+ */
+async function publishMarks({
+  academicYear,
+  department,
+  year,
+  semester,
+  subjectId,
+  internalExam,
+  staffId,
+}) {
+  const filter = {
+    academicYear: String(academicYear || "").trim(),
+    department: String(department || "").trim().toUpperCase(),
+    year: Number(year),
+    semester: Number(semester),
+    subject: subjectId,
+  };
+
+  if (internalExam) {
+    filter.internalExam = Number(internalExam);
+  }
+
+  const result = await InternalMark.updateMany(filter, {
+    $set: {
+      isPublished: true,
+      publishedAt: new Date(),
+      publishedBy: staffId,
+      lastEditedBy: staffId,
+      lastEditedAt: new Date(),
+    },
+  });
+
+  return result.modifiedCount;
+}
+
+/**
+ * Unpublish marks for a specific subject + internal exam combination.
+ */
+async function unpublishMarks({
+  academicYear,
+  department,
+  year,
+  semester,
+  subjectId,
+  internalExam,
+  staffId,
+}) {
+  const filter = {
+    academicYear: String(academicYear || "").trim(),
+    department: String(department || "").trim().toUpperCase(),
+    year: Number(year),
+    semester: Number(semester),
+    subject: subjectId,
+  };
+
+  if (internalExam) {
+    filter.internalExam = Number(internalExam);
+  }
+
+  const result = await InternalMark.updateMany(filter, {
+    $set: {
+      isPublished: false,
+      publishedAt: null,
+      publishedBy: null,
+      lastEditedBy: staffId,
+      lastEditedAt: new Date(),
+    },
+  });
+
+  return result.modifiedCount;
 }
 
 /**
@@ -524,6 +656,8 @@ module.exports = {
   updateMarkById,
   getAvailableStudents,
   addStudents,
+  publishMarks,
+  unpublishMarks,
   deleteMarks,
   // Legacy Mark functions
   getSubjectsForStaff,

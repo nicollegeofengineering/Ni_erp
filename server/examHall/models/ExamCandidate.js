@@ -39,6 +39,15 @@ const ExamCandidateSchema = new mongoose.Schema(
       default: '',
       uppercase: true,
     },
+    year: {
+      type: Number,
+      default: null,
+    },
+    yearString: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     subjectCode: {
       type: String,
       required: true,

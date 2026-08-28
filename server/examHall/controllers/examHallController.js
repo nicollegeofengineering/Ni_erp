@@ -8,7 +8,24 @@ const Student = require('../../models/Student');
 const Department = require('../../models/Department');
 const Subject = require('../../models/Subject');
 const AllocationService = require('../services/allocationService');
+const ExamPdfService = require('../services/pdf/examPdfService');
 const { getLayoutDefinition } = require('../utils/layoutDefinitions');
+
+// Helper to convert year number to Roman numeral string (e.g. "III Year")
+function getRomanYearLabel(year, yearString) {
+  if (yearString && yearString.trim()) {
+    const ys = yearString.trim();
+    return /year/i.test(ys) ? ys : `${ys} Year`;
+  }
+  const yNum = Number(year);
+  if (yNum === 1) return 'I Year';
+  if (yNum === 2) return 'II Year';
+  if (yNum === 3) return 'III Year';
+  if (yNum === 4) return 'IV Year';
+  if (yNum === 5) return 'V Year';
+  if (yNum === 6) return 'VI Year';
+  return '';
+}
 
 // Helper to check user authorization (Admin and HOD allowed)
 const checkAuth = (req, res) => {
@@ -28,7 +45,19 @@ const checkAuth = (req, res) => {
 exports.getMasters = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
-    const masters = await ExamMaster.find().sort({ createdAt: -1 }).lean();
+    // Seed default Internal exam masters if they don't exist
+    const defaultInternals = [
+      { examType: 'INTERNAL', examName: 'Internal Examination 1', active: true },
+      { examType: 'INTERNAL', examName: 'Internal Examination 2', active: true },
+    ];
+    for (const def of defaultInternals) {
+      const exists = await ExamMaster.findOne({ examType: def.examType, examName: def.examName });
+      if (!exists) {
+        await ExamMaster.create(def);
+      }
+    }
+
+    const masters = await ExamMaster.find().sort({ examType: 1, createdAt: -1 }).lean();
     return res.status(200).json({ success: true, data: masters });
   } catch (err) {
     console.error('Error fetching exam masters:', err);
@@ -39,28 +68,31 @@ exports.getMasters = async (req, res) => {
 exports.createMaster = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
-    const { examCode, examName, centreCode, centreName } = req.body;
-    if (!examCode?.trim() || !examName?.trim()) {
+    const { examType = 'ANNA_UNIVERSITY', examCode, examName, centreCode, centreName } = req.body;
+    if (!examName?.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Exam Code and Exam Name are required.',
+        message: 'Exam Name is required.',
       });
     }
 
-    const code = examCode.trim().toUpperCase();
-    const existing = await ExamMaster.findOne({ examCode: code });
+    const resolvedType = examType === 'INTERNAL' ? 'INTERNAL' : 'ANNA_UNIVERSITY';
+    const trimmedName = examName.trim();
+
+    const existing = await ExamMaster.findOne({ examType: resolvedType, examName: trimmedName });
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: `Exam Configuration with code '${code}' already exists.`,
+        message: `Exam configuration '${trimmedName}' already exists under ${resolvedType}.`,
       });
     }
 
     const newMaster = new ExamMaster({
-      examCode: code,
-      examName: examName.trim(),
-      centreCode: centreCode?.trim() || '9460',
-      centreName: centreName?.trim() || 'Nagercoil Islam College of Engineering and Technology',
+      examType: resolvedType,
+      examCode: examCode?.trim()?.toUpperCase() || '',
+      examName: trimmedName,
+      centreCode: centreCode?.trim() || '9640',
+      centreName: centreName?.trim() || 'Noorul Islam College of Engineering and Technology',
       active: true,
     });
 
@@ -79,24 +111,17 @@ exports.updateMaster = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { id } = req.params;
-    const { examCode, examName, centreCode, centreName, active } = req.body;
+    const { examType, examCode, examName, centreCode, centreName, active } = req.body;
 
     const master = await ExamMaster.findById(id);
     if (!master) {
       return res.status(404).json({ success: false, message: 'Exam Master configuration not found' });
     }
 
-    if (examCode?.trim()) {
-      const code = examCode.trim().toUpperCase();
-      if (code !== master.examCode) {
-        const dup = await ExamMaster.findOne({ examCode: code, _id: { $ne: id } });
-        if (dup) {
-          return res.status(409).json({ success: false, message: `Exam Code '${code}' is already in use.` });
-        }
-        master.examCode = code;
-      }
+    if (examType) {
+      master.examType = examType === 'INTERNAL' ? 'INTERNAL' : 'ANNA_UNIVERSITY';
     }
-
+    if (examCode !== undefined) master.examCode = examCode.trim().toUpperCase();
     if (examName?.trim()) master.examName = examName.trim();
     if (centreCode !== undefined) master.centreCode = centreCode.trim();
     if (centreName !== undefined) master.centreName = centreName.trim();
@@ -108,6 +133,7 @@ exports.updateMaster = async (req, res) => {
     await ExamSession.updateMany(
       { examMaster: id },
       {
+        examType: master.examType,
         examCode: master.examCode,
         examName: master.examName,
         centreCode: master.centreCode,
@@ -178,19 +204,24 @@ exports.getSessions = async (req, res) => {
       .populate('examMaster')
       .sort({ examDate: -1, createdAt: -1 })
       .lean();
-    
+
     // Enrich with counts
     const enriched = await Promise.all(
       sessions.map(async (sess) => {
         const candidateCount = await ExamCandidate.countDocuments({ examSession: sess._id });
         const seatingCount = await ExamSeating.countDocuments({ examSession: sess._id });
         const allocatedHalls = await ExamSeating.distinct('hall', { examSession: sess._id });
+        const resolvedType = sess.examMaster?.examType || sess.examType || 'ANNA_UNIVERSITY';
         return {
           ...sess,
+          examType: resolvedType,
           examName: sess.examMaster?.examName || sess.examName,
           examCode: sess.examMaster?.examCode || sess.examCode,
           centreCode: sess.examMaster?.centreCode || sess.centreCode || '9460',
-          centreName: sess.examMaster?.centreName || sess.centreName || 'Nagercoil Islam College of Engineering and Technology',
+          centreName:
+            sess.examMaster?.centreName ||
+            sess.centreName ||
+            'Nagercoil Islam College of Engineering and Technology',
           candidateCount,
           seatingCount,
           allocatedHallCount: allocatedHalls.length,
@@ -215,14 +246,19 @@ exports.getSessionById = async (req, res) => {
     }
     const candidateCount = await ExamCandidate.countDocuments({ examSession: session._id });
     const seatingCount = await ExamSeating.countDocuments({ examSession: session._id });
+    const resolvedType = session.examMaster?.examType || session.examType || 'ANNA_UNIVERSITY';
     return res.status(200).json({
       success: true,
       data: {
         ...session,
+        examType: resolvedType,
         examName: session.examMaster?.examName || session.examName,
         examCode: session.examMaster?.examCode || session.examCode,
         centreCode: session.examMaster?.centreCode || session.centreCode || '9460',
-        centreName: session.examMaster?.centreName || session.centreName || 'Nagercoil Islam College of Engineering and Technology',
+        centreName:
+          session.examMaster?.centreName ||
+          session.centreName ||
+          'Nagercoil Islam College of Engineering and Technology',
         candidateCount,
         seatingCount,
       },
@@ -232,26 +268,146 @@ exports.getSessionById = async (req, res) => {
   }
 };
 
+/**
+ * Endpoint for Exam Type Selection Flow:
+ * Exam Type -> Exam Series/Name -> Exam Date -> Session (FN/AN)
+ * Resolves or creates the ExamMaster and ExamSession seamlessly.
+ */
+exports.getOrCreateSessionFromFlow = async (req, res) => {
+  if (!checkAuth(req, res)) return;
+  try {
+    const { examType, examName, centreCode, centreName, examDate, session } = req.body;
+
+    if (!examType || !examName?.trim() || !examDate || !session) {
+      return res.status(400).json({
+        success: false,
+        message: 'Exam Type, Exam Name/Series, Exam Date, and Session (FN/AN) are required.',
+      });
+    }
+
+    const resolvedType = examType === 'INTERNAL' ? 'INTERNAL' : 'ANNA_UNIVERSITY';
+    const trimmedName = examName.trim();
+    const parsedDate = new Date(examDate);
+    const sessionCode = session.trim().toUpperCase();
+    const resolvedCentreCode = centreCode?.trim() || '9640';
+    const resolvedCentreName = centreName?.trim() || 'Noorul Islam College of Engineering and Technology';
+
+    // 1. Find or create Master
+    let master = await ExamMaster.findOne({ examType: resolvedType, examName: trimmedName });
+    if (!master) {
+      master = new ExamMaster({
+        examType: resolvedType,
+        examName: trimmedName,
+        centreCode: resolvedCentreCode,
+        centreName: resolvedCentreName,
+        active: true,
+      });
+      await master.save();
+    } else if (centreCode?.trim() || centreName?.trim()) {
+      // Update master college info if provided
+      if (centreCode?.trim()) master.centreCode = centreCode.trim();
+      if (centreName?.trim()) master.centreName = centreName.trim();
+      await master.save();
+    }
+
+    // 2. Find or create ExamSession for this date and session under this Master
+    // Use start/end of day comparison for examDate
+    const startOfDay = new Date(parsedDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(parsedDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    let examSession = await ExamSession.findOne({
+      examMaster: master._id,
+      examDate: { $gte: startOfDay, $lte: endOfDay },
+      session: sessionCode,
+    }).populate('examMaster');
+
+    let isNew = false;
+    if (!examSession) {
+      examSession = new ExamSession({
+        examMaster: master._id,
+        examType: resolvedType,
+        examCode: master.examCode || '',
+        examName: master.examName,
+        centreCode: master.centreCode || resolvedCentreCode,
+        centreName: master.centreName || resolvedCentreName,
+        examDate: parsedDate,
+        session: sessionCode,
+        status: 'DRAFT',
+        createdBy: req.user?.username || req.user?.email || 'Admin',
+      });
+      await examSession.save();
+      await examSession.populate('examMaster');
+      isNew = true;
+    } else if (centreCode?.trim() || centreName?.trim()) {
+      if (centreCode?.trim()) examSession.centreCode = centreCode.trim();
+      if (centreName?.trim()) examSession.centreName = centreName.trim();
+      await examSession.save();
+    }
+
+    const candidateCount = await ExamCandidate.countDocuments({ examSession: examSession._id });
+    const seatingCount = await ExamSeating.countDocuments({ examSession: examSession._id });
+
+    return res.status(200).json({
+      success: true,
+      isNew,
+      data: {
+        ...examSession.toObject(),
+        examType: master.examType,
+        examName: master.examName,
+        examCode: master.examCode,
+        centreCode: examSession.centreCode || master.centreCode,
+        centreName: examSession.centreName || master.centreName,
+        candidateCount,
+        seatingCount,
+      },
+    });
+  } catch (err) {
+    console.error('Error in getOrCreateSessionFromFlow:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.createSession = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
-    const { examMasterId, examCode, examName, centreCode, centreName, examDate, session } = req.body;
-    
+    const { examMasterId, examType, examCode, examName, centreCode, centreName, examDate, session } =
+      req.body;
+
+    let resolvedType = examType === 'INTERNAL' ? 'INTERNAL' : 'ANNA_UNIVERSITY';
     let resolvedExamName = examName?.trim();
-    let resolvedExamCode = examCode?.trim();
-    let resolvedCentreCode = centreCode?.trim() || '9460';
-    let resolvedCentreName = centreName?.trim() || 'Nagercoil Islam College of Engineering and Technology';
+    let resolvedExamCode = examCode?.trim() || '';
+    let resolvedCentreCode = centreCode?.trim() || '9640';
+    let resolvedCentreName =
+      centreName?.trim() || 'Noorul Islam College of Engineering and Technology';
     let masterRef = null;
 
     if (examMasterId && mongoose.Types.ObjectId.isValid(examMasterId)) {
       const master = await ExamMaster.findById(examMasterId);
       if (master) {
         masterRef = master._id;
+        resolvedType = master.examType;
         resolvedExamName = master.examName;
-        resolvedExamCode = master.examCode;
+        resolvedExamCode = master.examCode || '';
         resolvedCentreCode = master.centreCode;
         resolvedCentreName = master.centreName;
       }
+    } else if (resolvedExamName) {
+      // Find or create master
+      let master = await ExamMaster.findOne({ examType: resolvedType, examName: resolvedExamName });
+      if (!master) {
+        master = new ExamMaster({
+          examType: resolvedType,
+          examName: resolvedExamName,
+          examCode: resolvedExamCode,
+          centreCode: resolvedCentreCode,
+          centreName: resolvedCentreName,
+          active: true,
+        });
+        await master.save();
+      }
+      masterRef = master._id;
     }
 
     if (!resolvedExamName || !examDate || !session) {
@@ -263,7 +419,8 @@ exports.createSession = async (req, res) => {
 
     const newSession = new ExamSession({
       examMaster: masterRef,
-      examCode: resolvedExamCode || '',
+      examType: resolvedType,
+      examCode: resolvedExamCode,
       examName: resolvedExamName,
       centreCode: resolvedCentreCode,
       centreName: resolvedCentreName,
@@ -288,7 +445,8 @@ exports.updateSession = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { id } = req.params;
-    const { examMasterId, examName, examCode, centreCode, centreName, examDate, session, status } = req.body;
+    const { examMasterId, examType, examName, examCode, centreCode, centreName, examDate, session, status } =
+      req.body;
 
     const existing = await ExamSession.findById(id);
     if (!existing) {
@@ -299,14 +457,16 @@ exports.updateSession = async (req, res) => {
       const master = await ExamMaster.findById(examMasterId);
       if (master) {
         existing.examMaster = master._id;
+        existing.examType = master.examType;
         existing.examName = master.examName;
-        existing.examCode = master.examCode;
+        existing.examCode = master.examCode || '';
         existing.centreCode = master.centreCode;
         existing.centreName = master.centreName;
       }
     } else {
+      if (examType) existing.examType = examType === 'INTERNAL' ? 'INTERNAL' : 'ANNA_UNIVERSITY';
       if (examName?.trim()) existing.examName = examName.trim();
-      if (examCode?.trim()) existing.examCode = examCode.trim();
+      if (examCode !== undefined) existing.examCode = examCode.trim();
       if (centreCode !== undefined) existing.centreCode = centreCode.trim();
       if (centreName !== undefined) existing.centreName = centreName.trim();
     }
@@ -402,6 +562,7 @@ exports.lookupStudents = async (req, res) => {
       department_code: (s.department_code || '').toUpperCase(),
       department_name: deptNameMap[(s.department_code || '').toUpperCase()] || s.department_code,
       year: s.year,
+      yearString: getRomanYearLabel(s.year),
       semester: s.semester,
       section: s.section,
     }));
@@ -467,6 +628,8 @@ exports.importStudents = async (req, res) => {
           programme: st.programme || 'B.Tech',
           department: deptName,
           departmentCode: deptCode,
+          year: st.year || null,
+          yearString: getRomanYearLabel(st.year),
           subjectCode: subjectCode.trim().toUpperCase(),
           subjectName: subjectName?.trim() || '',
         });
@@ -529,7 +692,19 @@ exports.getCandidates = async (req, res) => {
 exports.addRangeCandidates = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
-    const { sessionId, subjectCode, subjectName, registerNoFrom, registerNoTo, defaultNamePrefix, programme, department, departmentCode } = req.body;
+    const {
+      sessionId,
+      subjectCode,
+      subjectName,
+      registerNoFrom,
+      registerNoTo,
+      defaultNamePrefix,
+      programme,
+      department,
+      departmentCode,
+      year,
+      yearString,
+    } = req.body;
 
     if (!sessionId || !subjectCode?.trim() || !registerNoFrom?.trim() || !registerNoTo?.trim()) {
       return res.status(400).json({
@@ -582,6 +757,7 @@ exports.addRangeCandidates = async (req, res) => {
 
     const newCandidates = [];
     const duplicates = [];
+    const formattedYearString = getRomanYearLabel(year, yearString);
 
     for (let current = fromNum; current <= toNum; current++) {
       const regNo = prefix + current.toString().padStart(padLength, '0');
@@ -595,6 +771,8 @@ exports.addRangeCandidates = async (req, res) => {
           programme: programme || 'B.Tech',
           department: department || '',
           departmentCode: (departmentCode || '').toUpperCase(),
+          year: year ? Number(year) : null,
+          yearString: formattedYearString,
           subjectCode: subjectCode.trim().toUpperCase(),
           subjectName: subjectName?.trim() || '',
         });
@@ -664,6 +842,8 @@ exports.addManualCandidates = async (req, res) => {
             programme: cand.programme || 'B.Tech',
             department: cand.department || '',
             departmentCode: (cand.departmentCode || '').toUpperCase(),
+            year: cand.year ? Number(cand.year) : null,
+            yearString: getRomanYearLabel(cand.year, cand.yearString),
             subjectCode,
             subjectName,
           });
@@ -699,7 +879,17 @@ exports.updateCandidate = async (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
     const { id } = req.params;
-    const { registerNo, name, subjectCode, subjectName, programme, department, departmentCode } = req.body;
+    const {
+      registerNo,
+      name,
+      subjectCode,
+      subjectName,
+      programme,
+      department,
+      departmentCode,
+      year,
+      yearString,
+    } = req.body;
 
     const candidate = await ExamCandidate.findById(id);
     if (!candidate) {
@@ -725,6 +915,10 @@ exports.updateCandidate = async (req, res) => {
     if (programme !== undefined) candidate.programme = programme.trim();
     if (department !== undefined) candidate.department = department.trim();
     if (departmentCode !== undefined) candidate.departmentCode = departmentCode.trim().toUpperCase();
+    if (year !== undefined) candidate.year = year ? Number(year) : null;
+    if (yearString !== undefined || year !== undefined) {
+      candidate.yearString = getRomanYearLabel(candidate.year, yearString);
+    }
     if (subjectCode?.trim()) candidate.subjectCode = subjectCode.trim().toUpperCase();
     if (subjectName !== undefined) candidate.subjectName = subjectName.trim();
 
@@ -739,6 +933,8 @@ exports.updateCandidate = async (req, res) => {
         programme: candidate.programme,
         department: candidate.department,
         departmentCode: candidate.departmentCode,
+        year: candidate.year,
+        yearString: candidate.yearString,
         subjectCode: candidate.subjectCode,
         subjectName: candidate.subjectName,
       }
@@ -959,6 +1155,8 @@ exports.generateAllocation = async (req, res) => {
           programme: seat.programme || 'B.Tech',
           department: seat.department || '',
           departmentCode: seat.departmentCode || '',
+          year: seat.year || null,
+          yearString: seat.yearString || '',
           subjectCode: seat.subjectCode,
           subjectName: seat.subjectName,
         });
@@ -1050,13 +1248,17 @@ exports.getSeatingArrangement = async (req, res) => {
       hallData.occupiedCount++;
     });
 
+    const resolvedType = session.examMaster?.examType || session.examType || 'ANNA_UNIVERSITY';
     const resolvedExamName = session.examMaster?.examName || session.examName;
     const resolvedCentreCode = session.examMaster?.centreCode || session.centreCode || '9460';
-    const resolvedCentreName = session.examMaster?.centreName || session.centreName || 'Nagercoil Islam College of Engineering and Technology';
+    const resolvedCentreName =
+      session.examMaster?.centreName ||
+      session.centreName ||
+      'Nagercoil Islam College of Engineering and Technology';
 
     const hallsResult = Array.from(hallsMap.values()).map((h) => {
-      // Compute dynamic Anna University Degree & Branch summary (with Common Sub logic)
-      const summaryList = AllocationService.computeDegreeBranchSummary(h.seatsList);
+      // Compute summary without Common Sub
+      const summaryList = AllocationService.computeDegreeBranchSummary(h.seatsList, resolvedType);
 
       return {
         hallId: h.hall._id,
@@ -1065,6 +1267,7 @@ exports.getSeatingArrangement = async (req, res) => {
         capacity: 25,
         occupiedCount: h.occupiedCount,
         seats: h.seats,
+        seatsList: h.seatsList,
         summaryList,
       };
     });
@@ -1073,6 +1276,7 @@ exports.getSeatingArrangement = async (req, res) => {
       success: true,
       session: {
         ...session,
+        examType: resolvedType,
         examName: resolvedExamName,
         centreCode: resolvedCentreCode,
         centreName: resolvedCentreName,
@@ -1084,46 +1288,6 @@ exports.getSeatingArrangement = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
-
-// Helper to format continuous register number ranges nicely
-function formatRegisterRange(regNos) {
-  if (!regNos || regNos.length === 0) return '';
-  if (regNos.length === 1) return regNos[0];
-
-  const ranges = [];
-  let start = regNos[0];
-  let prev = regNos[0];
-
-  const isNumericSuccessor = (a, b) => {
-    const matchA = a.match(/^(\D*)(\d+)$/);
-    const matchB = b.match(/^(\D*)(\d+)$/);
-    if (!matchA || !matchB || matchA[1] !== matchB[1]) return false;
-    return BigInt(matchB[2]) - BigInt(matchA[2]) === 1n;
-  };
-
-  for (let i = 1; i < regNos.length; i++) {
-    const current = regNos[i];
-    if (isNumericSuccessor(prev, current)) {
-      prev = current;
-    } else {
-      if (start === prev) {
-        ranges.push(start);
-      } else {
-        ranges.push(`${start} - ${prev}`);
-      }
-      start = current;
-      prev = current;
-    }
-  }
-
-  if (start === prev) {
-    ranges.push(start);
-  } else {
-    ranges.push(`${start} - ${prev}`);
-  }
-
-  return ranges.join(', ');
-}
 
 // ==================== 5. CANDIDATE SEAT SEARCH ====================
 
@@ -1171,6 +1335,29 @@ exports.searchCandidateSeating = async (req, res) => {
       },
     });
   } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ==================== 6. PDF EXPORT ENDPOINT ====================
+
+exports.generatePdf = async (req, res) => {
+  if (!checkAuth(req, res)) return;
+  try {
+    const { sessionId } = req.params;
+    const { hallId } = req.query;
+
+    const doc = await ExamPdfService.generateExamSeatingPdf(sessionId, hallId || null);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="Exam_Seating_${sessionId}${hallId ? `_${hallId}` : ''}.pdf"`
+    );
+
+    doc.pipe(res);
+  } catch (err) {
+    console.error('Error generating exam seating PDF:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

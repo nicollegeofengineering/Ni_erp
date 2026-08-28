@@ -27,6 +27,7 @@
     "multer": "^2.2.0",
     "mysql2": "^3.22.3",
     "nodemailer": "^8.0.7",
+    "pdfkit": "^0.20.1",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

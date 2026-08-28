@@ -134,10 +134,11 @@ router.get('/marks', async (req, res) => {
       }
     });
 
-    // Query InternalMark records for this student and semester using valid ObjectIds
+    // Query published InternalMark records for this student and semester using valid ObjectIds
     const markRecords = await InternalMark.find({
       student: { $in: studentObjectIds },
       semester: { $in: [requestedSemester, String(requestedSemester), Number(requestedSemester)].filter(v => !isNaN(Number(v))) },
+      isPublished: true,
     })
       .populate('subject', 'subjectName subjectCode Category credits')
       .populate({

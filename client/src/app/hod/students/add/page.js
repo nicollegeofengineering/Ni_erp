@@ -5,6 +5,28 @@ import styles from "../css/studentadd.module.css";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 
+function getAcademicYearOptions(currentVal) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  const years = [];
+  for (let i = startYear - 5; i <= startYear + 5; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  if (currentVal && !years.includes(currentVal)) {
+    years.push(currentVal);
+    years.sort();
+  }
+  return years;
+}
+
+function getDefaultAcademicYear() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
 export default function AddStudent() {
   const router = useRouter();
   const [preview, setPreview] = useState("/user.png");
@@ -12,13 +34,15 @@ export default function AddStudent() {
   const [Emessage, setEmessage] = useState("");
   const [Smessage, setSmessage] = useState("");
 
+  const academicYearOptions = getAcademicYearOptions();
+
   const [formData, setFormData] = useState({
     student_id: "",
     application_no: "",
     admission_no: "",
     register_no: "",
     roll_no: "",
-    academic_year: "",
+    academic_year: getDefaultAcademicYear(),
     admission_date: "",
     admission_type: "Regular",
     admission_mode: "",
@@ -173,7 +197,7 @@ export default function AddStudent() {
           admission_no: "",
           register_no: "",
           roll_no: "",
-          academic_year: "",
+          academic_year: getDefaultAcademicYear(),
           admission_date: "",
           admission_type: "Regular",
           admission_mode: "",
@@ -333,7 +357,19 @@ export default function AddStudent() {
           <div className={styles.grid}>
             <div className={styles.fieldWrapper}>
               <span className={styles.fieldLabel}>Current Academic Year</span>
-              <input className={styles.formInput} name="academic_year" placeholder="e.g. 2026-2027" value={formData.academic_year} onChange={handleChange} />
+              <select
+                className={styles.formInput}
+                name="academic_year"
+                value={formData.academic_year}
+                onChange={handleChange}
+              >
+                <option value="">Select Academic Year</option>
+                {academicYearOptions.map((ay) => (
+                  <option key={ay} value={ay}>
+                    {ay}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className={styles.fieldWrapper}>
               <span className={styles.fieldLabel}>Admission Date</span>

@@ -164,7 +164,8 @@ export default function StudentMarksPage() {
         ) : marks.length === 0 ? (
           <div style={{ textAlign: "center", color: "#64748b", padding: "40px 0" }}>
             <ClipboardList size={36} color="#cbd5e1" style={{ margin: "0 auto 10px" }} />
-            <p>No marks entered for Semester {selectedSemester} yet.</p>
+            <p>No published internal marks available for Semester {selectedSemester} yet.</p>
+            <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>Marks will appear here once officially published by the institution.</p>
           </div>
         ) : (
           <div className={styles.tableWrapper}>

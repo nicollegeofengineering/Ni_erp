@@ -21,14 +21,26 @@ function handleUnauthorized(err) {
   return false;
 }
 
-function currentAcademicYears() {
-  const current = new Date().getFullYear();
+function currentAcademicYears(currentVal) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
   const years = [];
-  for (let i = 0; i < 6; i++) {
-    const start = current - i;
-    years.push(`${start}-${start + 1}`);
+  for (let i = startYear - 5; i <= startYear + 5; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  if (currentVal && !years.includes(currentVal)) {
+    years.push(currentVal);
+    years.sort();
   }
   return years;
+}
+
+function getDefaultAcademicYear() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  return `${startYear}-${startYear + 1}`;
 }
 
 function getCategoryLabel(cat) {
@@ -43,7 +55,7 @@ export default function StaffMarksViewPage() {
   const [department, setDepartment] = useState("");
   const [year, setYear] = useState("");
   const [semester, setSemester] = useState("");
-  const [academicYear, setAcademicYear] = useState("");
+  const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
 
   const [subjects, setSubjects] = useState([]);
   const [subjectId, setSubjectId] = useState("");
@@ -222,7 +234,27 @@ export default function StaffMarksViewPage() {
   }
 
   async function refreshMarks() {
-    await handleViewMarks();
+    if (!subjectId) return;
+    try {
+      setLoadingMarks(true);
+      const params = new URLSearchParams({
+        department,
+        year,
+        semester,
+        academicYear,
+        subjectId,
+      });
+
+      const res = await api.get(`/api/mark?${params.toString()}`);
+      const data = res.data?.data ?? res.data;
+      setMarksData(data);
+      setGroupedRows(groupMarks(data.marks || []));
+    } catch (err) {
+      if (handleUnauthorized(err)) return;
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoadingMarks(false);
+    }
   }
 
   // ---------- PDF Export Handler ----------
@@ -269,9 +301,20 @@ export default function StaffMarksViewPage() {
       const ratio = pdfWidth / canvas.width;
       const pageHeightInCanvasPx = pdfHeight / ratio;
 
-      const footerText = "Generated via NICETech ERP System. Developed by students of NICETECH";
-      const footerFontSize = 7;
-      const footerMargin = 8;
+      const generatedAtStr = new Date().toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+
+      const footerLeftText = `Report Generated on: ${generatedAtStr}`;
+      const footerRightText = "Generated via NICETech ERP System";
+      const footerFontSize = 7.5;
+      const footerMargin = 7;
 
       let renderedHeight = 0;
       let pageNum = 0;
@@ -303,11 +346,10 @@ export default function StaffMarksViewPage() {
         pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, renderHeight * ratio);
 
         pdf.setFontSize(footerFontSize);
-        pdf.setTextColor(150, 150, 150);
-        const textWidth = pdf.getTextWidth(footerText);
-        const x = (pdfWidth - textWidth) / 2;
-        const y = pdfHeight - footerMargin;
-        pdf.text(footerText, x, y);
+        pdf.setTextColor(110, 110, 110);
+        pdf.text(footerLeftText, 14, pdfHeight - footerMargin);
+        const rightWidth = pdf.getTextWidth(footerRightText);
+        pdf.text(footerRightText, pdfWidth - rightWidth - 14, pdfHeight - footerMargin);
 
         renderedHeight += renderHeight;
         pageNum++;
@@ -733,11 +775,14 @@ export default function StaffMarksViewPage() {
         {/* Top bar with exam badges and download button */}
         <div className={styles.topActionBar}>
           <div className={styles.examBadges}>
-            {exams.map((exam) => (
-              <span key={exam} className={styles.examBadge}>
-                Internal Exam {exam}
-              </span>
-            ))}
+            {exams.map((exam) => {
+              const isPub = marksData.isPublishedByExam?.[exam] === true;
+              return (
+                <span key={exam} className={isPub ? styles.badgePublished : styles.badgeDraft}>
+                  {isPub ? "🟢" : "🟡"} Internal Exam {exam} ({isPub ? "Published" : "Draft"})
+                </span>
+              );
+            })}
           </div>
           <button
             className={styles.pdfBtn}
@@ -765,7 +810,7 @@ export default function StaffMarksViewPage() {
             <h2 className={styles.reportTitle}>Internal Mark Report</h2>
             <div className={styles.reportMetaGrid}>
               <div className={styles.metaItem}>
-                <span className={styles.metaLabel}>Sub Name</span>
+                <span className={styles.metaLabel}>Sub Name :</span>
                 <span className={styles.metaValue}>{subject?.subjectName || "—"}</span>
               </div>
               <div className={styles.metaItem}>
@@ -791,6 +836,14 @@ export default function StaffMarksViewPage() {
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Academic Year :</span>
                 <span className={styles.metaValue}>{academicYear || "—"}</span>
+              </div>
+              <div className={styles.metaItem}>
+                <span className={styles.metaLabel}>Last Edited :</span>
+                <span className={styles.metaValue}>
+                  {marksData.lastEditedInfo?.lastEditedBy
+                    ? `${marksData.lastEditedInfo.lastEditedBy.prefix || ""} ${marksData.lastEditedInfo.lastEditedBy.first_name || ""} ${marksData.lastEditedInfo.lastEditedBy.last_name || ""} ${marksData.lastEditedInfo.lastEditedAt ? `(${new Date(marksData.lastEditedInfo.lastEditedAt).toLocaleString("en-GB")})` : ""}`.trim()
+                    : "—"}
+                </span>
               </div>
             </div>
           </div>
@@ -880,16 +933,30 @@ export default function StaffMarksViewPage() {
                           className={`${styles.actionsCell} ${styles.noPrint}`}
                           data-html2canvas-ignore="true"
                         >
-                          {exams.map((exam) => (
-                            <button
-                              key={exam}
-                              className={styles.btnSm}
-                              onClick={() => openEdit(exam, row)}
-                              disabled={!row.exams[exam]}
-                            >
-                              Edit I{exam}
-                            </button>
-                          ))}
+                          {exams.map((exam) => {
+                            const isPub = marksData.isPublishedByExam?.[exam] === true;
+                            if (isPub) {
+                              return (
+                                <span
+                                  key={exam}
+                                  className={styles.lockedTag}
+                                  title="Marks are published to students. Editing is locked."
+                                >
+                                  🔒 I{exam} Locked
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                key={exam}
+                                className={styles.btnSm}
+                                onClick={() => openEdit(exam, row)}
+                                disabled={!row.exams[exam]}
+                              >
+                                Edit I{exam}
+                              </button>
+                            );
+                          })}
                         </td>
                       )}
                     </tr>
@@ -960,16 +1027,30 @@ export default function StaffMarksViewPage() {
                           className={`${styles.actionsCell} ${styles.noPrint}`}
                           data-html2canvas-ignore="true"
                         >
-                          {exams.map((exam) => (
-                            <button
-                              key={exam}
-                              className={styles.btnSm}
-                              onClick={() => openEdit(exam, row)}
-                              disabled={!row.exams[exam]}
-                            >
-                              Edit I{exam}
-                            </button>
-                          ))}
+                          {exams.map((exam) => {
+                            const isPub = marksData.isPublishedByExam?.[exam] === true;
+                            if (isPub) {
+                              return (
+                                <span
+                                  key={exam}
+                                  className={styles.lockedTag}
+                                  title="Marks are published to students. Editing is locked."
+                                >
+                                  🔒 I{exam} Locked
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                key={exam}
+                                className={styles.btnSm}
+                                onClick={() => openEdit(exam, row)}
+                                disabled={!row.exams[exam]}
+                              >
+                                Edit I{exam}
+                              </button>
+                            );
+                          })}
                         </td>
                       )}
                     </tr>
@@ -1069,16 +1150,30 @@ export default function StaffMarksViewPage() {
                           className={`${styles.actionsCell} ${styles.noPrint}`}
                           data-html2canvas-ignore="true"
                         >
-                          {exams.map((exam) => (
-                            <button
-                              key={exam}
-                              className={styles.btnSm}
-                              onClick={() => openEdit(exam, row)}
-                              disabled={!row.exams[exam]}
-                            >
-                              Edit I{exam}
-                            </button>
-                          ))}
+                          {exams.map((exam) => {
+                            const isPub = marksData.isPublishedByExam?.[exam] === true;
+                            if (isPub) {
+                              return (
+                                <span
+                                  key={exam}
+                                  className={styles.lockedTag}
+                                  title="Marks are published to students. Editing is locked."
+                                >
+                                  🔒 I{exam} Locked
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                key={exam}
+                                className={styles.btnSm}
+                                onClick={() => openEdit(exam, row)}
+                                disabled={!row.exams[exam]}
+                              >
+                                Edit I{exam}
+                              </button>
+                            );
+                          })}
                         </td>
                       )}
                     </tr>
@@ -1094,26 +1189,34 @@ export default function StaffMarksViewPage() {
               className={`${styles.tableActions} ${styles.noPrint}`}
               data-html2canvas-ignore="true"
             >
-              {exams.map((exam) => (
-                <div key={exam} className={styles.examActionGroup}>
-                  {canEdit && (
-                    <button
-                      className={styles.btnGold}
-                      onClick={() => handleOpenAddStudents(exam)}
-                    >
-                      + Add Students (I{exam})
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      className={styles.btnDanger}
-                      onClick={() => openDeleteConfirm(exam)}
-                    >
-                      Delete Internal {exam}
-                    </button>
-                  )}
-                </div>
-              ))}
+              {exams.map((exam) => {
+                const isPub = marksData.isPublishedByExam?.[exam] === true;
+                return (
+                  <div key={exam} className={styles.examActionGroup}>
+                    {canEdit && !isPub && (
+                      <button
+                        className={styles.btnGold}
+                        onClick={() => handleOpenAddStudents(exam)}
+                      >
+                        + Add Students (I{exam})
+                      </button>
+                    )}
+                    {isPub && (
+                      <span className={styles.lockedTag}>
+                        🔒 Internal {exam} Published (Locked)
+                      </span>
+                    )}
+                    {canDelete && !isPub && (
+                      <button
+                        className={styles.btnDanger}
+                        onClick={() => openDeleteConfirm(exam)}
+                      >
+                        Delete Internal {exam}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

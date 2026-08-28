@@ -263,18 +263,57 @@ router.get("/", async (req, res) => {
 
     const exams = [...new Set(marks.map((mark) => mark.internalExam))].sort();
     const allowedByExam = {};
+    const isPublishedByExam = { 1: false, 2: false };
+    const publishedDetailsByExam = {};
 
-    // User can ONLY edit / delete / add students if they are assigned to this subject in the Timetable
+    // Determine publication status per exam
+    marks.forEach((m) => {
+      if (m.isPublished) {
+        isPublishedByExam[m.internalExam] = true;
+        if (!publishedDetailsByExam[m.internalExam]) {
+          publishedDetailsByExam[m.internalExam] = {
+            publishedAt: m.publishedAt,
+            publishedBy: m.publishedBy,
+          };
+        }
+      }
+    });
+
+    // Extract latest lastEditedBy audit info
+    let latestEdited = null;
+    marks.forEach((m) => {
+      if (m.lastEditedAt && m.lastEditedBy) {
+        if (!latestEdited || new Date(m.lastEditedAt) > new Date(latestEdited.lastEditedAt)) {
+          latestEdited = {
+            lastEditedBy: m.lastEditedBy,
+            lastEditedAt: m.lastEditedAt,
+          };
+        }
+      } else if (m.updatedAt) {
+        if (!latestEdited || new Date(m.updatedAt) > new Date(latestEdited.lastEditedAt)) {
+          latestEdited = {
+            lastEditedBy: m.lastEditedBy || m.theory?.enteredBy || m.practical?.enteredBy,
+            lastEditedAt: m.updatedAt,
+          };
+        }
+      }
+    });
+
+    // User can edit only if assigned and exam is NOT published
     if (isAssigned) {
       for (const exam of [1, 2]) {
-        allowedByExam[exam] =
-          await permissions.getAllowedComponentsForEntry(staff, subject, {
-            academicYear,
-            department,
-            year,
-            semester,
-            internalExam: exam,
-          });
+        if (isPublishedByExam[exam]) {
+          allowedByExam[exam] = [];
+        } else {
+          allowedByExam[exam] =
+            await permissions.getAllowedComponentsForEntry(staff, subject, {
+              academicYear,
+              department,
+              year,
+              semester,
+              internalExam: exam,
+            });
+        }
       }
     } else {
       allowedByExam[1] = [];
@@ -285,7 +324,15 @@ router.get("/", async (req, res) => {
       isAssigned &&
       ((allowedByExam[1] && allowedByExam[1].length > 0) ||
         (allowedByExam[2] && allowedByExam[2].length > 0));
-    const canDelete = isAssigned;
+
+    // Admin can always delete; non-admin can only delete if not published
+    let canDelete = false;
+    if (role === "admin") {
+      canDelete = true;
+    } else if (isAssigned) {
+      const hasAnyPublished = isPublishedByExam[1] || isPublishedByExam[2];
+      canDelete = !hasAnyPublished;
+    }
 
     return res.json({
       success: true,
@@ -295,9 +342,13 @@ router.get("/", async (req, res) => {
         category: permissions.normalizeCategory(subject.Category),
         exams,
         allowedByExam,
+        isPublishedByExam,
+        publishedDetailsByExam,
+        lastEditedInfo: latestEdited,
         isAssigned,
         canEdit,
         canDelete,
+        isAdmin: role === "admin",
       },
     });
   } catch (error) {
@@ -422,6 +473,14 @@ router.put("/:id", async (req, res) => {
       return sendError(res, 404, "Mark record not found.");
     }
 
+    if (existing.isPublished) {
+      return sendError(
+        res,
+        403,
+        "Internal marks for this exam have been published by Admin and cannot be edited."
+      );
+    }
+
     const subject = await Subject.findById(existing.subject).lean();
     if (!subject) {
       return sendError(res, 404, "Subject not found.");
@@ -484,7 +543,8 @@ router.put("/:id", async (req, res) => {
     const updated = await markService.updateMarkById(
       markId,
       req.body,
-      allowedComponents
+      allowedComponents,
+      staff._id
     );
 
     return res.json({
@@ -724,13 +784,33 @@ router.delete("/", async (req, res) => {
 
     const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
 
+    // Check if marks are published
+    const publishedCheck = await InternalMark.findOne({
+      academicYear: String(academicYear || "").trim(),
+      department: String(department || "").trim().toUpperCase(),
+      year: Number(year),
+      semester: Number(semester),
+      subject: subjectId,
+      internalExam: Number(internalExam),
+      isPublished: true,
+    });
+
+    // If published, ONLY Admin can delete!
+    if (publishedCheck && role !== "admin") {
+      return sendError(
+        res,
+        403,
+        "Internal marks for this exam are published. Published marks can only be deleted by an Administrator."
+      );
+    }
+
     const subject = await permissions.verifySubjectAssignment(
       staff._id,
       subjectId,
       { academicYear, department, year, semester, role }
     );
 
-    if (!subject) {
+    if (!subject && role !== "admin") {
       return sendError(
         res,
         403,
@@ -738,25 +818,27 @@ router.delete("/", async (req, res) => {
       );
     }
 
-    const canDelete = await permissions.canDeleteCompleteEntry(
-      staff._id,
-      subject,
-      {
-        academicYear,
-        department,
-        year,
-        semester,
-        internalExam: Number(internalExam),
-        role,
-      }
-    );
-
-    if (!canDelete) {
-      return sendError(
-        res,
-        403,
-        "You are not authorized to delete this complete mark entry."
+    if (!publishedCheck && role !== "admin") {
+      const canDelete = await permissions.canDeleteCompleteEntry(
+        staff._id,
+        subject,
+        {
+          academicYear,
+          department,
+          year,
+          semester,
+          internalExam: Number(internalExam),
+          role,
+        }
       );
+
+      if (!canDelete) {
+        return sendError(
+          res,
+          403,
+          "You are not authorized to delete this complete mark entry."
+        );
+      }
     }
 
     const deletedCount = await markService.deleteMarks({
@@ -775,6 +857,106 @@ router.delete("/", async (req, res) => {
     });
   } catch (error) {
     console.error("Error in DELETE /api/mark:", error);
+    return sendError(res, 500, error.message || "Server error");
+  }
+});
+
+// -------------------------------------------------------------
+// POST /api/mark/publish
+// Admin-only: Publishes internal marks for a subject/exam
+// -------------------------------------------------------------
+router.post("/publish", async (req, res) => {
+  try {
+    const staff = await permissions.getStaffFromReq(req);
+    if (!staff || staff.staff_status !== "Active") {
+      return sendError(res, 403, "Active staff account required.");
+    }
+
+    const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
+    if (role !== "admin") {
+      return sendError(res, 403, "Only Administrators can publish internal marks.");
+    }
+
+    const {
+      academicYear,
+      department,
+      year,
+      semester,
+      subjectId,
+      internalExam,
+    } = req.body;
+
+    if (!academicYear || !department || !year || !semester || !subjectId) {
+      return sendError(res, 400, "Missing required fields to publish marks.");
+    }
+
+    const publishedCount = await markService.publishMarks({
+      academicYear,
+      department,
+      year,
+      semester,
+      subjectId,
+      internalExam: internalExam ? Number(internalExam) : null,
+      staffId: staff._id,
+    });
+
+    return res.json({
+      success: true,
+      message: `Internal marks published successfully (${publishedCount} records updated).`,
+      data: { publishedCount },
+    });
+  } catch (error) {
+    console.error("Error in POST /api/mark/publish:", error);
+    return sendError(res, 500, error.message || "Server error");
+  }
+});
+
+// -------------------------------------------------------------
+// POST /api/mark/unpublish
+// Admin-only: Unpublishes internal marks for a subject/exam
+// -------------------------------------------------------------
+router.post("/unpublish", async (req, res) => {
+  try {
+    const staff = await permissions.getStaffFromReq(req);
+    if (!staff || staff.staff_status !== "Active") {
+      return sendError(res, 403, "Active staff account required.");
+    }
+
+    const role = (staff.role || staff.userRole || req.user?.role || "Staff").toLowerCase();
+    if (role !== "admin") {
+      return sendError(res, 403, "Only Administrators can unpublish internal marks.");
+    }
+
+    const {
+      academicYear,
+      department,
+      year,
+      semester,
+      subjectId,
+      internalExam,
+    } = req.body;
+
+    if (!academicYear || !department || !year || !semester || !subjectId) {
+      return sendError(res, 400, "Missing required fields to unpublish marks.");
+    }
+
+    const unpublishedCount = await markService.unpublishMarks({
+      academicYear,
+      department,
+      year,
+      semester,
+      subjectId,
+      internalExam: internalExam ? Number(internalExam) : null,
+      staffId: staff._id,
+    });
+
+    return res.json({
+      success: true,
+      message: `Internal marks unpublished successfully (${unpublishedCount} records updated).`,
+      data: { unpublishedCount },
+    });
+  } catch (error) {
+    console.error("Error in POST /api/mark/unpublish:", error);
     return sendError(res, 500, error.message || "Server error");
   }
 });

@@ -7,6 +7,28 @@ import styles from "./timetable.module.css";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
+function getAcademicYearOptions(currentVal) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  const years = [];
+  for (let i = startYear - 5; i <= startYear + 5; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  if (currentVal && !years.includes(currentVal)) {
+    years.push(currentVal);
+    years.sort();
+  }
+  return years;
+}
+
+function getDefaultAcademicYear() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
 export default function TimetablePage() {
   const router = useRouter();
 
@@ -14,7 +36,7 @@ export default function TimetablePage() {
   const [hodDepartment, setHodDepartment] = useState("");
 
   // ---------- STATE ----------
-  const [academicYear, setAcademicYear] = useState("2026-2027");
+  const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
   const [semesterType, setSemesterType] = useState("ODD");
   const [wef, setWef] = useState("");
   const [loading, setLoading] = useState(true);
@@ -719,21 +741,11 @@ export default function TimetablePage() {
           onChange={(e) => setAcademicYear(e.target.value)}
           className={styles.filterSelect}
         >
-          {useMemo(() => {
-            const currentYear = new Date().getFullYear();
-            const options = [];
-            for (let i = -1; i <= 1; i++) {
-              const start = currentYear + i;
-              const end = start + 1;
-              const label = `${start}-${end}`;
-              options.push(
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              );
-            }
-            return options;
-          }, [])}
+          {getAcademicYearOptions(academicYear).map((ay) => (
+            <option key={ay} value={ay}>
+              {ay}
+            </option>
+          ))}
         </select>
 
         <select

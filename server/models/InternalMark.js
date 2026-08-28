@@ -45,6 +45,29 @@ const internalMarkSchema = new mongoose.Schema(
       uppercase: true,
       enum: ["T", "L", "T/L", "O"],
     },
+    isPublished: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
+    publishedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+      default: null,
+    },
+    lastEditedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+      default: null,
+    },
+    lastEditedAt: {
+      type: Date,
+      default: null,
+    },
     theory: {
       assignment: {
         type: Number,

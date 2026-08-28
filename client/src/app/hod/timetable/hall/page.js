@@ -6,13 +6,35 @@ import styles from "./hall-timetable.module.css";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
+function getAcademicYearOptions(currentVal) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  const years = [];
+  for (let i = startYear - 5; i <= startYear + 5; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  if (currentVal && !years.includes(currentVal)) {
+    years.push(currentVal);
+    years.sort();
+  }
+  return years;
+}
+
+function getDefaultAcademicYear() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
 export default function HallTimetablePage() {
   const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_BACKEND_URL + "/api",
     withCredentials: true,
   });
 
-  const [academicYear, setAcademicYear] = useState("2026-2027");
+  const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
   const [semesterType, setSemesterType] = useState("ODD");
   const [wef, setWef] = useState("");
   const [hallList, setHallList] = useState([]);
@@ -322,17 +344,9 @@ export default function HallTimetablePage() {
           onChange={e => setAcademicYear(e.target.value)}
           className={styles.filterSelect}
         >
-          {(() => {
-            const currentYear = new Date().getFullYear();
-            const options = [];
-            for (let i = -1; i <= 1; i++) {
-              const start = currentYear + i;
-              const end = start + 1;
-              const label = `${start}-${end}`;
-              options.push(<option key={label} value={label}>{label}</option>);
-            }
-            return options;
-          })()}
+          {getAcademicYearOptions(academicYear).map((ay) => (
+            <option key={ay} value={ay}>{ay}</option>
+          ))}
         </select>
 
         <select

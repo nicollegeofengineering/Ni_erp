@@ -5,6 +5,28 @@ import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import styles from "../../css/studentadd.module.css";
 
+function getAcademicYearOptions(currentVal) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  const years = [];
+  for (let i = startYear - 5; i <= startYear + 5; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  if (currentVal && !years.includes(currentVal)) {
+    years.push(currentVal);
+    years.sort();
+  }
+  return years;
+}
+
+function getDefaultAcademicYear() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
 export default function EditStudent() {
   const router = useRouter();
   const params = useParams();
@@ -22,7 +44,7 @@ export default function EditStudent() {
     admission_no: "",
     register_no: "",
     roll_no: "",
-    academic_year: "",
+    academic_year: getDefaultAcademicYear(),
     admission_date: "",
     admission_type: "Regular",
     admission_mode: "",
@@ -411,14 +433,20 @@ export default function EditStudent() {
           <h2 className={styles.cardTitle}>Admission &amp; Academic Information</h2>
           <div className={styles.grid}>
             <div className={styles.fieldWrapper}>
-              <span className={styles.fieldLabel}> Current Academic Year</span>
-              <input
+              <span className={styles.fieldLabel}>Current Academic Year</span>
+              <select
                 className={styles.formInput}
                 name="academic_year"
-                placeholder="e.g. 2026-2027"
                 value={formData.academic_year}
                 onChange={handleChange}
-              />
+              >
+                <option value="">Select Academic Year</option>
+                {getAcademicYearOptions(formData.academic_year).map((ay) => (
+                  <option key={ay} value={ay}>
+                    {ay}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className={styles.fieldWrapper}>
               <span className={styles.fieldLabel}>Admission Date</span>

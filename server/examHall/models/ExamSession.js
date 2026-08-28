@@ -6,6 +6,13 @@ const ExamSessionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ExamMaster',
       default: null,
+      index: true,
+    },
+    examType: {
+      type: String,
+      enum: ['INTERNAL', 'ANNA_UNIVERSITY'],
+      default: 'ANNA_UNIVERSITY',
+      index: true,
     },
     examCode: {
       type: String,
@@ -20,12 +27,12 @@ const ExamSessionSchema = new mongoose.Schema(
     centreCode: {
       type: String,
       trim: true,
-      default: '9460',
+      default: '9640',
     },
     centreName: {
       type: String,
       trim: true,
-      default: 'Nagercoil Islam College of Engineering and Technology',
+      default: 'Noorul Islam College of Engineering and Technology',
     },
     examDate: {
       type: Date,
@@ -53,5 +60,6 @@ const ExamSessionSchema = new mongoose.Schema(
 
 // Compound index for quick lookup
 ExamSessionSchema.index({ examDate: 1, session: 1 });
+ExamSessionSchema.index({ examMaster: 1, examDate: 1, session: 1 });
 
 module.exports = mongoose.model('ExamSession', ExamSessionSchema);

@@ -19,14 +19,26 @@ function handleUnauthorized(err) {
   return false;
 }
 
-function currentAcademicYears() {
-  const current = new Date().getFullYear();
+function currentAcademicYears(currentVal) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
   const years = [];
-  for (let i = 0; i < 6; i++) {
-    const start = current - i;
-    years.push(`${start}-${start + 1}`);
+  for (let i = startYear - 5; i <= startYear + 5; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  if (currentVal && !years.includes(currentVal)) {
+    years.push(currentVal);
+    years.sort();
   }
   return years;
+}
+
+function getDefaultAcademicYear() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+  return `${startYear}-${startYear + 1}`;
 }
 
 export default function StaffMarksAddPage() {
@@ -35,7 +47,7 @@ export default function StaffMarksAddPage() {
   const [department, setDepartment] = useState("");
   const [year, setYear] = useState("");
   const [semester, setSemester] = useState("");
-  const [academicYear, setAcademicYear] = useState("");
+  const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
   const [internalExam, setInternalExam] = useState("1");
 
   const [subjects, setSubjects] = useState([]);
