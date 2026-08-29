@@ -693,8 +693,8 @@ export default function TimetablePage() {
         pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, sliceHeight * ratio);
 
         // Footer timestamp
-        pdf.setFontSize(7.5);
-        pdf.setTextColor(100, 116, 139);
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(148, 163, 184);
         const generatedAtStr = new Date().toLocaleString("en-GB", {
           day: "2-digit",
           month: "2-digit",
@@ -706,7 +706,7 @@ export default function TimetablePage() {
         });
         const footerText = `Generated via NICETECH ERP System on ${generatedAtStr}`;
         const textWidth = pdf.getTextWidth(footerText);
-        pdf.text(footerText, (pdfWidth - textWidth) / 2, pdfHeight - 5);
+        pdf.text(footerText, (pdfWidth - textWidth) / 2, pdfHeight - 4);
 
         renderedHeight += sliceHeight;
         pageNum += 1;

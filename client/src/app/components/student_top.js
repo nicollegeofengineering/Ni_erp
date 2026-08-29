@@ -99,15 +99,16 @@ export default function StudentTop() {
           className={style.logoImage}
         />
       </div>
-      <div className={style.right_con}>
+      <div className={style.right_con} id="hide-on-pdf">
         <NotificationBell />
 
         <Link
           href="/student/profile"
           className={style.profileLink}
           title="View My Profile"
+          id="hide-on-pdf"
         >
-          <div className={style.userImageWrapper}>
+          <div className={style.userImageWrapper} id="hide-on-pdf">
             <img
               src={profileImage}
               alt="Student"

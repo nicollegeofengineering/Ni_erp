@@ -55,5 +55,11 @@
     width: 200px;
     height: 70px;
   } 
-    
+}
+
+@media print {
+  .right_con,
+  .userImageWrapper {
+    display: none !important;
+  }
 }   

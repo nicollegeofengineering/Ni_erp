@@ -2,12 +2,15 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
-import { Loader2 } from "lucide-react";
+import { Loader2, BookOpen, ListFilter } from "lucide-react";
+import StaffAssignedView from "@/app/components/StaffAssignedView";
 import styles from "./subjects.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function SubjectsPage() {
+  const [activeTab, setActiveTab] = useState("catalog");
+
   // ---------- State ----------
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -204,13 +207,62 @@ export default function SubjectsPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Subjects</h1>
-        <button className={styles.addButton} onClick={openAddModal}>
-          + Add Subject
-        </button>
+        <h1 className={styles.title}>Subjects & Faculty Assignments</h1>
+
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab("assigned")}
+            style={{
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: activeTab === "assigned" ? "2px solid #0284c7" : "1px solid #cbd5e1",
+              background: activeTab === "assigned" ? "#0284c7" : "#ffffff",
+              color: activeTab === "assigned" ? "#ffffff" : "#334155",
+              fontWeight: 600,
+              fontSize: "13px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <BookOpen size={16} /> Faculty Assigned Subjects & Timetable
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("catalog")}
+            style={{
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: activeTab === "catalog" ? "2px solid #0284c7" : "1px solid #cbd5e1",
+              background: activeTab === "catalog" ? "#0284c7" : "#ffffff",
+              color: activeTab === "catalog" ? "#ffffff" : "#334155",
+              fontWeight: 600,
+              fontSize: "13px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <ListFilter size={16} /> Subject Catalog
+          </button>
+
+          {activeTab === "catalog" && (
+            <button className={styles.addButton} onClick={openAddModal}>
+              + Add Subject
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className={styles.filters}>
+      {activeTab === "assigned" ? (
+        <StaffAssignedView role="Admin" allowStaffSelection={true} />
+      ) : (
+        <>
+          <div className={styles.filters}>
         <input
           type="text"
           placeholder="Search by name or code..."
@@ -312,6 +364,8 @@ export default function SubjectsPage() {
               Next
             </button>
           </div>
+        </>
+      )}
         </>
       )}
 

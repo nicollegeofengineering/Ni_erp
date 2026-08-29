@@ -477,7 +477,8 @@ text-align: center;
   left: 0;
   width: 100%;
   text-align: center;
-  font-size: 8px;
-  color: #aaa;          /* light gray */
+  font-size: 7px;
+  color: #94a3b8;          /* light subtle grey */
   font-family: "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.2px;
 }

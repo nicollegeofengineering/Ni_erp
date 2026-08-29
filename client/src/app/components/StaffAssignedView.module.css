@@ -1,0 +1,632 @@
+.wrapper {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: #1e293b;
+}
+
+/* Control Bar */
+.controlBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #ffffff;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.controlGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.controlLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.selectInput {
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.selectInput:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.searchWrapper {
+  position: relative;
+  min-width: 220px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.searchInput:focus {
+  border-color: #0284c7;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.dropdownList {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  list-style: none;
+  padding: 4px;
+  margin: 0;
+}
+
+.dropdownItem {
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.1s ease;
+}
+
+.dropdownItem:hover {
+  background-color: #f1f5f9;
+}
+
+.dropdownItemActive {
+  background-color: #e0f2fe;
+  color: #0284c7;
+  font-weight: 600;
+}
+
+/* Staff Info Banner */
+.staffBanner {
+  background: linear-gradient(135deg, #0b1d3a 0%, #1e3a8a 100%);
+  color: #ffffff;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(11, 29, 58, 0.15);
+}
+
+.staffMeta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.staffAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  color: #38bdf8;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.staffDetails h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.staffSub {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #93c5fd;
+  flex-wrap: wrap;
+}
+
+.staffStats {
+  display: flex;
+  gap: 12px;
+}
+
+.statPill {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  padding: 6px 14px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.statVal {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.statLbl {
+  font-size: 11px;
+  color: #bfdbfe;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Sections Header */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.sectionBadge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+/* ===== ASSIGNED SUBJECTS (BY YEAR) ===== */
+.subjectsContainer {
+  margin-bottom: 32px;
+}
+
+.yearSection {
+  margin-bottom: 24px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.yearTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 14px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.yearTag {
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.subjectCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-left: 4px solid #0284c7;
+}
+
+.subjectCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.08);
+  border-color: #cbd5e1;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.subjectCodeBadge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.categoryBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.catTheory {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.catLab {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.catTheoryLab {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.catOther {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.subjectName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 12px 0;
+  line-height: 1.35;
+}
+
+.cardDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 10px;
+  margin-top: auto;
+}
+
+.cardDetailRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.classBadge {
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.hallBadge {
+  background: #f0fdf4;
+  color: #15803d;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #bbf7d0;
+}
+
+.periodsBadge {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+/* ===== TIMETABLE (TABLE FORM) ===== */
+.timetableSection {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 30px;
+}
+
+.mobileDayTabs {
+  display: none;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dayTabBtn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.dayTabBtnActive {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
+}
+
+.tableScrollWrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.timetableTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  font-size: 12px;
+}
+
+.timetableTable th,
+.timetableTable td {
+  border: 1px solid #cbd5e1;
+  text-align: center;
+  padding: 8px 6px;
+  vertical-align: middle;
+}
+
+.timetableTable thead th {
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.periodHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.periodTiming {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.dayHeaderCol {
+  width: 100px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.dayCell {
+  font-weight: 700;
+  color: #0f172a;
+  background: #f8fafc;
+  width: 100px;
+}
+
+.slotBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+}
+
+.slotClass {
+  font-weight: 800;
+  font-size: 11px;
+  color: #ffffff;
+  background: #0369a1;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+}
+
+.slotCode {
+  font-weight: 700;
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.slotName {
+  font-size: 10px;
+  color: #475569;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slotHall {
+  font-size: 10px;
+  font-weight: 600;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.freeSlot {
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.emptyMessage {
+  padding: 30px 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+}
+
+.loadingSpinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  gap: 8px;
+  color: #0284c7;
+  font-weight: 600;
+}
+
+/* Mobile breakdown cards (for single day view on phone) */
+.mobileDayCards {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mobileSlotRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.mobileSlotFilled {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.mobilePeriodBadge {
+  font-weight: 700;
+  font-size: 12px;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .controlBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .controlGroup {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .searchWrapper {
+    width: 100%;
+  }
+
+  .staffBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .staffStats {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .statPill {
+    flex: 1;
+  }
+
+  .mobileDayTabs {
+    display: flex;
+  }
+
+  .mobileDayCards {
+    display: flex;
+  }
+}

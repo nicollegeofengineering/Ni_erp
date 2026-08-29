@@ -424,7 +424,7 @@ export default function StaffMarksViewPage() {
 
       const footerLeftText = `Report Generated on: ${generatedAtStr}`;
       const footerRightText = "Generated via NICETech ERP System";
-      const footerFontSize = 7.5;
+      const footerFontSize = 6.5;
       const footerMargin = 7;
 
       let renderedHeight = 0;
@@ -457,7 +457,7 @@ export default function StaffMarksViewPage() {
         pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, renderHeight * ratio);
 
         pdf.setFontSize(footerFontSize);
-        pdf.setTextColor(110, 110, 110);
+        pdf.setTextColor(148, 163, 184);
         pdf.text(footerLeftText, 14, pdfHeight - footerMargin);
         const rightWidth = pdf.getTextWidth(footerRightText);
         pdf.text(footerRightText, pdfWidth - rightWidth - 14, pdfHeight - footerMargin);

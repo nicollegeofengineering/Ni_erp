@@ -207,3 +207,13 @@
     font-size: 10.5px;
   }
 }
+
+@media print {
+  .right_con,
+  .userImageWrapper,
+  .profileLink,
+  .userInfo,
+  .logout_btn {
+    display: none !important;
+  }
+}

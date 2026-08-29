@@ -565,7 +565,7 @@ router.get("/subject-reference", async (req, res) => {
 router.get("/staffview", async (req, res) => {
   try {
     const role = req.user?.role;
-    if (role !== 'Admin' && role !== 'Hod') {
+    if (role !== 'Admin' && role !== 'Hod' && role !== 'Staff') {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -574,16 +574,30 @@ router.get("/staffview", async (req, res) => {
     }
     await connectDB();
 
-    const { academicYear, staffId, search, semesterType } = req.query;
+    let { academicYear, staffId, search, semesterType } = req.query;
 
     if (!academicYear) {
-      return res.status(400).json({
-        success: false,
-        message: "academicYear is required",
-      });
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const startYear = now.getMonth() >= 5 ? currentYear : currentYear - 1;
+      academicYear = `${startYear}-${startYear + 1}`;
     }
 
     const filter = { academicYear };
+
+    // If staffId is not provided and user is Staff or Hod, resolve from user profile
+    if (!staffId && req.user?.id) {
+      const user = await User.findById(req.user.id).select('username email role').lean();
+      if (user) {
+        const staffDoc = await Staff.findOne({
+          $or: [{ staff_id: user.username }, { email: user.email }],
+        }).lean();
+        if (staffDoc) {
+          staffId = staffDoc._id.toString();
+        }
+      }
+    }
+
     if (staffId) filter.staff = staffId;
 
     // Filter by semester parity if semesterType is provided

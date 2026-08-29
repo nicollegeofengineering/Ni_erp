@@ -550,7 +550,7 @@ export default function HallTimetablePage() {
 
         <div className={styles.footer}>
           <div className={styles.creditLine}>
-            Generated via NI‑Timetable Management System on {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })} | © {new Date().getFullYear()} Department of Artificial Intelligence and Data Science, Noorul Islam College of Engineering and Technology. All Rights Reserved.
+            Generated via NICETECH ERP System on {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
           </div>
         </div>
       </div>

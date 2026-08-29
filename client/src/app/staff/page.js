@@ -7,6 +7,7 @@ import {
   Megaphone,
   CheckCircle2,
   Calendar,
+  CalendarRange,
   ClipboardList,
   BookOpen,
   Building2,
@@ -111,10 +112,17 @@ export default function Staff() {
           </button>
           <button
             className={`${styles.btn} ${styles.btnPrimary}`}
+            onClick={() => router.push("/staff/timetable")}
+          >
+            <CalendarRange size={16} />
+            My Timetable
+          </button>
+          <button
+            className={`${styles.btn} ${styles.btnPrimary}`}
             onClick={() => router.push("/staff/subjects")}
           >
             <BookOpen size={16} />
-            My Subjects
+            Assigned Subjects
           </button>
         </div>
       </div>

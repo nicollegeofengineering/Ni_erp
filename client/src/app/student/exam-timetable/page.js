@@ -57,12 +57,33 @@ function StudentTimetableCard({ timetable, studentInfo, isLatest }) {
 
     try {
       const element = cardRef.current;
+      const prevBorder = element.style.border;
+      const prevShadow = element.style.boxShadow;
+      const prevRadius = element.style.borderRadius;
+      const prevMargin = element.style.margin;
+      const prevMaxWidth = element.style.maxWidth;
+      const prevPadding = element.style.padding;
+
+      element.style.border = "none";
+      element.style.boxShadow = "none";
+      element.style.borderRadius = "0";
+      element.style.margin = "0";
+      element.style.maxWidth = "100%";
+      element.style.padding = "0";
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
       });
+
+      element.style.border = prevBorder;
+      element.style.boxShadow = prevShadow;
+      element.style.borderRadius = prevRadius;
+      element.style.margin = prevMargin;
+      element.style.maxWidth = prevMaxWidth;
+      element.style.padding = prevPadding;
 
       const pdf = new jsPDF({
         orientation: "portrait",
@@ -165,7 +186,7 @@ function StudentTimetableCard({ timetable, studentInfo, isLatest }) {
             src="/nilogo.png"
             alt="College Logo"
             className={styles.collegeLogo}
-            style={{ width: "580px", maxWidth: "100%", height: "auto" }}
+            style={{ width: "720px", maxWidth: "100%", height: "auto" }}
           />
           <h2 className={styles.examNoticeTitle}>
             {timetable.examName.toUpperCase()}
@@ -184,7 +205,7 @@ function StudentTimetableCard({ timetable, studentInfo, isLatest }) {
           </div>
           <div className={styles.metaItem}>
             <span className={styles.metaLabel}>Year / Semester:</span>
-            <span className={styles.metaValue}>Year {yrLabel} / Semester {studentInfo?.semester}</span>
+            <span className={styles.metaValue}>{yrLabel} / {studentInfo?.semester}</span>
           </div>
         </div>
 
@@ -206,10 +227,10 @@ function StudentTimetableCard({ timetable, studentInfo, isLatest }) {
                 <td className={styles.sessionCol}>
                   {row.fn ? (
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: "13px", color: "#0f172a" }}>
+                      <div style={{ fontWeight: 800, fontSize: "14.5px", color: "#0f172a", marginBottom: "3px" }}>
                         {row.fn.subjectCode}
                       </div>
-                      <div style={{ fontSize: "12px", color: "#334155" }}>
+                      <div style={{ fontSize: "13px", color: "#334155", lineHeight: "1.4" }}>
                         {row.fn.subjectName}
                       </div>
                     </div>
@@ -220,10 +241,10 @@ function StudentTimetableCard({ timetable, studentInfo, isLatest }) {
                 <td className={styles.sessionCol}>
                   {row.an ? (
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: "13px", color: "#0f172a" }}>
+                      <div style={{ fontWeight: 800, fontSize: "14.5px", color: "#0f172a", marginBottom: "3px" }}>
                         {row.an.subjectCode}
                       </div>
-                      <div style={{ fontSize: "12px", color: "#334155" }}>
+                      <div style={{ fontSize: "13px", color: "#334155", lineHeight: "1.4" }}>
                         {row.an.subjectName}
                       </div>
                     </div>

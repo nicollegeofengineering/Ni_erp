@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
+import { Smartphone, FileText } from "lucide-react";
+import StaffAssignedView from "@/app/components/StaffAssignedView";
 import styles from "./staff-timetable.module.css";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -43,6 +45,7 @@ export default function StaffTimetablePage() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [viewMode, setViewMode] = useState("reference");
 
   const pdfContainerRef = useRef(null);
   const searchRef = useRef(null);
@@ -302,80 +305,135 @@ export default function StaffTimetablePage() {
   // ---------- RENDER ----------
   return (
     <div className={styles.pageWrapper}>
-      {/* Top controls */}
-      <div className={styles.controls}>
-        <select
-          value={academicYear}
-          onChange={e => setAcademicYear(e.target.value)}
-          className={styles.filterSelect}
-        >
-          {getAcademicYearOptions(academicYear).map((ay) => (
-            <option key={ay} value={ay}>{ay}</option>
-          ))}
-        </select>
-
-        <select
-          value={semesterType}
-          onChange={e => setSemesterType(e.target.value)}
-          className={styles.filterSelect}
-        >
-          <option value="ODD">ODD</option>
-          <option value="EVEN">EVEN</option>
-        </select>
-
-        <div className={styles.searchContainer} ref={searchRef}>
-          <input
-            type="text"
-            placeholder="Search staff..."
-            value={searchQuery}
-            onChange={e => {
-              setSearchQuery(e.target.value);
-              setShowDropdown(true);
+      {/* Top View Mode Selector */}
+      <div style={{ width: "100%", maxWidth: "1200px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+        <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#0f172a", margin: 0 }}>
+          Staff Timetable & Assigned Subjects
+        </h2>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            type="button"
+            onClick={() => setViewMode("reference")}
+            style={{
+              padding: "6px 14px",
+              borderRadius: "8px",
+              border: viewMode === "reference" ? "2px solid #0284c7" : "1px solid #cbd5e1",
+              background: viewMode === "reference" ? "#0284c7" : "#ffffff",
+              color: viewMode === "reference" ? "#ffffff" : "#334155",
+              fontWeight: 600,
+              fontSize: "13px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
             }}
-            onFocus={() => setShowDropdown(true)}
-            className={styles.searchInput}
-          />
-          {showDropdown && filteredStaff.length > 0 && (
-            <ul className={styles.dropdown}>
-              {filteredStaff.slice(0, 20).map(staff => (
-                <li
-                  key={staff._id}
-                  onClick={() => {
-                    setSelectedStaff(staff);
-                    setSearchQuery(getStaffDisplay(staff));
-                    setShowDropdown(false);
-                  }}
-                >
-                  {getStaffDisplay(staff)}
-                </li>
-              ))}
-            </ul>
-          )}
+          >
+            <Smartphone size={15} /> Mobile & Digital View
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("pdf")}
+            style={{
+              padding: "6px 14px",
+              borderRadius: "8px",
+              border: viewMode === "pdf" ? "2px solid #0284c7" : "1px solid #cbd5e1",
+              background: viewMode === "pdf" ? "#0284c7" : "#ffffff",
+              color: viewMode === "pdf" ? "#ffffff" : "#334155",
+              fontWeight: 600,
+              fontSize: "13px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <FileText size={15} /> Official Printable / PDF View
+          </button>
         </div>
-
-        <button
-          className={styles.clearbtn}
-          onClick={() => {
-            setSelectedStaff(null);
-            setSearchQuery("");
-            setShowDropdown(false);
-          }}
-        >
-          Clear
-        </button>
-
-        <button
-          onClick={handleDownloadPdf}
-          className={styles.pdfButton}
-          disabled={!selectedStaff}
-        >
-          DOWNLOAD PDF
-        </button>
       </div>
 
-      {/* Timetable display */}
-      <div className={styles.container} ref={pdfContainerRef}>
-        <div className={styles.header}>
+      {viewMode === "reference" ? (
+        <StaffAssignedView
+          role="Admin"
+          allowStaffSelection={true}
+          initialStaffId={selectedStaff?._id}
+        />
+      ) : (
+        <>
+          {/* Top controls for PDF View */}
+          <div className={styles.controls}>
+            <select
+              value={academicYear}
+              onChange={e => setAcademicYear(e.target.value)}
+              className={styles.filterSelect}
+            >
+              {getAcademicYearOptions(academicYear).map((ay) => (
+                <option key={ay} value={ay}>{ay}</option>
+              ))}
+            </select>
+
+            <select
+              value={semesterType}
+              onChange={e => setSemesterType(e.target.value)}
+              className={styles.filterSelect}
+            >
+              <option value="ODD">ODD</option>
+              <option value="EVEN">EVEN</option>
+            </select>
+
+            <div className={styles.searchContainer} ref={searchRef}>
+              <input
+                type="text"
+                placeholder="Search staff..."
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                className={styles.searchInput}
+              />
+              {showDropdown && filteredStaff.length > 0 && (
+                <ul className={styles.dropdown}>
+                  {filteredStaff.slice(0, 20).map(staff => (
+                    <li
+                      key={staff._id}
+                      onClick={() => {
+                        setSelectedStaff(staff);
+                        setSearchQuery(getStaffDisplay(staff));
+                        setShowDropdown(false);
+                      }}
+                    >
+                      {getStaffDisplay(staff)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <button
+              className={styles.clearbtn}
+              onClick={() => {
+                setSelectedStaff(null);
+                setSearchQuery("");
+                setShowDropdown(false);
+              }}
+            >
+              Clear
+            </button>
+
+            <button
+              onClick={handleDownloadPdf}
+              className={styles.pdfButton}
+              disabled={!selectedStaff}
+            >
+              DOWNLOAD PDF
+            </button>
+          </div>
+
+          {/* Timetable display */}
+          <div className={styles.container} ref={pdfContainerRef}>
+            <div className={styles.header}>
           <img src="/nilogo.png" alt="College Logo" width="700" height="104.3" />
         </div>
 
@@ -504,12 +562,14 @@ export default function StaffTimetablePage() {
           </div>
         )}
 
-        <div className={styles.footer}>
-          <div className={styles.creditLine}>
-            Generated via NI‑Timetable Management System on {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })} | © {new Date().getFullYear()} Department of Artificial Intelligence and Data Science, Noorul Islam College of Engineering and Technology. All Rights Reserved.
+          <div className={styles.footer}>
+            <div className={styles.creditLine}>
+              Generated via NICETECH ERP System on {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+            </div>
           </div>
         </div>
-      </div>
+      </>
+      )}
     </div>
   );
 }

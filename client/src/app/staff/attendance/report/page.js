@@ -188,7 +188,7 @@ export default function SubjectReportPage() {
         hour12: true,
       });
       const footerText = `Generated via NICETech ERP System on ${generatedAtStr}`;
-      const footerFontSize = 7;
+      const footerFontSize = 6.5;
       const footerMargin = 8; // mm from bottom
 
       let renderedHeight = 0;
@@ -226,7 +226,7 @@ export default function SubjectReportPage() {
 
         // Add footer text on this page
         pdf.setFontSize(footerFontSize);
-        pdf.setTextColor(150, 150, 150); // light grey
+        pdf.setTextColor(148, 163, 184); // subtle light grey
         const textWidth = pdf.getTextWidth(footerText);
         const x = (pdfWidth - textWidth) / 2;
         const y = pdfHeight - footerMargin;

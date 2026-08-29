@@ -312,8 +312,9 @@
 
 .creditLine {
   font-size: 7px;
-  color: #aaa;
+  color: #94a3b8;
   font-family: "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.2px;
 }
 
 @media print {

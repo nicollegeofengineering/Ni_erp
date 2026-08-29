@@ -2,14 +2,19 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
+import { BookOpen, CalendarRange, ListFilter } from "lucide-react";
+import StaffAssignedView from "@/app/components/StaffAssignedView";
 import styles from "./subjects.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function SubjectsPage() {
-  // ---------- State ----------
+  // Active Tab: 'assigned' (Assigned Subjects & Timetable) vs 'catalog' (All College Subjects)
+  const [activeTab, setActiveTab] = useState("assigned");
+
+  // ---------- State for Catalog ----------
   const [subjects, setSubjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Pagination
@@ -26,32 +31,19 @@ export default function SubjectsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
 
-  // Modal
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("add");
-  const [formData, setFormData] = useState({
-    subjectName: "",
-    subjectCode: "",
-    Category: "",
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-
   const searchTimeout = useRef(null);
 
   const handleUnauthorized = (error) => {
     if (error.response?.data?.islogout === true) {
-      // Redirect to login; the cookie will be cleared by the backend logout endpoint
-      router.push("/");
+      window.location.href = "/";
       return true;
     }
     return false;
   };
 
-
-
-  // ---------- Fetch subjects ----------
+  // ---------- Fetch all catalog subjects ----------
   const fetchSubjects = useCallback(async () => {
+    if (activeTab !== "catalog") return;
     setLoading(true);
     setError("");
     try {
@@ -83,11 +75,13 @@ export default function SubjectsPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, search, categoryFilter]);
+  }, [activeTab, pagination.page, pagination.limit, search, categoryFilter]);
 
   useEffect(() => {
-    fetchSubjects();
-  }, [fetchSubjects]);
+    if (activeTab === "catalog") {
+      fetchSubjects();
+    }
+  }, [activeTab, fetchSubjects]);
 
   // Debounced search
   const handleSearchChange = (e) => {
@@ -105,215 +99,140 @@ export default function SubjectsPage() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  // Pagination
   const goToPage = (newPage) => {
     if (newPage < 1 || newPage > pagination.totalPages) return;
     setPagination((prev) => ({ ...prev, page: newPage }));
   };
 
-  // ---------- Modal ----------
-  const openAddModal = () => {
-    setModalMode("add");
-    setFormData({ subjectName: "", subjectCode: "", Category: "" });
-    setFormError("");
-    setModalOpen(true);
-  };
-
-  const openEditModal = (subject) => {
-    setModalMode("edit");
-    setFormData({
-      subjectName: subject.subjectName,
-      subjectCode: subject.subjectCode,
-      Category: subject.Category,
-      _id: subject._id,
-    });
-    setFormError("");
-    setModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setFormData({ subjectName: "", subjectCode: "", Category: "" });
-    setFormError("");
-  };
-
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
-  };
-
-  
-  // ---------- Render ----------
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Subjects</h1>
-        
-      </div>
+        <h1 className={styles.title}>Faculty Subjects & Timetable</h1>
 
-      <div className={styles.filters}>
-        <input
-          type="text"
-          placeholder="Search by name or code..."
-          className={styles.searchInput}
-          onChange={handleSearchChange}
-          value={search}
-        />
-        <button onClick={handleClearFilters} className={styles.clearButton}>
-          Clear Filters
-        </button>
-      </div>
+        {/* View Switcher Tabs */}
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab("assigned")}
+            style={{
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: activeTab === "assigned" ? "2px solid #0284c7" : "1px solid #cbd5e1",
+              background: activeTab === "assigned" ? "#0284c7" : "#ffffff",
+              color: activeTab === "assigned" ? "#ffffff" : "#334155",
+              fontWeight: 600,
+              fontSize: "13px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <BookOpen size={16} /> My Assigned Subjects & Timetable
+          </button>
 
-      {error && <div className={styles.errorBanner}>{error}</div>}
-
-      {loading ? (
-        <div className={styles.loading}>Loading subjects…</div>
-      ) : (
-        <>
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  {/*  */}
-                  <th>Subject Name</th>
-                  {/*  */}
-                  <th>Code</th>
-                  {/*  */}
-                  <th>Category</th>
-                  
-                </tr>
-              </thead>
-              <tbody>
-                {subjects.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className={styles.emptyMessage}>
-                      No subjects found. Adjust filters or add a new subject.
-                    </td>
-                  </tr>
-                ) : (
-                  subjects.map((item, index) => (
-                    <tr key={item._id}>
-                      <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
-                      <td>{item.subjectName}</td>
-                      <td>{item.subjectCode}</td>
-                      <td>{item.Category}</td>
-                      
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className={styles.pagination}>
-            <button
-              onClick={() => goToPage(pagination.page - 1)}
-              disabled={!pagination.hasPrev}
-              className={styles.pageButton}
-            >
-              Previous
-            </button>
-            <span className={styles.pageInfo}>
-              Page {pagination.page} of {pagination.totalPages || 1}
-            </span>
-            <button
-              onClick={() => goToPage(pagination.page + 1)}
-              disabled={!pagination.hasNext}
-              className={styles.pageButton}
-            >
-              Next
-            </button>
-          </div>
-        </>
-      )}
-
-      {modalOpen && (
-        <div className={styles.modalOverlay} onClick={closeModal}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>{modalMode === "add" ? "Add Subject" : "Edit Subject"}</h2>
-              <button className={styles.modalClose} onClick={closeModal}>
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className={styles.modalForm}>
-              {formError && <div className={styles.formError}>{formError}</div>}
-
-              <div className={styles.formGroup}>
-                <label htmlFor="subjectName">Subject Name</label>
-                <input
-                  type="text"
-                  id="subjectName"
-                  name="subjectName"
-                  value={formData.subjectName}
-                  onChange={handleFormChange}
-                  placeholder="e.g., Mathematics"
-                  required
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label htmlFor="subjectCode">Subject Code</label>
-                <input
-                  type="text"
-                  id="subjectCode"
-                  name="subjectCode"
-                  value={formData.subjectCode}
-                  onChange={handleFormChange}
-                  placeholder="e.g., MATH101"
-                  readOnly={modalMode === "edit"}
-                  className={modalMode === "edit" ? styles.readOnly : ""}
-                  required
-                />
-                {modalMode === "edit" && (
-                  <small className={styles.helper}>Code cannot be changed.</small>
-                )}
-              </div>
-
-              <div className={styles.formGroup}>
-                <label htmlFor="Category">Category</label>
-                <select
-                  id="Category"
-                  name="Category"
-                  value={formData.Category}
-                  onChange={handleFormChange}
-                  required
-                >
-                  <option value="">Select Category</option>
-                  <option value="L">L (Lab)</option>
-                  <option value="T">T (Theory)</option>
-                  <option value="T/L">T/L (Theory with Lab)</option>
-                  <option value="O">O (Others)</option>
-                </select>
-                <small className={styles.helper}>
-                  Select subject category: L, T, T/L, or O.
-                </small>
-              </div>
-
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={styles.cancelButton}
-                  onClick={closeModal}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.saveButton}
-                  disabled={submitting}
-                >
-                  {submitting
-                    ? "Saving…"
-                    : modalMode === "add"
-                    ? "Add Subject"
-                    : "Update Subject"}
-                </button>
-              </div>
-            </form>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("catalog")}
+            style={{
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: activeTab === "catalog" ? "2px solid #0284c7" : "1px solid #cbd5e1",
+              background: activeTab === "catalog" ? "#0284c7" : "#ffffff",
+              color: activeTab === "catalog" ? "#ffffff" : "#334155",
+              fontWeight: 600,
+              fontSize: "13px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <ListFilter size={16} /> College Subject Catalog
+          </button>
         </div>
+      </div>
+
+      {activeTab === "assigned" ? (
+        /* Mobile-Friendly Assigned Subjects in Card Form (by Year) & Timetable in Table Form */
+        <StaffAssignedView role="Staff" allowStaffSelection={false} />
+      ) : (
+        /* All College Subjects Directory Catalog */
+        <>
+          <div className={styles.filters}>
+            <input
+              type="text"
+              placeholder="Search by name or code..."
+              className={styles.searchInput}
+              onChange={handleSearchChange}
+              value={search}
+            />
+            <button onClick={handleClearFilters} className={styles.clearButton}>
+              Clear Filters
+            </button>
+          </div>
+
+          {error && <div className={styles.errorBanner}>{error}</div>}
+
+          {loading ? (
+            <div className={styles.loading}>Loading subjects catalog…</div>
+          ) : (
+            <>
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Subject Name</th>
+                      <th>Code</th>
+                      <th>Category</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subjects.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className={styles.emptyMessage}>
+                          No subjects found. Adjust filters or search terms.
+                        </td>
+                      </tr>
+                    ) : (
+                      subjects.map((item, index) => (
+                        <tr key={item._id}>
+                          <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
+                          <td>{item.subjectName}</td>
+                          <td>{item.subjectCode}</td>
+                          <td>{item.Category}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className={styles.pagination}>
+                <button
+                  onClick={() => goToPage(pagination.page - 1)}
+                  disabled={!pagination.hasPrev}
+                  className={styles.pageButton}
+                >
+                  Previous
+                </button>
+                <span className={styles.pageInfo}>
+                  Page {pagination.page} of {pagination.totalPages || 1}
+                </span>
+                <button
+                  onClick={() => goToPage(pagination.page + 1)}
+                  disabled={!pagination.hasNext}
+                  className={styles.pageButton}
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );
