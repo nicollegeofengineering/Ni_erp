@@ -585,8 +585,22 @@ router.get("/staffview", async (req, res) => {
 
     const filter = { academicYear };
 
-    // If staffId is not provided and user is Staff or Hod, resolve from user profile
-    if (!staffId && req.user?.id) {
+    // If HOD, find HOD's department to enforce department restriction
+    let hodDept = null;
+    if (role === 'Hod' && req.user?.id) {
+      const user = await User.findById(req.user.id).select('username email role').lean();
+      if (user) {
+        const hodDoc = await Staff.findOne({
+          $or: [{ staff_id: user.username }, { email: user.email }],
+        }).lean();
+        if (hodDoc && hodDoc.department_code) {
+          hodDept = hodDoc.department_code;
+        }
+        if (!staffId && hodDoc) {
+          staffId = hodDoc._id.toString();
+        }
+      }
+    } else if (role === 'Staff' && req.user?.id && !staffId) {
       const user = await User.findById(req.user.id).select('username email role').lean();
       if (user) {
         const staffDoc = await Staff.findOne({
@@ -598,7 +612,19 @@ router.get("/staffview", async (req, res) => {
       }
     }
 
-    if (staffId) filter.staff = staffId;
+    // If staffId is requested and user is HOD, verify staff belongs to HOD's department
+    if (staffId) {
+      if (role === 'Hod' && hodDept) {
+        const targetStaff = await Staff.findById(staffId).select('department_code').lean();
+        if (targetStaff && targetStaff.department_code && targetStaff.department_code !== hodDept) {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only view timetables for faculty in your department.',
+          });
+        }
+      }
+      filter.staff = staffId;
+    }
 
     // Filter by semester parity if semesterType is provided
     if (semesterType) {

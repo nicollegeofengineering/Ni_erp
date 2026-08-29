@@ -1140,6 +1140,11 @@ router.get('/report', async (req, res) => {
         message: 'Available attendance report endpoints',
         reports: [
           {
+            path: '/api/staff/attendance/report/class',
+            method: 'GET',
+            description: 'Class-wise attendance report across all subjects. Query params: department (required), year, semester, academicYear, dateFrom (YYYY-MM-DD), dateTo (YYYY-MM-DD)',
+          },
+          {
             path: '/api/staff/attendance/report/subject',
             method: 'GET',
             description: 'Subject-wise attendance report. Query params: subjectId (required), department, dateFrom (YYYY-MM-DD), dateTo (YYYY-MM-DD)',
@@ -1150,6 +1155,241 @@ router.get('/report', async (req, res) => {
   } catch (error) {
     console.error('Error fetching report index:', error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/report/class', async (req, res) => {
+  try {
+    await connectDB();
+    const staff = await getStaffInfo(req);
+    if (!staff) return res.status(401).json({ success: false, message: 'User/Staff not found' });
+
+    const role = (staff.role || staff.userRole || req.user.role || 'Staff').toLowerCase();
+    let { department, year, semester, academicYear, dateFrom, dateTo } = req.query;
+
+    if (role === 'hod' && staff.department_code) {
+      if (!department) {
+        department = staff.department_code;
+      } else if (department.toUpperCase() !== staff.department_code.toUpperCase()) {
+        return res.status(403).json({ success: false, message: 'Unauthorized for this department' });
+      }
+    }
+
+    if (!department) {
+      return res.status(400).json({ success: false, message: 'Department is required' });
+    }
+    if (!year) {
+      return res.status(400).json({ success: false, message: 'Year is required' });
+    }
+    if (!semester) {
+      return res.status(400).json({ success: false, message: 'Semester is required' });
+    }
+
+    const filter = {
+      department: department.toUpperCase(),
+      year: Number(year),
+      semester: Number(semester),
+    };
+
+    if (academicYear && academicYear.trim() !== '') {
+      filter.academicYear = academicYear.trim();
+    }
+
+    if (dateFrom) {
+      filter.date = { $gte: new Date(`${dateFrom}T00:00:00.000Z`) };
+    }
+    if (dateTo) {
+      if (!filter.date) filter.date = {};
+      filter.date.$lte = new Date(`${dateTo}T23:59:59.999Z`);
+    }
+
+    const records = await Attendance.find(filter)
+      .populate('subject', 'subjectCode subjectName Category')
+      .populate('staff', 'first_name last_name prefix staff_id')
+      .sort({ date: 1, period: 1 })
+      .lean();
+
+    // Map distinct subjects conducted
+    const subjectsMap = new Map();
+    records.forEach((rec) => {
+      const subId = rec.subject?._id ? rec.subject._id.toString() : (rec.subject ? rec.subject.toString() : 'UNKNOWN');
+      const subCode = rec.subject?.subjectCode || 'N/A';
+      const subName = rec.subject?.subjectName || 'General / Other';
+      const category = rec.subject?.Category || '';
+      if (!subjectsMap.has(subId)) {
+        subjectsMap.set(subId, {
+          _id: subId,
+          subjectCode: subCode,
+          subjectName: subName,
+          category,
+          totalPeriods: 0,
+        });
+      }
+      subjectsMap.get(subId).totalPeriods++;
+    });
+    const subjectsList = Array.from(subjectsMap.values());
+
+    // Fetch all active students enrolled in this class
+    const studentQuery = {
+      department_code: department.toUpperCase(),
+      year: Number(year),
+      semester: Number(semester),
+      student_status: { $ne: 'Discontinued' },
+    };
+
+    const enrolledStudents = await Student.find(studentQuery)
+      .select('student_id register_no roll_no first_name last_name department_code semester year')
+      .lean();
+
+    const studentMap = new Map();
+
+    enrolledStudents.forEach((st) => {
+      const sId = String(st.student_id).trim();
+      studentMap.set(sId, {
+        student_id: sId,
+        register_no: st.register_no || '',
+        roll_no: st.roll_no || '',
+        name: `${st.first_name || ''} ${st.last_name || ''}`.trim(),
+        department_code: st.department_code || department.toUpperCase(),
+        semester: st.semester || Number(semester),
+        year: st.year || Number(year),
+        present: 0,
+        absent: 0,
+        subjects: {},
+      });
+    });
+
+    // Process attendance records for student counts
+    records.forEach((rec) => {
+      const subId = rec.subject?._id ? rec.subject._id.toString() : (rec.subject ? rec.subject.toString() : 'UNKNOWN');
+      (rec.students || []).forEach((st) => {
+        const sId = String(st.student_id).trim();
+        if (!studentMap.has(sId)) {
+          studentMap.set(sId, {
+            student_id: sId,
+            register_no: '',
+            roll_no: '',
+            name: sId,
+            department_code: department.toUpperCase(),
+            semester: Number(semester),
+            year: Number(year),
+            present: 0,
+            absent: 0,
+            subjects: {},
+          });
+        }
+        const studentData = studentMap.get(sId);
+        if (!studentData.subjects[subId]) {
+          studentData.subjects[subId] = { present: 0, absent: 0 };
+        }
+
+        if (st.status === 'Present') {
+          studentData.present++;
+          studentData.subjects[subId].present++;
+        } else if (st.status === 'Absent') {
+          studentData.absent++;
+          studentData.subjects[subId].absent++;
+        }
+      });
+    });
+
+    // Populate extra student details if any students were discovered from records
+    const missingIds = Array.from(studentMap.keys()).filter(
+      (id) => !enrolledStudents.some((s) => String(s.student_id).trim() === id)
+    );
+    if (missingIds.length > 0) {
+      const extraDetails = await Student.find({ student_id: { $in: missingIds } })
+        .select('student_id register_no roll_no first_name last_name department_code semester year')
+        .lean();
+      extraDetails.forEach((st) => {
+        const sId = String(st.student_id).trim();
+        const existing = studentMap.get(sId);
+        if (existing) {
+          existing.register_no = st.register_no || existing.register_no;
+          existing.roll_no = st.roll_no || existing.roll_no;
+          existing.name = `${st.first_name || ''} ${st.last_name || ''}`.trim() || existing.name;
+          existing.department_code = st.department_code || existing.department_code;
+          existing.semester = st.semester || existing.semester;
+        }
+      });
+    }
+
+    const studentList = Array.from(studentMap.values()).map((st) => {
+      const total = st.present + st.absent;
+      const overallPercentage = total > 0 ? parseFloat(((st.present / total) * 100).toFixed(2)) : 0;
+
+      const formattedSubjects = {};
+      subjectsList.forEach((sub) => {
+        const subStat = st.subjects[sub._id] || { present: 0, absent: 0 };
+        const subTotal = subStat.present + subStat.absent;
+        const subPct = subTotal > 0 ? parseFloat(((subStat.present / subTotal) * 100).toFixed(1)) : 0;
+        formattedSubjects[sub._id] = {
+          subjectCode: sub.subjectCode,
+          subjectName: sub.subjectName,
+          present: subStat.present,
+          absent: subStat.absent,
+          total: subTotal,
+          conducted: sub.totalPeriods,
+          percentage: subPct,
+        };
+      });
+
+      return {
+        student_id: st.student_id,
+        register_no: st.register_no,
+        roll_no: st.roll_no,
+        name: st.name,
+        department_code: st.department_code,
+        year: st.year,
+        semester: st.semester,
+        total_periods: total,
+        present: st.present,
+        absent: st.absent,
+        percentage: overallPercentage,
+        subjects: formattedSubjects,
+      };
+    });
+
+    studentList.sort((a, b) => {
+      const aNum = parseInt(a.roll_no) || parseInt(a.register_no) || 0;
+      const bNum = parseInt(b.roll_no) || parseInt(b.register_no) || 0;
+      if (aNum !== 0 && bNum !== 0 && aNum !== bNum) return aNum - bNum;
+      return (a.roll_no || a.register_no || '').localeCompare(b.roll_no || b.register_no || '');
+    });
+
+    const totalStudents = studentList.length;
+    const classAvgPercentage =
+      totalStudents > 0
+        ? parseFloat((studentList.reduce((acc, s) => acc + s.percentage, 0) / totalStudents).toFixed(2))
+        : 0;
+    const shortageCount = studentList.filter((s) => s.percentage < 75).length;
+    const goodCount = studentList.filter((s) => s.percentage >= 75).length;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        department: department.toUpperCase(),
+        year: Number(year),
+        semester: Number(semester),
+        academicYear: academicYear || '',
+        dateFrom: dateFrom || '',
+        dateTo: dateTo || '',
+        totalPeriods: records.length,
+        totalStudents: totalStudents,
+        classAvgPercentage,
+        shortageCount,
+        goodCount,
+        subjects: subjectsList,
+        records: studentList,
+      },
+    });
+  } catch (error) {
+    console.error('Error generating class attendance report:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate class report',
+      error: error.message,
+    });
   }
 });
 

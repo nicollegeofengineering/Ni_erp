@@ -388,7 +388,23 @@ router.get('/all', async (req, res) => {
 
   try {
     await connectDB();
-    const staffList = await Staff.find({ staff_status: { $ne: 'Inactive' } })
+    const filter = { staff_status: { $ne: 'Inactive' } };
+
+    if (role === 'Hod' && req.user?.id) {
+      const user = await User.findById(req.user.id).select('username email role').lean();
+      if (user) {
+        const hodDoc = await Staff.findOne({
+          $or: [{ staff_id: user.username }, { email: user.email }],
+        }).lean();
+        if (hodDoc && hodDoc.department_code) {
+          filter.department_code = hodDoc.department_code;
+        }
+      }
+    } else if (req.query.department) {
+      filter.department_code = req.query.department.toUpperCase();
+    }
+
+    const staffList = await Staff.find(filter)
       .select({
         _id: 1, staff_id: 1, prefix: 1, first_name: 1, last_name: 1,
         staff_code: 1, department_code: 1, designation: 1, role_type: 1,

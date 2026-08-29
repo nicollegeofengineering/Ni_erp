@@ -340,7 +340,7 @@ export default function SubjectReportPage() {
       <div ref={pdfRef} className={styles.reportContainer}>
         {/* Header with logo */}
         <div className={styles.header}>
-          <img src="/nilogo.png" alt="College Logo" width="700" height="104.3" />
+          <img src="/nilogo.png" alt="College Logo" width="700" height="104.7" />
         </div>
 
         <div className={styles.title}>

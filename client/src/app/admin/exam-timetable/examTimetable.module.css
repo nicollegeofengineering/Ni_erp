@@ -550,65 +550,65 @@
 /* Class Wise Notice Card */
 .noticeCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1.5px solid #cbd5e1;
   border-radius: 12px;
-  padding: 30px;
+  padding: 36px 32px;
   margin: 0 auto 30px auto;
-  max-width: 920px;
+  max-width: 880px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 .collegeLogo {
-  width: 720px;
+  width: 746px;
   max-width: 100%;
-  height: auto;
+  height: 111.6px;
   display: inline-block;
 }
 
 .collegeHeader {
   text-align: center;
-  border-bottom: 2px solid #0f172a;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
+  border-bottom: 2.5px solid #0f172a;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .examNoticeTitle {
-  font-size: 19px;
+  font-size: 22px;
   font-weight: 800;
   color: #0f172a;
   text-transform: uppercase;
-  margin: 6px 0 6px 0;
-  letter-spacing: 0.5px;
+  margin: 10px 0 6px 0;
+  letter-spacing: 0.75px;
 }
 
 .noticeMetaGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px 28px;
-  font-size: 15px;
+  gap: 14px 32px;
+  font-size: 16px;
   color: #0f172a;
   background: #f8fafc;
-  padding: 14px 20px;
+  padding: 16px 24px;
   border-radius: 8px;
-  margin-bottom: 18px;
-  border: 1.5px solid #cbd5e1;
+  margin-bottom: 22px;
+  border: 2px solid #334155;
 }
 
 .metaItem {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .metaLabel {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   color: #334155;
 }
 
 .metaValue {
   font-weight: 800;
-  font-size: 16px;
+  font-size: 17.5px;
   color: #0f172a;
 }
 
@@ -620,8 +620,8 @@
 
 .classTable th,
 .classTable td {
-  border: 1.5px solid #0f172a;
-  padding: 16px 20px;
+  border: 2px solid #0f172a;
+  padding: 18px 22px;
   text-align: left;
   vertical-align: middle;
 }
@@ -630,16 +630,17 @@
   background: #f1f5f9;
   font-weight: 800;
   text-align: center;
-  font-size: 15px;
-  padding: 14px 20px;
+  font-size: 17px;
+  padding: 16px 20px;
   color: #0f172a;
+  letter-spacing: 0.5px;
 }
 
 .dateCol {
-  width: 150px;
+  width: 170px;
   text-align: center !important;
   font-weight: 800;
-  font-size: 14.5px;
+  font-size: 16.5px;
   color: #0f172a;
 }
 
@@ -648,15 +649,15 @@
 }
 
 .noticeFooter {
-  margin-top: 24px;
-  padding-top: 10px;
-  border-top: 1px dashed #e2e8f0;
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1.5px dashed #cbd5e1;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 8.5px;
-  color: #94a3b8;
-  font-weight: 500;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
 }
 
 .printContainer {

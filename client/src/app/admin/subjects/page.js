@@ -9,7 +9,7 @@ import styles from "./subjects.module.css";
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function SubjectsPage() {
-  const [activeTab, setActiveTab] = useState("catalog");
+  const [activeTab, setActiveTab] = useState("assigned");
 
   // ---------- State ----------
   const [subjects, setSubjects] = useState([]);

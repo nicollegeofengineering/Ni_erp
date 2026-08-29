@@ -1036,6 +1036,8 @@ export default function StaffMarksViewPage() {
             <img
               src="/nilogo.png"
               alt="College Logo"
+              width="700"
+              height="104.7"
               className={styles.collegeLogo}
               crossOrigin="anonymous"
             />

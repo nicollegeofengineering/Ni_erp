@@ -12,13 +12,15 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   background: #ffffff;
   padding: 14px 18px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .controlGroup {
@@ -26,12 +28,14 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .controlLabel {
   font-size: 13px;
   font-weight: 600;
   color: #475569;
+  white-space: nowrap;
 }
 
 .selectInput {
@@ -45,6 +49,7 @@
   outline: none;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .selectInput:focus {
@@ -54,16 +59,20 @@
 
 .searchWrapper {
   position: relative;
-  min-width: 220px;
+  width: 250px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .searchInput {
   width: 100%;
+  box-sizing: border-box;
   padding: 8px 12px 8px 32px;
   font-size: 13px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background-color: #f8fafc;
+  color: #0f172a;
   outline: none;
   transition: all 0.15s ease;
 }
@@ -86,18 +95,21 @@
 .dropdownList {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
   right: 0;
-  max-height: 220px;
+  width: 100%;
+  min-width: 250px;
+  max-width: 320px;
+  max-height: 240px;
   overflow-y: auto;
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  z-index: 50;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+  z-index: 100;
   list-style: none;
   padding: 4px;
   margin: 0;
+  box-sizing: border-box;
 }
 
 .dropdownItem {

@@ -117,6 +117,8 @@ export default function StaffAssignedView({
         if (initialStaffId) {
           const found = list.find((s) => s._id === initialStaffId || s.staff_id === initialStaffId);
           if (found) setSelectedStaff(found);
+        } else if (!selectedStaff && list.length > 0) {
+          setSelectedStaff(list[0]);
         }
       } catch (err) {
         console.error("Failed to load staff list:", err);

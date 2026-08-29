@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
 import {
   Calendar,
@@ -47,6 +47,8 @@ function getDefaultAcademicYear() {
 
 export default function MasterExamTimetablePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const basePath = pathname?.startsWith("/hod") ? "/hod" : "/admin";
   const pdfContainerRef = useRef(null);
 
   // ---------- TOP FORM STATE ----------
@@ -474,7 +476,7 @@ export default function MasterExamTimetablePage() {
             <button
               type="button"
               className={styles.btnSecondary}
-              onClick={() => router.push("/admin/exam-timetable/class")}
+              onClick={() => router.push(`${basePath}/exam-timetable/class`)}
             >
               <Layers size={15} /> Class-Wise View <ArrowRight size={14} />
             </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
 import {
   Calendar,
@@ -42,6 +42,8 @@ function getDefaultAcademicYear() {
 
 export default function ClassWiseExamTimetablePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const basePath = pathname?.startsWith("/hod") ? "/hod" : "/admin";
   const pdfContainerRef = useRef(null);
 
   // ---------- FILTERS STATE ----------
@@ -188,40 +190,56 @@ export default function ClassWiseExamTimetablePage() {
     });
   }, [timetableData]);
 
-  // ---------- EXPORT PORTRAIT PDF (MULTI-PAGE CAPABLE) ----------
+  // ---------- EXPORT PORTRAIT PDF (EXACT A4 PROPORTION) ----------
   const handleExportPortraitPDF = async () => {
     if (!pdfContainerRef.current) return;
     setExportingPDF(true);
 
     try {
       const element = pdfContainerRef.current;
-      const prevBorder = element.style.border;
-      const prevShadow = element.style.boxShadow;
-      const prevRadius = element.style.borderRadius;
-      const prevMargin = element.style.margin;
-      const prevMaxWidth = element.style.maxWidth;
-      const prevPadding = element.style.padding;
 
-      element.style.border = "none";
-      element.style.boxShadow = "none";
-      element.style.borderRadius = "0";
-      element.style.margin = "0";
-      element.style.maxWidth = "100%";
-      element.style.padding = "0";
+      // Ensure images are fully loaded
+      const images = element.querySelectorAll("img");
+      await Promise.all(
+        Array.from(images).map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+        })
+      );
 
-      const canvas = await html2canvas(element, {
+      // Create an offscreen wrapper with exact A4 portrait printable width (794px at 96 DPI)
+      const wrapper = document.createElement("div");
+      wrapper.style.position = "absolute";
+      wrapper.style.left = "-9999px";
+      wrapper.style.top = "0";
+      wrapper.style.width = "794px";
+      wrapper.style.padding = "24px";
+      wrapper.style.background = "#ffffff";
+      wrapper.style.boxSizing = "border-box";
+
+      const clone = element.cloneNode(true);
+      clone.style.border = "none";
+      clone.style.boxShadow = "none";
+      clone.style.margin = "0";
+      clone.style.padding = "0";
+      clone.style.maxWidth = "100%";
+      clone.style.width = "100%";
+
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
+
+      const canvas = await html2canvas(wrapper, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
+        windowWidth: 794,
       });
 
-      element.style.border = prevBorder;
-      element.style.boxShadow = prevShadow;
-      element.style.borderRadius = prevRadius;
-      element.style.margin = prevMargin;
-      element.style.maxWidth = prevMaxWidth;
-      element.style.padding = prevPadding;
+      document.body.removeChild(wrapper);
 
       const pdf = new jsPDF({
         orientation: "portrait",
@@ -231,9 +249,9 @@ export default function ClassWiseExamTimetablePage() {
 
       const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
       const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-      const margin = 10;
-      const printWidth = pdfWidth - margin * 2; // 190mm
-      const printHeight = pdfHeight - margin * 2; // 277mm
+      const margin = 8; // 8mm margin
+      const printWidth = pdfWidth - margin * 2; // 194mm
+      const printHeight = pdfHeight - margin * 2; // 281mm
 
       // Canvas pixels per page height
       const pageCanvasHeight = (canvas.width * printHeight) / printWidth;
@@ -303,7 +321,7 @@ export default function ClassWiseExamTimetablePage() {
             <button
               type="button"
               className={styles.btnSecondary}
-              onClick={() => router.push("/admin/exam-timetable/master")}
+              onClick={() => router.push(`${basePath}/exam-timetable/master`)}
             >
               <FileSpreadsheet size={15} /> Master Matrix View
             </button>
@@ -429,8 +447,10 @@ export default function ClassWiseExamTimetablePage() {
               <img
                 src="/nilogo.png"
                 alt="College Logo"
+                width="746"
+                height="111.6"
                 className={styles.collegeLogo}
-                style={{ width: "720px", maxWidth: "100%", height: "auto" }}
+                style={{ width: "746px", height: "111.6px", maxWidth: "100%" }}
               />
               <h2 className={styles.examNoticeTitle}>
                 {(timetableData.examName || examName).toUpperCase()}
@@ -471,29 +491,29 @@ export default function ClassWiseExamTimetablePage() {
                     <td className={styles.sessionCol}>
                       {row.fn ? (
                         <div>
-                          <div style={{ fontWeight: 800, fontSize: "14.5px", color: "#0f172a", marginBottom: "3px" }}>
+                          <div style={{ fontWeight: 800, fontSize: "16.5px", color: "#0f172a", marginBottom: "4px", letterSpacing: "0.25px" }}>
                             {row.fn.subjectCode}
                           </div>
-                          <div style={{ fontSize: "13px", color: "#334155", lineHeight: "1.4" }}>
+                          <div style={{ fontSize: "14.5px", fontWeight: 600, color: "#1e293b", lineHeight: "1.45" }}>
                             {row.fn.subjectName}
                           </div>
                         </div>
                       ) : (
-                        <span style={{ color: "#94a3b8", fontWeight: 700 }}>—</span>
+                        <span style={{ color: "#94a3b8", fontWeight: 800, fontSize: "20px" }}>—</span>
                       )}
                     </td>
                     <td className={styles.sessionCol}>
                       {row.an ? (
                         <div>
-                          <div style={{ fontWeight: 800, fontSize: "14.5px", color: "#0f172a", marginBottom: "3px" }}>
+                          <div style={{ fontWeight: 800, fontSize: "16.5px", color: "#0f172a", marginBottom: "4px", letterSpacing: "0.25px" }}>
                             {row.an.subjectCode}
                           </div>
-                          <div style={{ fontSize: "13px", color: "#334155", lineHeight: "1.4" }}>
+                          <div style={{ fontSize: "14.5px", fontWeight: 600, color: "#1e293b", lineHeight: "1.45" }}>
                             {row.an.subjectName}
                           </div>
                         </div>
                       ) : (
-                        <span style={{ color: "#94a3b8", fontWeight: 700 }}>—</span>
+                        <span style={{ color: "#94a3b8", fontWeight: 800, fontSize: "20px" }}>—</span>
                       )}
                     </td>
                   </tr>
